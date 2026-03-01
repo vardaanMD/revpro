@@ -890,10 +890,10 @@ export class Engine {
         const runDiscounts = !this.config || this.config.featureFlags.enableDiscounts;
         const runFreeGifts = !this.config || this.config.featureFlags.enableFreeGifts;
         if (runDiscounts && state.discount.applied.length > 0) {
-          this.enqueueEffect(() => this.reapplyDiscounts());
+          setTimeout(() => this.enqueueEffect(() => this.reapplyDiscounts()), 0);
         }
         if (runFreeGifts && state.freeGifts.config.length > 0) {
-          this.enqueueEffect(() => this.syncFreeGifts());
+          setTimeout(() => this.enqueueEffect(() => this.syncFreeGifts()), 0);
         }
       }
       this.triggerRevalidation();
@@ -1102,48 +1102,51 @@ export class Engine {
     }));
   }
 
-  addToCart(variantId: number, quantity: number): void {
-    this.enqueueEffect(async () => {
-      this.internalMutationInProgress = true;
-      try {
-        await apiAddToCart(variantId, quantity);
-        await this.syncCart();
-        this.emitEvent('cart:add', { variantId, quantity });
-        const s = getStateFromStore(this.stateStore);
-        const isUpsell =
-          s.upsell.standard.some((r) => r.variantId === variantId) ||
-          s.upsell.aiRecommendations.some((r) => r.variantId === variantId);
-        if (isUpsell) this.emitEvent('upsell:add', { variantId, quantity });
-      } finally {
-        this.internalMutationInProgress = false;
-      }
-    });
+  async addToCart(variantId: number, quantity: number): Promise<void> {
+    const operation = 'addToCart';
+    console.log('[CartPro V3] Mutation start:', operation);
+    this.internalMutationInProgress = true;
+    try {
+      await apiAddToCart(variantId, quantity);
+      await this.syncCart();
+      this.emitEvent('cart:add', { variantId, quantity });
+      const s = getStateFromStore(this.stateStore);
+      const isUpsell =
+        s.upsell.standard.some((r) => r.variantId === variantId) ||
+        s.upsell.aiRecommendations.some((r) => r.variantId === variantId);
+      if (isUpsell) this.emitEvent('upsell:add', { variantId, quantity });
+    } finally {
+      this.internalMutationInProgress = false;
+      console.log('[CartPro V3] Mutation end:', operation);
+    }
   }
 
-  changeCart(lineKey: string, quantity: number): void {
-    this.enqueueEffect(async () => {
-      this.internalMutationInProgress = true;
-      try {
-        await apiChangeCart(lineKey, quantity);
-        await this.syncCart();
-        this.emitEvent('cart:change', { lineKey, quantity });
-      } finally {
-        this.internalMutationInProgress = false;
-      }
-    });
+  async changeCart(lineKey: string, quantity: number): Promise<void> {
+    const operation = 'changeCart';
+    console.log('[CartPro V3] Mutation start:', operation);
+    this.internalMutationInProgress = true;
+    try {
+      await apiChangeCart(lineKey, quantity);
+      await this.syncCart();
+      this.emitEvent('cart:change', { lineKey, quantity });
+    } finally {
+      this.internalMutationInProgress = false;
+      console.log('[CartPro V3] Mutation end:', operation);
+    }
   }
 
-  removeItem(lineKey: string): void {
-    this.enqueueEffect(async () => {
-      this.internalMutationInProgress = true;
-      try {
-        await apiRemoveItem(lineKey);
-        await this.syncCart();
-        this.emitEvent('cart:remove', { lineKey });
-      } finally {
-        this.internalMutationInProgress = false;
-      }
-    });
+  async removeItem(lineKey: string): Promise<void> {
+    const operation = 'removeItem';
+    console.log('[CartPro V3] Mutation start:', operation);
+    this.internalMutationInProgress = true;
+    try {
+      await apiRemoveItem(lineKey);
+      await this.syncCart();
+      this.emitEvent('cart:remove', { lineKey });
+    } finally {
+      this.internalMutationInProgress = false;
+      console.log('[CartPro V3] Mutation end:', operation);
+    }
   }
 
   /**
