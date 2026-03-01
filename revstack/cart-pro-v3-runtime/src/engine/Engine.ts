@@ -643,6 +643,8 @@ export class Engine {
    * when backend already applies during validation). See DISCOUNT_DESIGN_NOTES.md.
    */
   async syncCart(options?: { fromReapply?: boolean }): Promise<void> {
+    const t0 = performance.now();
+    console.log("[CartPro V3] syncCart START", t0);
     if (this.destroyed) return;
     const state = getStateFromStore(this.stateStore);
     if (state.cart.syncing) return;
@@ -651,7 +653,9 @@ export class Engine {
       cart: { syncing: true },
     });
     try {
+      console.log("[CartPro V3] syncCart → apiFetchCart START", performance.now());
       const raw = await apiFetchCart();
+      console.log("[CartPro V3] syncCart → apiFetchCart END", performance.now());
       const itemCount = raw.item_count ?? 0;
       const subtotal =
         raw.items_subtotal_price ??
@@ -659,6 +663,7 @@ export class Engine {
           ? raw.items.reduce((sum: number, item: any) => sum + (item.line_price ?? 0), 0)
           : 0);
       const total = raw.total_price ?? 0;
+      console.log("[CartPro V3] syncCart → setState START", performance.now());
       this.setState({
         cart: {
           raw,
@@ -669,7 +674,10 @@ export class Engine {
           lastSyncedAt: Date.now(),
         },
       });
+      console.log("[CartPro V3] syncCart → setState END", performance.now());
+      console.log("[CartPro V3] syncCart → reconcileCartDiscountState START", performance.now());
       this.reconcileCartDiscountState(raw);
+      console.log("[CartPro V3] syncCart → reconcileCartDiscountState END", performance.now());
       this.perf.cartSyncDuration =
         typeof performance !== 'undefined' && performance.now
           ? performance.now() - syncStart
@@ -698,6 +706,7 @@ export class Engine {
       }
 
       // Shipping: update remaining/unlocked from config threshold + cart only; do not clear or reset lever.
+      console.log("[CartPro V3] syncCart → shipping START", performance.now());
       const threshold = this.config.freeShipping.thresholdCents ?? null;
       if (threshold != null) {
         const itemsSubtotal = raw.items_subtotal_price ?? subtotal;
@@ -718,8 +727,10 @@ export class Engine {
           },
         });
       }
+      console.log("[CartPro V3] syncCart → shipping END", performance.now());
 
       // Rewards: compute unlocked tier (only when feature enabled).
+      console.log("[CartPro V3] syncCart → rewards START", performance.now());
       const stateAfterCart = getStateFromStore(this.stateStore);
       const { rewards } = stateAfterCart;
       const runRewards = !this.config || this.config.featureFlags.enableRewards;
@@ -739,6 +750,7 @@ export class Engine {
           },
         });
       }
+      console.log("[CartPro V3] syncCart → rewards END", performance.now());
 
       // Upsell: compute standard list and optionally fetch AI (only when feature enabled).
       const stateAfterSync = getStateFromStore(this.stateStore);
@@ -750,7 +762,9 @@ export class Engine {
         Array.isArray(currentStateForUpsell.snapshotRecommendations) &&
         currentStateForUpsell.snapshotRecommendations.length > 0;
       if (runUpsell) {
+        console.log("[CartPro V3] syncCart → upsell START", performance.now());
         standard = computeStandardUpsell(raw, standardConfig);
+        console.log("[CartPro V3] syncCart → upsell END", performance.now());
         if (!hasSnapshot) {
           this.setState({
             upsell: {
@@ -897,6 +911,7 @@ export class Engine {
         }
       }
       this.triggerRevalidation();
+      console.log("[CartPro V3] syncCart END", performance.now(), "TOTAL:", performance.now() - t0);
     } catch (err) {
       this.setState({
         cart: { syncing: false },
