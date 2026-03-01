@@ -1,0 +1,42 @@
+/* Skeleton placeholders — soft neutral gray, subtle shimmer. No Tailwind. */
+
+.card {
+  padding: var(--app-space-5);
+  min-height: 84px;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-subtle, var(--p-color-bg-subdued, #f6f6f7));
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #e8e8ea 25%,
+    #dcdce0 50%,
+    #e8e8ea 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.contentFade {
+  transition: opacity 160ms ease;
+}
+
+.contentFadeInitial {
+  opacity: 0.6;
+}
+
+.contentFadeLoaded {
+  opacity: 1;
+}

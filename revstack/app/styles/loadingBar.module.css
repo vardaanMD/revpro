@@ -1,0 +1,65 @@
+.loadingBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--p-color-border-subdued, #e1e3e5);
+  z-index: 9999;
+  overflow: hidden;
+  animation: barEaseIn 0.2s ease-out;
+}
+
+.loadingBar.completing {
+  animation: barFadeOut 0.2s ease-out 0.2s forwards;
+}
+
+.progress {
+  height: 100%;
+  width: 30%;
+  background: var(--p-color-border-info, #2c6ecb);
+  animation: shimmer 0.8s ease-in-out infinite;
+}
+
+.loadingBar.completing .progress {
+  animation: fillComplete 0.25s ease-out forwards;
+}
+
+@keyframes barEaseIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes barFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(200%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes fillComplete {
+  0% {
+    width: 30%;
+  }
+  100% {
+    width: 100%;
+  }
+}

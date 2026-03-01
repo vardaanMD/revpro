@@ -1,0 +1,41 @@
+.wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.blurred {
+  filter: blur(2px);
+  opacity: 0.85;
+  pointer-events: none;
+  user-select: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: var(--app-radius-lg);
+}
+
+.content {
+  text-align: center;
+  padding: var(--app-space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--app-space-3);
+}
+
+.lockIcon {
+  color: var(--app-muted-text);
+  flex-shrink: 0;
+}
+
+.ctaText {
+  font-size: var(--app-font-base);
+  color: var(--app-muted-text);
+}

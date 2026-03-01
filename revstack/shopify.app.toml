@@ -1,0 +1,45 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "e628e4d55fee98b8b638d71462f718d0"
+name = "revstack"
+application_url = "https://revpr0-dev-staging.up.railway.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = false
+
+[webhooks]
+api_version = "2024-10"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "/webhooks/billing/update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products write_app_proxy"
+
+[auth]
+redirect_urls = [ "https://revpr0-dev-staging.up.railway.app/auth/callback" ]
+
+[app_proxy]
+url = "https://revpr0-dev-staging.up.railway.app/cart"
+subpath = "cart-pro"
+prefix = "apps"
+
+[[extensions]]
+type = "theme_app_extension"
+handle = "cart-pro"
+path = "extensions/cart-pro"

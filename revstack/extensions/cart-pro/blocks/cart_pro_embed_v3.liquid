@@ -1,0 +1,51 @@
+{% comment %}
+  Cart Pro — theme app extension block (dynamic runtime).
+  Fetches snapshot from /apps/cart-pro/snapshot/v3; loads v1, v2, or v3 runtime based on config.runtimeVersion.
+  Enable in Theme customizer > App embeds.
+{% endcomment %}
+{% schema %}
+{
+  "name": "Cart Pro V3",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}
+
+<div id="cart-pro-root"></div>
+<script>
+(function() {
+
+  function loadRuntime(version) {
+    const script = document.createElement('script');
+
+    if (version === 'v3') {
+      script.src = "{{ 'cart-pro-v3.js' | asset_url }}";
+    } else if (version === 'v2') {
+      script.src = "{{ 'cart-pro-v2.js' | asset_url }}";
+    } else {
+      script.src = "{{ 'cart-pro-v1.js' | asset_url }}";
+    }
+
+    script.defer = true;
+    document.body.appendChild(script);
+  }
+
+  fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(config => {
+
+      window.__CART_PRO_SNAPSHOT__ = config;
+
+      const version = config.runtimeVersion || 'v2';
+
+      loadRuntime(version);
+
+    })
+    .catch(err => {
+      console.error('[CartPro] Snapshot load failed', err);
+
+      loadRuntime('v2');
+    });
+
+})();
+</script>

@@ -1,0 +1,39 @@
+/* Two-column layout: settings form left, live CartPreview right. Sticky on desktop, stacked on mobile. */
+.settingsWithPreview {
+  display: grid;
+  gap: var(--app-space-6);
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .settingsWithPreview {
+    grid-template-columns: 1fr minmax(360px, 360px);
+  }
+}
+
+.formColumn {
+  min-width: 0;
+}
+
+.previewColumn {
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .previewColumn {
+    position: sticky;
+    top: var(--app-space-4);
+  }
+}
+
+.previewLabel {
+  font-size: var(--app-font-sm);
+  font-weight: 600;
+  margin-bottom: var(--app-space-2);
+  color: var(--app-muted-text, var(--p-color-text-subdued));
+}
+
+.previewDrawerWrap {
+  width: fit-content;
+  max-width: 100%;
+}

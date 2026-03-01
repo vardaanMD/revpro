@@ -1,0 +1,87 @@
+/**
+ * Cart Pro V3 — Shopify Cart API layer.
+ * GET /cart.js, POST /cart/add.js, POST /cart/change.js.
+ * No discount logic. credentials: same-origin.
+ */
+
+function getCartBaseUrl(): string {
+  if (typeof window !== 'undefined' && (window as any).Shopify?.routes?.root) {
+    return (window as any).Shopify.routes.root;
+  }
+  return '/';
+}
+
+function cartJsUrl(): string {
+  return getCartBaseUrl() + 'cart.js';
+}
+
+function cartAddUrl(): string {
+  return getCartBaseUrl() + 'cart/add.js';
+}
+
+function cartChangeUrl(): string {
+  return getCartBaseUrl() + 'cart/change.js';
+}
+
+const FETCH_OPTIONS: RequestInit = {
+  credentials: 'same-origin',
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+};
+
+/**
+ * GET /cart.js — fetch current cart.
+ */
+export async function fetchCart(): Promise<any> {
+  const res = await fetch(cartJsUrl(), {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    throw new Error(`Cart fetch failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * POST /cart/add.js — add variant to cart.
+ */
+export async function addToCart(variantId: number, quantity: number): Promise<any> {
+  const res = await fetch(cartAddUrl(), {
+    ...FETCH_OPTIONS,
+    method: 'POST',
+    body: JSON.stringify({
+      items: [{ id: variantId, quantity }],
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.description || data.message || `Add to cart failed: ${res.status}`);
+  }
+  return data;
+}
+
+/**
+ * POST /cart/change.js — change line item quantity. Use quantity 0 to remove.
+ */
+export async function changeCart(lineKey: string, quantity: number): Promise<any> {
+  const res = await fetch(cartChangeUrl(), {
+    ...FETCH_OPTIONS,
+    method: 'POST',
+    body: JSON.stringify({ id: lineKey, quantity }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.description || data.message || `Cart change failed: ${res.status}`);
+  }
+  return data;
+}
+
+/**
+ * Remove line item (change quantity to 0).
+ */
+export async function removeItem(lineKey: string): Promise<any> {
+  return changeCart(lineKey, 0);
+}

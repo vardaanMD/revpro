@@ -1,0 +1,5 @@
+.helpText {
+  margin-top: var(--app-space-4);
+  font-size: 0.875rem;
+  color: var(--p-color-text-subdued, #6d7175);
+}

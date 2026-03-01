@@ -1,0 +1,29 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--app-space-2);
+  padding: var(--app-space-2) 0;
+}
+
+.values {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--app-space-2);
+}
+
+.improved {
+  color: var(--p-color-text-success);
+}
+
+.declined {
+  color: var(--p-color-text-critical);
+}
+
+.neutral {
+  color: var(--p-color-text-subdued);
+}
+
+.reinforcement {
+  font-size: 0.9em;
+}

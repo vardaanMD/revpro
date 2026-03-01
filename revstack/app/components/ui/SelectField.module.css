@@ -1,0 +1,16 @@
+.select {
+  display: block;
+  margin-top: var(--app-space-1);
+  padding: var(--app-space-2);
+  min-width: 200px;
+  border: 1px solid var(--p-color-border, #c9cccf);
+  border-radius: var(--p-border-radius-base, 8px);
+  font-size: var(--p-font-size-100, 0.875rem);
+  line-height: 1.25;
+  background-color: var(--p-color-bg-surface, #fff);
+}
+
+.select:focus {
+  outline: 2px solid var(--p-color-border-info, #2c6ecb);
+  outline-offset: 2px;
+}

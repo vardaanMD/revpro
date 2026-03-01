@@ -1,0 +1,26 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.label {
+  font-size: var(--app-font-base);
+  font-weight: var(--app-weight-medium);
+  color: var(--p-color-text);
+}
+
+.control {
+  min-height: 1.5em;
+}
+
+.helper {
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--app-font-sm);
+  color: var(--p-color-text-critical);
+}

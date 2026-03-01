@@ -1,0 +1,115 @@
+/* Live Cart Preview page — layout only; typography from Polaris s-* and tokens */
+.fieldsetReset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: contents;
+}
+
+.previewLayout {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--app-space-5) var(--app-space-4) var(--app-space-6);
+}
+
+.previewLayout s-section + s-section {
+  margin-top: var(--app-space-6);
+}
+
+.configSummary {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.configSummary li {
+  padding: var(--app-space-1) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  flex-wrap: wrap;
+}
+
+.badgeAdvanced {
+  display: inline-block;
+  padding: 2px var(--app-space-2);
+  font-size: var(--app-font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--p-color-bg-fill-info);
+  color: var(--p-color-text-on-color);
+  border-radius: var(--app-radius-base);
+}
+
+.badgeHint {
+  color: var(--app-muted-text, var(--p-color-text-subdued));
+}
+
+.previewControlsForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-3) var(--app-space-4);
+}
+
+.previewControl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  cursor: pointer;
+}
+
+.previewControl span {
+  white-space: nowrap;
+}
+
+.previewControl select,
+.previewControl input[type="number"] {
+  padding: var(--app-space-2) var(--app-space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-base);
+}
+
+.previewRefreshBtn {
+  padding: var(--app-space-2) var(--app-space-4);
+  border: none;
+  border-radius: var(--app-radius-base);
+  background: var(--p-color-bg-fill);
+  color: var(--p-color-text-on-color);
+  cursor: pointer;
+}
+
+.previewRefreshBtn:hover:not(:disabled) {
+  background: var(--p-color-bg-fill-hover);
+}
+
+.previewRefreshBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.previewDrawerSection {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: var(--app-space-4) 0;
+  min-height: 400px;
+}
+
+.previewDrawerSectionInner {
+  width: fit-content;
+  max-width: 100%;
+  transition: opacity 0.18s ease-out;
+}
+
+.previewDrawerSectionInner.regenerating {
+  opacity: 0.7;
+}
+
+.simulatingLabel {
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+  margin-bottom: var(--app-space-2);
+  min-height: 1.25rem;
+}

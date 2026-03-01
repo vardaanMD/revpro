@@ -1,0 +1,23 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--app-space-1) var(--app-space-2);
+  border-radius: var(--p-border-radius-base, 8px);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.active {
+  background: var(--p-color-bg-fill-info);
+  color: var(--p-color-text-on-color);
+}
+
+.improving {
+  background: var(--p-color-bg-fill-success);
+  color: var(--p-color-text-on-color);
+}
+
+.needs_attention {
+  background: var(--p-color-bg-fill-critical);
+  color: var(--p-color-text-on-color);
+}

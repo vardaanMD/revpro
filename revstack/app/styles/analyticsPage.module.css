@@ -1,0 +1,88 @@
+/* Tab bar: Cart View | Order View */
+.tabBar {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--app-space-5);
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.tab {
+  padding: var(--app-space-2) var(--app-space-4);
+  font-size: var(--app-font-sm);
+  font-weight: 500;
+  color: var(--app-muted-text);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--p-color-text);
+}
+
+.tabActive {
+  color: var(--p-color-text);
+  border-bottom-color: var(--p-color-border-info);
+}
+
+.tabPanel {
+  display: block;
+}
+
+.tabPanelHidden {
+  display: none;
+}
+
+.sectionHeaderBlock {
+  margin-bottom: var(--app-space-2);
+}
+
+.sectionSubtext {
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+  margin-bottom: var(--app-space-4);
+}
+
+.comparisonRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--app-space-2) 0;
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.comparisonValue {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.sparkline {
+  margin: var(--app-space-1) 0;
+  color: var(--app-muted-text);
+}
+
+.subduedSpan {
+  opacity: 0.8;
+}
+
+.improved {
+  color: var(--p-color-text-success);
+}
+
+.declined {
+  color: var(--p-color-text-critical);
+}
+
+.neutral {
+  color: var(--app-muted-text);
+}
+
+.disclaimer {
+  display: block;
+  margin-top: var(--app-space-3);
+  font-size: var(--app-font-sm, 0.875rem);
+  opacity: 0.85;
+}

@@ -1,0 +1,46 @@
+{% comment %}
+  Cart Pro app embed (target: body). Enable in Theme customizer > App embeds.
+  Reuses theme cart icon; opens drawer on cart icon click. No section required.
+  suppressThemeDrawer: when enabled, hides the theme's cart drawer when Cart Pro drawer opens (default off).
+{% endcomment %}
+{% schema %}
+{
+  "name": "Cart Pro",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "suppress_theme_drawer",
+      "label": "Suppress theme cart drawer when open",
+      "default": false,
+      "info": "When Cart Pro drawer is open, hide the theme's own cart drawer. Only enable after testing checkout and layout on your theme."
+    }
+  ]
+}
+{% endschema %}
+
+<link rel="stylesheet" href="{{ 'cart-pro.css' | asset_url }}">
+<div id="cart-pro-root"
+  {% if block.settings.suppress_theme_drawer %} data-suppress-theme-drawer="true"{% endif %}
+></div>
+<script>
+(function(){
+  console.log("CartPro snapshot script starting");
+  fetch("/apps/cart-pro/snapshot/v2", {
+    credentials: "same-origin"
+  })
+    .then(function (res) {
+      console.log("Snapshot fetch response:", res.status);
+      return res.json();
+    })
+    .then(function (snapshotJson) {
+      console.log("Snapshot assigned:", snapshotJson);
+      window.__CART_PRO_V2_SNAPSHOT__ = snapshotJson;
+    })
+    .catch(function (err) {
+      console.error("Snapshot fetch failed:", err);
+    });
+})();
+</script>
+<script src="{{ 'cart-pro-ui.js' | asset_url }}" defer></script>
+<script src="{{ 'cart-pro-v2.js' | asset_url }}" defer></script>

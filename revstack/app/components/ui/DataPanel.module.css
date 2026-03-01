@@ -1,0 +1,7 @@
+.panel {
+  padding: var(--app-space-5);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-subtle);
+  box-shadow: var(--app-shadow-card);
+}

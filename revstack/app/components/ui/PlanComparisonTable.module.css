@@ -1,0 +1,82 @@
+.tableWrapper {
+  width: 100%;
+}
+
+.plansGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--app-space-6);
+}
+
+.planCard {
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-card);
+}
+
+.recommended {
+  border: 2px solid var(--p-color-border-info, #2c6ecb);
+  box-shadow: var(--app-shadow-card), 0 0 0 1px var(--p-color-border-info, #2c6ecb);
+}
+
+.badge,
+.badgeMostPopular,
+.badgeCurrent {
+  display: inline-block;
+  padding: var(--app-space-1) var(--app-space-2);
+  border-radius: var(--app-radius-base);
+  font-size: var(--app-font-xs);
+  font-weight: var(--app-weight-semibold);
+  text-transform: uppercase;
+}
+
+.badge {
+  background: var(--p-color-bg-fill-success, #008060);
+  color: var(--p-color-text-on-color, #fff);
+}
+
+.badgeMostPopular {
+  background: var(--p-color-bg-fill-info, #2c6ecb);
+  color: var(--p-color-text-on-color, #fff);
+}
+
+.badgeCurrent {
+  background: var(--p-color-bg-fill-subdued);
+  color: var(--p-color-text);
+}
+
+.mostPopular {
+  border: 2px solid var(--p-color-border-info, #2c6ecb);
+  box-shadow: var(--app-shadow-card), 0 0 0 1px var(--p-color-border-info, #2c6ecb);
+}
+
+.planPrice {
+  font-size: var(--app-font-metric);
+  font-weight: var(--app-weight-bold);
+  color: var(--p-color-text);
+}
+
+.roi {
+  font-size: var(--app-font-sm);
+  margin: var(--app-space-1) 0;
+  color: var(--app-muted-text);
+}
+
+.benefits {
+  list-style: none;
+  padding: 0;
+  margin: var(--app-space-2) 0;
+}
+
+.benefits li {
+  padding: var(--app-space-1) 0;
+  padding-left: var(--app-space-4);
+  position: relative;
+}
+
+.benefits li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--p-color-text-success, #008060);
+  font-weight: 600;
+}

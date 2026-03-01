@@ -1,0 +1,69 @@
+.stepIcon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--app-font-sm);
+  font-weight: var(--app-weight-semibold);
+}
+
+.stepIconCompleted {
+  background: var(--p-color-bg-fill-success);
+  color: var(--p-color-text-on-color);
+}
+
+.stepIconPending {
+  background: var(--p-color-bg-fill-subdued);
+  color: var(--app-muted-text);
+}
+
+.progressTrack {
+  height: 8px;
+  background: var(--app-surface-subtle, var(--p-color-bg-fill-subdued));
+  border-radius: var(--app-radius-sm);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--p-color-bg-fill-success);
+  border-radius: var(--app-radius-sm);
+}
+
+.stepRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--app-space-3);
+}
+
+.stepBody {
+  flex: 1;
+}
+
+.stepDescriptionSpacer {
+  margin-top: var(--app-space-1);
+}
+
+.actionSpacer {
+  margin-top: var(--app-space-3);
+}
+
+.stepCompleteLabel {
+  display: block;
+  margin-bottom: var(--app-space-1);
+  font-size: var(--app-font-xs);
+}
+
+.nextStepLabel {
+  display: block;
+  margin-bottom: var(--app-space-2);
+  font-size: var(--app-font-sm);
+}
+
+.nextStepCard {
+  border-color: var(--p-color-border-info, #2c6ecb);
+  box-shadow: 0 0 0 1px var(--p-color-border-info, #2c6ecb);
+}

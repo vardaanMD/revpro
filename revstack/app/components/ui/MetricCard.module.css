@@ -1,0 +1,13 @@
+.metricValue {
+  line-height: 1.2;
+  animation: metricFadeIn 0.22s ease-out forwards;
+}
+
+@keyframes metricFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

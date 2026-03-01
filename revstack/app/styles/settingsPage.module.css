@@ -1,0 +1,125 @@
+.fieldsetReset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.inlineError {
+  margin: var(--app-space-1) 0 0;
+  font-size: var(--app-font-sm);
+  color: var(--p-color-text-critical, #d72c0d);
+}
+
+.lockHint {
+  display: block;
+  margin-top: var(--app-space-1);
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+}
+
+.numberInput {
+  padding: var(--app-space-2) var(--app-space-3);
+  min-width: 8rem;
+  font-size: var(--app-font-base);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-base);
+  background: var(--app-surface-base);
+  color: var(--p-color-text);
+}
+
+.colorInput {
+  width: 48px;
+  height: 36px;
+  padding: var(--app-space-1);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-base);
+  cursor: pointer;
+  background: var(--app-surface-base);
+}
+
+.lockedInline {
+  padding: var(--app-space-2) 0;
+}
+
+.lockedBlock {
+  padding: var(--app-space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-base);
+  background: var(--app-surface-subtle, var(--p-color-bg-fill-subdued, #f6f6f7));
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.section {
+  padding-bottom: var(--app-space-5);
+  margin-bottom: var(--app-space-5);
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.milestoneEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.milestoneRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
+.milestoneSpendWrap {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-base);
+  background: var(--app-surface-base);
+  overflow: hidden;
+}
+
+.milestoneSpendPrefix {
+  padding: var(--app-space-2) var(--app-space-2) var(--app-space-2) var(--app-space-3);
+  font-size: var(--app-font-base);
+  color: var(--app-muted-text);
+  background: var(--app-surface-subtle, var(--p-color-bg-fill-subdued, #f6f6f7));
+}
+
+.milestoneInput {
+  padding: var(--app-space-2) var(--app-space-3);
+  min-width: 7rem;
+  font-size: var(--app-font-base);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-base);
+  background: var(--app-surface-base);
+  color: var(--p-color-text);
+}
+
+.milestoneSpendWrap .milestoneInput {
+  border: none;
+  min-width: 5rem;
+}
+
+.milestoneArrow {
+  font-size: var(--app-font-base);
+  color: var(--app-muted-text);
+}
+
+.removeMilestone {
+  padding: var(--app-space-1) var(--app-space-2);
+  font-size: var(--app-font-sm);
+  color: var(--p-color-text-critical, #d72c0d);
+  background: transparent;
+  border: none;
+  border-radius: var(--app-radius-base);
+  cursor: pointer;
+}
+
+.removeMilestone:hover {
+  background: var(--p-color-bg-fill-critical-subdued, #fef1f0);
+}

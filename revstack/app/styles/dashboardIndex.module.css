@@ -1,0 +1,67 @@
+/* Structural separation: Order Outcomes vs Cart Metrics */
+.sectionOrderOutcomes {
+  background: var(--app-surface-base);
+  border-radius: var(--app-radius-lg);
+  border: 1px solid var(--app-border-subtle);
+  padding: var(--app-space-5);
+  margin-bottom: var(--app-space-6);
+}
+
+.sectionCartMetrics {
+  background: var(--app-surface-subdued, rgba(0, 0, 0, 0.02));
+  border-radius: var(--app-radius-lg);
+  border: 1px solid var(--app-border-subtle);
+  padding: var(--app-space-5);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  margin-bottom: var(--app-space-2);
+}
+
+.sectionSubtext {
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+  margin-bottom: var(--app-space-4);
+}
+
+.divider {
+  height: 1px;
+  background: var(--app-border-subtle);
+  margin: var(--app-space-6) 0;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 200px;
+}
+
+.table th,
+.table td {
+  padding: var(--app-space-2) var(--app-space-3);
+  font-size: var(--app-font-base);
+}
+
+.table th:first-child,
+.table td:first-child {
+  text-align: left;
+}
+
+.table th:last-child,
+.table td:last-child {
+  text-align: right;
+}
+
+.disclaimer {
+  display: block;
+  margin-top: var(--app-space-3);
+  font-size: var(--app-font-sm, 0.875rem);
+  opacity: 0.85;
+}

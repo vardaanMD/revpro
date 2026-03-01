@@ -1,0 +1,8 @@
+# Railway deployment config for revstack (React Router + Shopify app).
+# Set Railway service "Root Directory" to: revstack
+
+[build]
+buildCommand = "echo cache-bust-$(date +%s) && npm ci && npm run build"
+
+[deploy]
+startCommand = "sh -c 'until npx prisma migrate deploy; do sleep 2; done && npm run start'"

@@ -1,0 +1,408 @@
+/* CartPreview — matches cart-pro drawer: 360px wide, full-height feel, all sections */
+.drawer {
+  width: 360px;
+  min-width: 360px;
+  max-width: 360px;
+  min-height: 85vh;
+  background: #fff;
+  border-radius: var(--cp-radius, 12px) 0 0 var(--cp-radius, 12px);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  isolation: isolate;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawerInner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.header {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+  color: #333;
+}
+
+.headerClose {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: default;
+  color: #666;
+  padding: 0;
+  line-height: 1;
+}
+
+.milestones {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.milestoneHeader {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.milestoneTrack {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  overflow: visible;
+  transition: background 0.3s ease;
+}
+
+.milestonePoints {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.milestonePoint {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+.milestonePointUnlocked {
+  border-color: var(--cp-accent, #16a34a);
+  background: var(--cp-accent, #16a34a);
+}
+
+.milestoneEmoji {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  line-height: 1;
+  filter: brightness(0) invert(0);
+}
+
+.milestonePointUnlocked .milestoneEmoji {
+  filter: brightness(0) invert(1);
+}
+
+.milestoneMessage {
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+}
+
+.items {
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: auto;
+}
+
+.mockItem {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--cp-radius, 12px);
+  max-height: 200px;
+  overflow: visible;
+}
+
+.mockItemImage {
+  width: 52px;
+  height: 52px;
+  background: #f0f0f0;
+  border-radius: var(--cp-radius, 12px);
+  flex-shrink: 0;
+}
+
+.mockItemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.mockTitle {
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.mockRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.mockQtyControls {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+.mockQtyBtn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 15px;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mockQtyValue {
+  display: inline-block;
+  min-width: 1.5em;
+  text-align: center;
+  font-size: 13px;
+}
+
+.mockLinePrice {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.mockRemoveBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #888;
+  cursor: default;
+  flex-shrink: 0;
+}
+
+.trashIcon {
+  display: block;
+}
+
+.recs {
+  padding: 0 10px 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin: 0 10px 10px;
+  flex-shrink: 0;
+}
+
+.recsHeading {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+}
+
+.carousel {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 0 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.recCard {
+  flex: 0 0 auto;
+  width: 180px;
+  padding: 8px;
+  border: 1px solid #eee;
+  border-radius: var(--cp-radius, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scroll-snap-align: start;
+}
+
+.recImgWrap {
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f8f8;
+  border-radius: var(--cp-radius, 12px);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.recImg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.recImgPlaceholder {
+  width: 100%;
+  height: 100%;
+  background: #e8e8e8;
+  border-radius: 6px;
+}
+
+.recInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recTitle {
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recTitle:hover {
+  text-decoration: underline;
+}
+
+.recPrice {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.recAdd {
+  align-self: flex-start;
+  padding: 6px 10px;
+  background: var(--cp-primary, #111);
+  color: #fff;
+  border: none;
+  border-radius: var(--cp-radius, 12px);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: default;
+  opacity: 0.8;
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: #fff;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.05);
+}
+
+.couponSection {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.couponInput {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: var(--cp-radius, 12px);
+  background: #fff;
+}
+
+.couponApply {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--cp-radius, 12px);
+  background: var(--cp-accent, #16a34a);
+  color: #fff;
+  cursor: default;
+  opacity: 0.9;
+}
+
+.subtotal {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.subtotalValue {
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.shippingMsg {
+  font-size: 12px;
+  color: #333;
+  margin: 6px 0;
+}
+
+.checkout {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: var(--cp-radius, 12px);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: default;
+  background: linear-gradient(
+    270deg,
+    var(--cp-primary, #111),
+    var(--cp-accent, #16a34a),
+    var(--cp-primary, #111)
+  );
+  background-size: 400% 400%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  margin-top: 16px;
+}
+
+.countdown {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+}
+
+.confettiLabel {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--cp-accent, #16a34a);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  z-index: 11;
+  pointer-events: none;
+}

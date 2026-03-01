@@ -1,0 +1,67 @@
+.card {
+  padding: var(--app-space-5);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-base);
+  box-shadow: var(--app-shadow-card);
+  border: 1px solid var(--app-border-subtle);
+  transition: box-shadow 0.15s ease;
+}
+
+.card:hover {
+  box-shadow: var(--app-shadow-card-hover);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.label {
+  font-size: var(--app-font-sm);
+  font-weight: var(--app-weight-normal);
+  color: var(--app-muted-text);
+}
+
+.contextLabel {
+  font-size: 0.7rem;
+  font-weight: var(--app-weight-normal);
+  color: var(--app-muted-text);
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.value {
+  font-size: var(--app-font-metric);
+  font-weight: var(--app-weight-semibold);
+  line-height: 1.2;
+  color: var(--p-color-text);
+  animation: metricFadeIn 0.22s ease-out forwards;
+}
+
+.value.tone_success {
+  color: var(--p-color-text-success);
+}
+
+.value.tone_critical {
+  color: var(--p-color-text-critical);
+}
+
+.value.tone_subdued {
+  color: var(--app-muted-text);
+}
+
+.subtext {
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+}
+
+@keyframes metricFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

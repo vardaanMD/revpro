@@ -1,0 +1,6 @@
+# Cart Pro V3 — theme app extension. Single embed block only (cart_pro_embed_v3).
+name = "Cart-Pro-V3"
+handle = "cart-pro"
+uid = "78916742-bb96-07f4-7747-0dab65451c23ea5d865f"
+type = "theme"
+# Blocks: blocks/cart_pro_embed_v3.liquid (app embed, target body). No legacy blocks.

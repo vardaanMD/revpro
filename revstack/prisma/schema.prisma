@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// DATABASE_URL from env only (e.g. Railway Postgres). No directUrl / shadowDatabaseUrl.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model ShopConfig {
+  id                         String    @id @default(cuid())
+  shopDomain                 String    @unique
+  baselineAovCents           Int
+  freeShippingThresholdCents Int
+  milestonesJson             Json
+  enableCrossSell            Boolean   @default(true)
+  enableMilestones           Boolean   @default(true)
+  enableCouponTease          Boolean   @default(true)
+  plan                       String    @default("basic")
+  billingStatus              String    @default("inactive")
+  trialEndsAt                DateTime?
+  billingId                  String?
+  version                    Int       @default(1)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  recommendationStrategy     String    @default("COLLECTION_MATCH")
+  manualCollectionIds        Json?
+  recommendationLimit        Int       @default(1)
+  primaryColor               String?
+  accentColor                String?
+  borderRadius               Int       @default(12)
+  showConfetti               Boolean   @default(true)
+  enableHaptics              Boolean   @default(true)
+  countdownEnabled           Boolean   @default(true)
+  emojiMode                  Boolean   @default(true)
+  shippingBarPosition       String    @default("top")
+  onboardingCompleted       Boolean   @default(false)
+  onboardingStep            Int       @default(0)
+  onboardingVerifiedAt      DateTime?
+  /** @deprecated Use onboardingStep only. Kept for DB compatibility. */
+  onboardingStepProgress    Int       @default(0)
+  /** @deprecated No longer used. Kept for DB compatibility. */
+  previewSeen               Boolean   @default(false)
+  activatedAt               DateTime?
+  lastActiveAt              DateTime?
+  milestoneFlags            Json?
+  engineVersion             String    @default("v1")
+  configV3                  Json?
+}
+
+model WebhookEvent {
+  id         String   @id @default(cuid())
+  shopDomain String
+  topic      String
+  webhookId  String   @unique
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model DecisionMetric {
+  id           String   @id @default(cuid())
+  shopDomain   String
+  hasCrossSell Boolean
+  cartValue    Int
+  createdAt    DateTime @default(now())
+
+  @@index([shopDomain, createdAt])
+}
+
+// Cross-sell analytics: impressions and clicks. Retention: 90 days (cleanup job TBD).
+model CrossSellEvent {
+  id         String   @id @default(uuid())
+  shopDomain String
+  productId  String
+  eventType  String   // "impression" | "click"
+  cartValue  Int
+  createdAt  DateTime @default(now())
+
+  @@index([shopDomain, createdAt])
+  @@index([shopDomain, eventType])
+}
+
+// Cross-sell conversions (add-to-cart from recommendation). Retention: 90 days (cleanup job TBD).
+model CrossSellConversion {
+  id         String   @id @default(uuid())
+  shopDomain String
+  productId  String
+  cartValue  Int
+  createdAt  DateTime @default(now())
+
+  @@index([shopDomain, createdAt])
+}
+
+// Cart Pro V3 analytics ingestion. Append-only; idempotent via createMany skipDuplicates.
+model CartProEventV3 {
+  id        String   @id
+  shop      String
+  sessionId String
+  name      String
+  payload   Json
+  itemCount Int
+  subtotal  Int
+  timestamp DateTime
+  createdAt DateTime @default(now())
+
+  @@index([shop])
+  @@index([sessionId])
+  @@index([name])
+}
+
+// Rolling 30-day product sales for BEST_SELLING strategy. Recorded on orders/paid webhook.
+model ProductSaleEvent {
+  id         String   @id @default(uuid())
+  shopDomain String
+  productId  String
+  quantity   Int
+  soldAt     DateTime @default(now())
+
+  @@index([shopDomain, soldAt])
+  @@index([shopDomain, productId])
+}
+
+// Order-level attribution: session linking + click logging. One row per revpro session.
+model RevproClickSession {
+  id                  String   @id @default(uuid())
+  shopDomain          String
+  revproSessionId     String
+  clickedProductIds   Json     // string[]
+  recommendedProductIds Json   // string[]
+  createdAt           DateTime @default(now())
+
+  @@unique([shopDomain, revproSessionId])
+  @@index([shopDomain, revproSessionId])
+}
+
+// Order-level influence: set in orders/paid webhook from revpro_session_id + RevproClickSession.
+model OrderInfluenceEvent {
+  id         String   @id @default(uuid())
+  shopDomain String
+  orderId    String
+  orderValue Int      // cents
+  influenced Boolean
+  createdAt  DateTime @default(now())
+
+  @@index([shopDomain, createdAt])
+  @@index([shopDomain, orderId])
+}
+
+// V2 catalog: product catalog persisted per shop. id = Shopify product ID (string).
+model ShopProduct {
+  id               String
+  shopDomain       String
+  title            String
+  handle           String
+  variantId        String   // first variant ID
+  featuredImageUrl String?
+  priceCents       Int
+  available        Boolean
+  collectionIds    Json     // string[]
+  createdAt        DateTime
+  updatedAt        DateTime @updatedAt
+
+  @@id([shopDomain, id])
+  @@index([shopDomain])
+}
