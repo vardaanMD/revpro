@@ -60,6 +60,7 @@ describe("analytics math validation", () => {
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce([thirtyRow])
       .mockResolvedValueOnce(emptyEngagement())
+      .mockResolvedValueOnce([{ revenue: 0n }])
       .mockResolvedValueOnce(prevThirtyRow)
       .mockResolvedValueOnce(prevSevenRow);
     const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("growth" as Plan));
@@ -70,6 +71,7 @@ describe("analytics math validation", () => {
     expect(data.engagement.impressions30d).toBe(0);
     expect(data.engagement.clicks30d).toBe(0);
     expect(data.engagement.ctr30d).toBe(0);
+    expect(data.engagement.conversionRate30d).toBeDefined();
   });
 
   it("engagement CTR = clicks / impressions when impressions > 0", async () => {
@@ -84,7 +86,8 @@ describe("analytics math validation", () => {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce([thirtyRow])
-      .mockResolvedValueOnce([{ impressions: 100n, clicks: 15n }]);
+      .mockResolvedValueOnce([{ impressions: 100n, clicks: 15n }])
+      .mockResolvedValueOnce([{ revenue: 0n }]);
     const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan));
 
     expect(data.engagement.impressions30d).toBe(100);
@@ -107,6 +110,7 @@ describe("analytics math validation", () => {
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce([thirtyRow])
       .mockResolvedValueOnce(emptyEngagement())
+      .mockResolvedValueOnce([{ revenue: 0n }])
       .mockResolvedValueOnce(prevThirtyRow)
       .mockResolvedValueOnce(prevSevenRow);
     const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("advanced" as Plan));
@@ -118,7 +122,8 @@ describe("analytics math validation", () => {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce(emptyDashboardAgg())
-      .mockResolvedValueOnce([{ impressions: 50n, clicks: 5n }]);
+      .mockResolvedValueOnce([{ impressions: 50n, clicks: 5n }])
+      .mockResolvedValueOnce([{ revenue: 0n }]);
     const data = await getDashboardMetrics(TEST_SHOP, resolveCapabilities("growth" as Plan));
 
     expect(data.cartPerformance).toBeDefined();
@@ -126,15 +131,26 @@ describe("analytics math validation", () => {
     expect(data.engagement.impressions7d).toBe(50);
     expect(data.engagement.clicks7d).toBe(5);
     expect(data.engagement.ctr7d).toBe(0.1);
+    expect(data.engagement.conversionRate7d).toBeDefined();
   });
 
   it("dashboard engagement CTR 0 when no impressions", async () => {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce(emptyDashboardAgg())
-      .mockResolvedValueOnce(emptyEngagement());
+      .mockResolvedValueOnce(emptyEngagement())
+      .mockResolvedValueOnce([{ revenue: 0n }]);
     const data = await getDashboardMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan));
 
     expect(data.engagement.ctr7d).toBe(0);
+  });
+
+  it("analytics omits revenue when allowOrderMetrics false", async () => {
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce(emptyDayRow())
+      .mockResolvedValueOnce([{ total: 10n, shown: 5n, avg_cart: 100, count_all: 10n, added: 0n, sum_cart_with: 1000n }])
+      .mockResolvedValueOnce(emptyEngagement());
+    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan), { allowOrderMetrics: false });
+    expect(data.revenue).toBeUndefined();
   });
 });

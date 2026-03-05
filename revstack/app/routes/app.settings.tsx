@@ -103,6 +103,10 @@ function buildConfigV3FromForm(
     base.runtimeVersion = formData.runtimeVersion;
   }
 
+  if (typeof formData.allowOrderMetrics === "boolean") {
+    base.allowOrderMetrics = formData.allowOrderMetrics;
+  }
+
   // Safety: always set version; ensure no undefined nested objects
   base.version = "3.0.0";
   return base;
@@ -193,6 +197,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       emojiMode: config.emojiMode ?? true,
       engineVersion: config.engineVersion ?? "v1",
       runtimeVersion,
+      allowOrderMetrics: (configV3 as { allowOrderMetrics?: boolean } | undefined)?.allowOrderMetrics !== false,
     },
     capabilities: billing.capabilities,
     initialPreviewRenderState,
@@ -651,6 +656,21 @@ export default function SettingsPage() {
                   aria-invalid={!!fieldErrors.baselineAov}
                 />
               </FormField>
+            </FormSection>
+          </div>
+
+          <div className={settingsStyles.section}>
+            <FormSection
+              heading="Order data & revenue"
+              description="We do not claim any revenue is attributable to the app. Revenue is shown only for your reference from paid orders (webhook). Turn off to stop storing order totals and hide revenue in analytics."
+            >
+              <input type="hidden" name="allowOrderMetrics" value="off" />
+              <s-checkbox
+                name="allowOrderMetrics"
+                label="Allow storing order totals (show revenue from paid orders in Dashboard & Analytics)"
+                defaultChecked={config.allowOrderMetrics !== false}
+                value="on"
+              />
             </FormSection>
           </div>
 

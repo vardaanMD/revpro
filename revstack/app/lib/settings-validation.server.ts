@@ -69,6 +69,8 @@ export const settingsFormSchema = z.object({
   emojiMode: z.boolean(),
   engineVersion: engineVersionSchema,
   runtimeVersion: runtimeVersionSchema,
+  /** When true, we store order totals from orders/paid and show revenue in analytics. When false, we do not store or show. */
+  allowOrderMetrics: z.boolean().optional(),
 });
 
 export type SettingsFormData = z.infer<typeof settingsFormSchema>;
@@ -146,6 +148,9 @@ export function validateSettingsForm(formData: FormData): {
       ? runtimeVersionRaw
       : undefined;
 
+  const allowOrderMetrics =
+    formData.has("allowOrderMetrics") ? formData.get("allowOrderMetrics") === "on" : undefined;
+
   const primaryColor = typeof primaryColorRaw === "string" ? primaryColorRaw.trim() || undefined : undefined;
   const accentColor = typeof accentColorRaw === "string" ? accentColorRaw.trim() || undefined : undefined;
   const borderRadiusNum = typeof borderRadiusRaw === "string" ? parseInt(borderRadiusRaw, 10) : NaN;
@@ -169,6 +174,7 @@ export function validateSettingsForm(formData: FormData): {
     emojiMode,
     engineVersion,
     runtimeVersion,
+    allowOrderMetrics,
   };
 
   const result = settingsFormSchema.safeParse(raw);

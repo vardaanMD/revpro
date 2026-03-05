@@ -67,8 +67,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Analytics reads from same source V3 runtime writes to: DecisionMetric + CrossSellConversion
   // (cart.analytics.v3.ts). No separate V2 vs V3 pipeline — unified store.
   const tMetrics = performance.now();
+  const configV3ForMetrics = config.configV3 as { allowOrderMetrics?: boolean } | null | undefined;
+  const allowOrderMetrics = configV3ForMetrics?.allowOrderMetrics !== false;
   const [metrics] = await Promise.all([
-    getAnalyticsMetrics(shop, billing.capabilities),
+    getAnalyticsMetrics(shop, billing.capabilities, { allowOrderMetrics }),
   ]);
   timings.getAnalyticsMetrics = performance.now() - tMetrics;
 
@@ -362,20 +364,36 @@ export default function AnalyticsPage() {
           </FeatureGate>
         </s-section>
 
-        <s-section heading="Recommendation block engagement (30 days)">
+        <s-section heading="Recommendation engagement (30 days)">
           <p className={analyticsStyles.sectionSubtext}>
-            Times a recommendation card was shown (impressions) and clicked (clicks). CTR = recommendation clicks ÷ recommendation impressions.
+            Impressions = times a recommendation card was shown. Clicks = times a card was clicked. Click-through rate = clicks ÷ impressions. Conversion rate = add-to-carts from recommendations ÷ drawer opens with recommendations shown.
           </p>
           <MetricSection>
-            <StatCard label="Recommendation card impressions" value={engagement.impressions30d} contextLabel="30 days" />
-            <StatCard label="Recommendation card clicks" value={engagement.clicks30d} contextLabel="30 days" />
+            <StatCard label="Impressions" value={engagement.impressions30d} contextLabel="30 days" />
+            <StatCard label="Clicks" value={engagement.clicks30d} contextLabel="30 days" />
             <StatCard
-              label="Recommendation CTR (clicks ÷ impressions)"
+              label="Click-through rate"
               value={engagement.impressions30d > 0 ? `${(engagement.ctr30d * 100).toFixed(2)}%` : "—"}
               contextLabel="30 days"
             />
+            <StatCard
+              label="Conversion rate"
+              value={engagement.conversionRate30d > 0 ? `${(engagement.conversionRate30d * 100).toFixed(2)}%` : "—"}
+              contextLabel="adds ÷ sessions with recs shown"
+            />
           </MetricSection>
         </s-section>
+
+        {metrics.revenue != null && (
+          <s-section heading="Revenue (paid orders)">
+            <p className={analyticsStyles.sectionSubtext}>
+              Total from paid orders webhook. We do not claim this revenue is attributable to the app. To stop storing order data, turn off in Settings → Order data &amp; revenue.
+            </p>
+            <MetricSection>
+              <StatCard label="Revenue (30 days)" value={formatCurrency(metrics.revenue.revenue30d, CURRENCY)} contextLabel="from paid orders" />
+            </MetricSection>
+          </s-section>
+        )}
       </div>
         </div>
       )}

@@ -68,9 +68,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const billing = await getBillingContext(shop, config);
 
+  const configV3ForMetrics = config.configV3 as { allowOrderMetrics?: boolean } | null | undefined;
+  const allowOrderMetrics = configV3ForMetrics?.allowOrderMetrics !== false;
   const tMetrics = performance.now();
   const [metrics] = await Promise.all([
-    getDashboardMetrics(shop, billing.capabilities),
+    getDashboardMetrics(shop, billing.capabilities, { allowOrderMetrics }),
   ]);
   timings.getDashboardMetrics = performance.now() - tMetrics;
 
@@ -306,22 +308,27 @@ export default function DashboardIndex() {
         </s-section>
       ) : (
         <>
-          {/* Section A — Recommendation block engagement (7 days) */}
+          {/* Section A — Recommendation engagement (7 days) */}
           <s-section>
             <div className={dashboardStyles.sectionCartMetrics}>
               <div className={dashboardStyles.sectionHeader}>
-                <s-text tone="auto">👆 Recommendation block engagement</s-text>
+                <s-text tone="auto">👆 Recommendation engagement</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                Times a recommendation card was shown (impressions) and clicked (clicks). CTR = recommendation clicks ÷ recommendation impressions. Last 7 days.
+                Impressions, Clicks, Click-through rate, Conversion rate. Last 7 days.
               </p>
               <MetricSection>
-                <StatCard label="Recommendation card impressions" value={engagement.impressions7d} contextLabel="7 days" />
-                <StatCard label="Recommendation card clicks" value={engagement.clicks7d} contextLabel="7 days" />
+                <StatCard label="Impressions" value={engagement.impressions7d} contextLabel="7 days" />
+                <StatCard label="Clicks" value={engagement.clicks7d} contextLabel="7 days" />
                 <StatCard
-                  label="Recommendation CTR (clicks ÷ impressions)"
+                  label="Click-through rate"
                   value={engagement.impressions7d > 0 ? `${(engagement.ctr7d * 100).toFixed(2)}%` : "—"}
                   contextLabel="7 days"
+                />
+                <StatCard
+                  label="Conversion rate"
+                  value={engagement.conversionRate7d > 0 ? `${(engagement.conversionRate7d * 100).toFixed(2)}%` : "—"}
+                  contextLabel="adds ÷ sessions with recs shown"
                 />
               </MetricSection>
             </div>
@@ -365,6 +372,22 @@ export default function DashboardIndex() {
               </MetricSection>
             </div>
           </s-section>
+
+          {metrics.revenue != null && (
+            <s-section>
+              <div className={dashboardStyles.sectionCartMetrics}>
+                <div className={dashboardStyles.sectionHeader}>
+                  <s-text tone="auto">Revenue (paid orders)</s-text>
+                </div>
+                <p className={dashboardStyles.sectionSubtext}>
+                  Total from paid orders webhook. We do not claim this revenue is attributable to the app. To stop storing order data, turn off in Settings → Order data &amp; revenue.
+                </p>
+                <MetricSection>
+                  <StatCard label="Revenue (7 days)" value={formatCurrency(metrics.revenue.revenue7d, currency)} contextLabel="from paid orders" />
+                </MetricSection>
+              </div>
+            </s-section>
+          )}
 
           {retention && (
             <s-section heading="Momentum">

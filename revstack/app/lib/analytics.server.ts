@@ -49,16 +49,24 @@ export type CartPerformanceAnalytics = {
   previousThirtyDaySummary?: PeriodSummary;
 };
 
-/** Recommendation block engagement: card impressions, card clicks, CTR (30-day). */
+/** Recommendation block engagement: impressions, clicks, CTR, conversion rate (30-day). */
 export type EngagementAnalytics = {
   impressions30d: number;
   clicks30d: number;
-  ctr30d: number; // clicks ÷ impressions, or 0 when no impressions
+  ctr30d: number; // click-through rate: clicks ÷ impressions
+  conversionRate30d: number; // adds from recommendations ÷ drawer opens with recommendations shown
+};
+
+/** Revenue from paid orders (webhook). Shown only when allowOrderMetrics is enabled. We do not claim attribution. */
+export type RevenueAnalytics = {
+  revenue30d: number; // cents, SUM(orderValue) from OrderInfluenceEvent
 };
 
 export type AnalyticsMetrics = {
   cartPerformance: CartPerformanceAnalytics;
   engagement: EngagementAnalytics;
+  /** Present only when shop has allowOrderMetrics enabled. */
+  revenue?: RevenueAnalytics;
 };
 
 /** Zeroed metrics when DB has no data for shop or on error. No analytics served from stale memory. */
@@ -96,6 +104,7 @@ function zeroedAnalyticsMetrics(): AnalyticsMetrics {
       impressions30d: 0,
       clicks30d: 0,
       ctr30d: 0,
+      conversionRate30d: 0,
     },
   });
 }
@@ -114,11 +123,18 @@ function startOfDayUtc(daysAgo: number): Date {
  * Analytics: cartPerformance (7d trend, 30d summary, optional previous period, cart value at evaluation) and engagement (impressions, clicks, CTR from CrossSellEvent).
  * Reads from DecisionMetric + CrossSellConversion + CrossSellEvent. No in-memory cache. Fail-safe: on error return zeroed metrics.
  */
+export type GetAnalyticsMetricsOptions = {
+  /** When true, include revenue from paid orders (OrderInfluenceEvent). When false, revenue is omitted. */
+  allowOrderMetrics?: boolean;
+};
+
 export async function getAnalyticsMetrics(
   shop: string,
-  capabilities: Capabilities
+  capabilities: Capabilities,
+  options?: GetAnalyticsMetricsOptions
 ): Promise<AnalyticsMetrics> {
   const normalized = normalizeShopDomain(shop);
+  const allowOrderMetrics = options?.allowOrderMetrics !== false;
   try {
     const total = await prisma.decisionMetric.count({
       where: { shopDomain: normalized },
@@ -140,7 +156,7 @@ export async function getAnalyticsMetrics(
     return zeroedAnalyticsMetrics();
   }
   try {
-    return await getAnalyticsMetricsUncached(normalized, capabilities);
+    return await getAnalyticsMetricsUncached(normalized, capabilities, allowOrderMetrics);
   } catch (err) {
     logResilience({
       shop: normalized,
@@ -171,7 +187,8 @@ function toDateKey(d: Date): string {
 
 async function getAnalyticsMetricsUncached(
   shop: string,
-  capabilities: Capabilities
+  capabilities: Capabilities,
+  allowOrderMetrics: boolean
 ): Promise<AnalyticsMetrics> {
   const sevenDayStart = startOfDayUtc(6);
   const thirtyDayStart = startOfDayUtc(29);
@@ -244,6 +261,20 @@ async function getAnalyticsMetricsUncached(
     `,
   ]);
 
+  let revenue: RevenueAnalytics | undefined;
+  if (allowOrderMetrics) {
+    try {
+      const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
+        SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
+        FROM "OrderInfluenceEvent"
+        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${thirtyDayStart}
+      `;
+      revenue = { revenue30d: Number(revRows[0]?.revenue ?? 0) };
+    } catch {
+      revenue = { revenue30d: 0 };
+    }
+  }
+
   const s30 = thirtyDayRow[0];
   const total30 = s30 ? Number(s30.total) : 0;
   const shown30 = s30 ? Number(s30.shown) : 0;
@@ -293,6 +324,7 @@ async function getAnalyticsMetricsUncached(
     impressions30d,
     clicks30d,
     ctr30d: impressions30d > 0 ? clicks30d / impressions30d : 0,
+    conversionRate30d: addRate30,
   };
 
   if (capabilities.allowComparison) {
@@ -356,7 +388,7 @@ async function getAnalyticsMetricsUncached(
     };
   }
 
-  return { cartPerformance, engagement };
+  return { cartPerformance, engagement, ...(revenue && { revenue }) };
 }
 
 // --- Phase 5.6 aggregation types (per-shop analytics from DecisionMetric + conversions) ---

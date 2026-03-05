@@ -124,18 +124,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
 
-  // Order influence attribution: only write when explicitly enabled (rollback: set ENABLE_ORDER_INFLUENCE_EVENT=1).
-  // Default: do not write, to avoid revenue-liability framing; analytics focus on cart engagement.
-  if (orderId && process.env.ENABLE_ORDER_INFLUENCE_EVENT === "1") {
+  // Store order total for "Revenue (paid orders)" when merchant has allowed order metrics.
+  // When allowOrderMetrics is false, we do not store order data (merchant can turn off in Settings).
+  if (orderId && orderValueCents > 0) {
     try {
-      await prisma.orderInfluenceEvent.create({
-        data: {
-          shopDomain: shop,
-          orderId,
-          orderValue: orderValueCents,
-          influenced,
-        },
+      const shopConfig = await prisma.shopConfig.findUnique({
+        where: { shopDomain: shop },
+        select: { configV3: true },
       });
+      const configV3 = shopConfig?.configV3 as { allowOrderMetrics?: boolean } | null | undefined;
+      const allowOrderMetrics = configV3?.allowOrderMetrics !== false;
+      if (allowOrderMetrics) {
+        await prisma.orderInfluenceEvent.create({
+          data: {
+            shopDomain: shop,
+            orderId,
+            orderValue: orderValueCents,
+            influenced,
+          },
+        });
+      }
     } catch (err) {
       logWarn({
         shop,

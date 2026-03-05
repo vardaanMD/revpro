@@ -62,14 +62,16 @@ describe("analytics gating (response shape by plan)", () => {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce(emptyDashboardAggRow())
-      .mockResolvedValueOnce(emptyEngagement());
+      .mockResolvedValueOnce(emptyEngagement())
+      .mockResolvedValueOnce([{ revenue: 0n }]);
   }
 
   function mockAnalyticsBasic() {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce(emptyThirtyBase())
-      .mockResolvedValueOnce(emptyEngagement());
+      .mockResolvedValueOnce(emptyEngagement())
+      .mockResolvedValueOnce([{ revenue: 0n }]);
   }
 
   function mockAnalyticsAdvanced() {
@@ -77,6 +79,7 @@ describe("analytics gating (response shape by plan)", () => {
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce(emptyThirtyBase())
       .mockResolvedValueOnce(emptyEngagement())
+      .mockResolvedValueOnce([{ revenue: 0n }])
       .mockResolvedValueOnce([{ ...emptyThirtyBase()[0], total: 0n, shown: 0n, added: 0n }])
       .mockResolvedValueOnce([{ total: 0n, shown: 0n, added: 0n }]);
   }
