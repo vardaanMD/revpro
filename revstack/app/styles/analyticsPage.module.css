@@ -91,3 +91,62 @@
 .runtimeBadgeWrap {
   margin-bottom: var(--app-space-4);
 }
+
+.tableWrapper {
+  overflow-x: auto;
+  margin-top: var(--app-space-3);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--app-font-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--app-space-2) var(--app-space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.table th {
+  font-weight: 500;
+}
+
+.customRangeForm {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-3);
+  margin-top: var(--app-space-3);
+  flex-wrap: wrap;
+}
+
+.customRangeLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+}
+
+.customRangeLabel input[type="date"] {
+  padding: var(--app-space-1) var(--app-space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--p-border-radius-base);
+  font-size: var(--app-font-sm);
+}
+
+.customRangeSubmit {
+  padding: var(--app-space-2) var(--app-space-4);
+  font-size: var(--app-font-sm);
+  background: var(--p-color-bg-fill-brand);
+  color: var(--p-color-text-on-fill);
+  border: none;
+  border-radius: var(--p-border-radius-base);
+  cursor: pointer;
+}
+
+.customRangeSubmit:hover {
+  opacity: 0.9;
+}

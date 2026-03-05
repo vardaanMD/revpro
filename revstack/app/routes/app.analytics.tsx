@@ -4,7 +4,7 @@
  */
 import { performance } from "node:perf_hooks";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useNavigation } from "react-router";
+import { Form, useLoaderData, useNavigation } from "react-router";
 import { AppLink } from "~/components/AppLink";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "~/shopify.server";
@@ -15,19 +15,18 @@ import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.s
 import { getBillingContext } from "~/lib/billing-context.server";
 import {
   getAnalyticsMetrics,
+  parseAnalyticsRange,
   type AnalyticsMetrics,
+  type AnalyticsRangePreset,
 } from "~/lib/analytics.server";
 import { formatCurrency } from "~/lib/format";
 import { generateSparkline } from "~/lib/sparkline.server";
 import type { Plan } from "~/lib/capabilities.server";
 import { StatCard } from "~/components/ui/StatCard";
-import { DataPanel } from "~/components/ui/DataPanel";
-import { FeatureGate } from "~/components/ui/FeatureGate";
 import { MetricSection } from "~/components/ui/MetricSection";
 import analyticsStyles from "~/styles/analyticsPage.module.css";
 import dashboardStyles from "~/styles/dashboardIndex.module.css";
 import { MetricCardSkeleton } from "~/components/skeleton/MetricCardSkeleton";
-import { TableSkeleton } from "~/components/skeleton/TableSkeleton";
 import skeletonStyles from "~/styles/skeleton.module.css";
 import { useRef, useState, useEffect } from "react";
 import { logInfo } from "~/lib/logger.server";
@@ -64,14 +63,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const billing = await getBillingContext(shop, config);
 
-  // Analytics reads from same source V3 runtime writes to: DecisionMetric + CrossSellConversion
-  // (cart.analytics.v3.ts). No separate V2 vs V3 pipeline — unified store.
-  const tMetrics = performance.now();
+  const url = new URL(request.url);
+  const range = parseAnalyticsRange(url);
   const configV3ForMetrics = config.configV3 as { allowOrderMetrics?: boolean } | null | undefined;
   const allowOrderMetrics = configV3ForMetrics?.allowOrderMetrics !== false;
-  const [metrics] = await Promise.all([
-    getAnalyticsMetrics(shop, billing.capabilities, { allowOrderMetrics }),
-  ]);
+
+  const tMetrics = performance.now();
+  const metrics = await getAnalyticsMetrics(shop, billing.capabilities, {
+    allowOrderMetrics,
+    range,
+  });
   timings.getAnalyticsMetrics = performance.now() - tMetrics;
 
   timings.total = performance.now() - requestStart;
@@ -90,10 +91,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       : "v3";
 
   const sparklineDecisions = generateSparkline(
-    metrics.cartPerformance.sevenDayTrend.map((p) => p.decisions)
+    metrics.cartPerformance.trend.map((p) => p.decisions)
   );
   const sparklineAddRate = generateSparkline(
-    metrics.cartPerformance.sevenDayTrend.map((p) => p.addRate * 100)
+    metrics.cartPerformance.trend.map((p) => p.addRate * 100)
   );
   return {
     metrics,
@@ -120,50 +121,11 @@ type LoaderData = {
   runtimeVersion: "v1" | "v2" | "v3";
 };
 
-function formatPctChange(prev: number, curr: number): string {
-  if (prev === 0) return curr > 0 ? "+100%" : "0%";
-  const pct = ((curr - prev) / prev) * 100;
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${pct.toFixed(1)}%`;
-}
-
-function ComparisonRow({
-  label,
-  current,
-  previous,
-  format = "number",
-  currency,
-}: {
-  label: string;
-  current: number;
-  previous: number;
-  format?: "number" | "percent" | "currency" | "addRate";
-  currency: string;
-}) {
-  const improved = current > previous;
-  const declined = current < previous;
-  const displayCurrent =
-    format === "percent"
-      ? `${(current * 100).toFixed(1)}%`
-      : format === "currency"
-        ? formatCurrency(current, currency)
-        : format === "addRate"
-          ? current > 1
-            ? current.toFixed(2)
-            : `${(current * 100).toFixed(1)}%`
-          : String(current);
-  return (
-    <div className={analyticsStyles.comparisonRow}>
-      <s-text tone="neutral">{label}</s-text>
-      <span className={analyticsStyles.comparisonValue}>
-        <span>{displayCurrent}</span>
-        {improved && <span className={analyticsStyles.improved}>▲</span>}
-        {declined && <span className={analyticsStyles.declined}>▼</span>}
-        {!improved && !declined && <span className={analyticsStyles.neutral}>—</span>}
-      </span>
-    </div>
-  );
-}
+const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+];
 
 export default function AnalyticsPage() {
   const navigation = useNavigation();
@@ -172,6 +134,8 @@ export default function AnalyticsPage() {
     useLoaderData<LoaderData>();
 
   const cp = metrics.cartPerformance;
+  const rangeLabel = metrics.range.label;
+  const currentPreset = metrics.range.preset;
 
   const [transitionFromSkeleton, setTransitionFromSkeleton] = useState(false);
   const prevLoading = useRef(isLoading);
@@ -185,43 +149,13 @@ export default function AnalyticsPage() {
   }, [isLoading]);
 
   const isBillingActive = isEntitled;
-  const blurAdvanced = !capabilities.allowComparison || !isBillingActive;
 
-  const current7Decisions = cp.sevenDayTrend.reduce(
-    (s, p) => s + p.decisions,
-    0
-  );
-  const current7Shown = cp.sevenDayTrend.reduce(
-    (s, p) => s + Math.round(p.decisions * p.showRate),
-    0
-  );
-  const current7Added = cp.sevenDayTrend.reduce(
-    (s, p) => s + Math.round(p.decisions * p.showRate * p.addRate),
-    0
-  );
-  const current7AddRate =
-    current7Shown > 0 ? current7Added / current7Shown : 0;
-  const hasPrev7 =
-    capabilities.allowComparison &&
-    cp.previousSevenDaySummary != null;
-  const prev7 = hasPrev7 ? cp.previousSevenDaySummary! : null;
-  const pctChangeDecisions = hasPrev7 && prev7 != null
-    ? formatPctChange(prev7.totalDecisions, current7Decisions)
-    : "—";
-  const pctChangeAddRate = hasPrev7 && prev7 != null
-    ? formatPctChange(prev7.addRate * 100, current7AddRate * 100)
-    : "—";
-
-  const current7AddRatePct = current7AddRate * 100;
-  const prev7AddRatePct = hasPrev7 && prev7 != null ? prev7.addRate * 100 : 0;
-  const addRateFlat = hasPrev7 && prev7 != null && Math.abs(current7AddRatePct - prev7AddRatePct) < 0.5;
-  const decisionsFlat = hasPrev7 && prev7 != null && prev7.totalDecisions > 0 && Math.abs((current7Decisions - prev7.totalDecisions) / prev7.totalDecisions) < 0.05;
-
-  const addRate30Display =
-    cp.thirtyDaySummary.addRate > 1
-      ? cp.thirtyDaySummary.addRate.toFixed(2)
-      : `${(cp.thirtyDaySummary.addRate * 100).toFixed(1)}%`;
+  const addRateDisplay =
+    cp.summary.addRate > 1
+      ? cp.summary.addRate.toFixed(2)
+      : `${(cp.summary.addRate * 100).toFixed(1)}%`;
   const engagement = metrics.engagement;
+  const totalDecisions = cp.trend.reduce((s, p) => s + p.decisions, 0);
 
   const runtimeLabel = runtimeVersion === "v3" ? "V3" : runtimeVersion === "v1" ? "V1" : "V2";
 
@@ -234,151 +168,141 @@ export default function AnalyticsPage() {
       </div>
       {isLoading ? (
         <>
-          <s-section heading="Last 7 Days">
-            <s-stack direction="block" gap="large">
-              <MetricSection>
-                <MetricCardSkeleton />
-                <MetricCardSkeleton />
-              </MetricSection>
-            </s-stack>
-          </s-section>
-          <s-section heading="30 Day Summary">
+          <s-section heading="Analytics">
             <MetricSection>
               <MetricCardSkeleton />
               <MetricCardSkeleton />
               <MetricCardSkeleton />
               <MetricCardSkeleton />
-              <MetricCardSkeleton />
-            </MetricSection>
-          </s-section>
-          <s-section heading="Compared to previous 30 days">
-            <DataPanel>
-              <TableSkeleton rows={4} />
-            </DataPanel>
-          </s-section>
-          <s-section heading="Snapshot">
-            <MetricSection>
               <MetricCardSkeleton />
             </MetricSection>
           </s-section>
         </>
       ) : (
         <div className={skeletonStyles.contentFade} style={{ opacity: transitionFromSkeleton ? 0.6 : 1 }}>
-      {isBillingActive && (addRateFlat || decisionsFlat) && (
-        <s-banner tone="info" dismissible={false}>
-          Try adjusting your recommendation strategy in Settings to see more movement in your funnel.
-          <AppLink to="/app/settings">
-            <s-button variant="tertiary">Open Settings</s-button>
-          </AppLink>
-        </s-banner>
-      )}
+      {/* Timeframe selector */}
+      <s-section>
+        <s-stack direction="block" gap="base">
+          <s-text tone="subdued">Timeframe</s-text>
+          <s-stack direction="inline" gap="small" wrap>
+            {RANGE_OPTIONS.map(({ value, label }) => (
+              <AppLink
+                key={value}
+                to={`/app/analytics?range=${value}`}
+                prefetch="intent"
+              >
+                <s-button variant={currentPreset === value ? "primary" : "secondary"} size="slim">
+                  {label}
+                </s-button>
+              </AppLink>
+            ))}
+          </s-stack>
+          <Form method="get" action="/app/analytics" className={analyticsStyles.customRangeForm}>
+            <label className={analyticsStyles.customRangeLabel}>
+              <span>From</span>
+              <input
+                type="date"
+                name="start"
+                defaultValue={metrics.range.startDate.toISOString().slice(0, 10)}
+              />
+            </label>
+            <label className={analyticsStyles.customRangeLabel}>
+              <span>To</span>
+              <input
+                type="date"
+                name="end"
+                defaultValue={metrics.range.endDate.toISOString().slice(0, 10)}
+              />
+            </label>
+            <button type="submit" className={analyticsStyles.customRangeSubmit}>Apply</button>
+          </Form>
+          <s-text tone="auto">{rangeLabel}</s-text>
+        </s-stack>
+      </s-section>
 
-      {/* Cart metrics */}
+      {/* Single view: cart, trend, engagement, revenue */}
       <div>
-        <s-section heading="Cart drawer metrics (30 days)">
+        <s-section heading="Cart drawer metrics">
           <p className={analyticsStyles.sectionSubtext}>
-            One row per drawer open when the cart was evaluated. All values are cart state at that moment only — not revenue or completed orders.
+            One row per drawer open. All values are cart state at that moment only — not revenue or completed orders. {rangeLabel}.
           </p>
           <MetricSection>
-            <StatCard label="Drawer opens" value={cp.thirtyDaySummary.totalDecisions} contextLabel="30 days" />
-            <StatCard label="Drawer opens with ≥1 recommendation shown" value={`${(cp.thirtyDaySummary.showRate * 100).toFixed(1)}%`} contextLabel="of drawer opens" />
-            <StatCard label="Add-to-carts from recommendations" value={addRate30Display} contextLabel="per drawer open with recommendations shown" />
-            <StatCard label="Avg. cart total at drawer open" contextLabel="30 days" value={formatCurrency(cp.thirtyDaySummary.avgCartValue, CURRENCY)} />
-            <StatCard label="Sum of cart totals (at each drawer open)" contextLabel="30 days, not revenue" value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
+            <StatCard label="Drawer opens" value={cp.summary.totalDecisions} contextLabel={rangeLabel} />
+            <StatCard label="Drawer opens with ≥1 recommendation shown" value={`${(cp.summary.showRate * 100).toFixed(1)}%`} contextLabel="of drawer opens" />
+            <StatCard label="Add-to-carts from recommendations" value={addRateDisplay} contextLabel="per drawer open with recommendations shown" />
+            <StatCard label="Avg. cart total at drawer open" contextLabel={rangeLabel} value={formatCurrency(cp.summary.avgCartValue, CURRENCY)} />
+            <StatCard label="Sum of cart totals (at each drawer open)" contextLabel={`${rangeLabel}, not revenue`} value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
           </MetricSection>
         </s-section>
 
-        <s-section heading="Drawer opens (7-day trend)">
-          <s-stack direction="block" gap="large">
-            <MetricSection>
-              <StatCard
-                label="Drawer opens (last 7 days)"
-                value={
-                  <>
-                    <div
-                      dangerouslySetInnerHTML={{ __html: sparklineDecisions }}
-                      className={analyticsStyles.sparkline}
-                    />
-                    <s-text>
-                      {current7Decisions} <span className={analyticsStyles.subduedSpan}>{pctChangeDecisions} vs prev 7 days</span>
-                    </s-text>
-                  </>
-                }
-              />
-              <StatCard
-                label="Add-to-carts from recommendations (7 days)"
-                value={
-                  <>
-                    <div
-                      dangerouslySetInnerHTML={{ __html: sparklineAddRate }}
-                      className={analyticsStyles.sparkline}
-                    />
-                    <s-text>
-                      {current7AddRate > 1 ? current7AddRate.toFixed(2) : `${(current7AddRate * 100).toFixed(1)}%`}{" "}
-                      <span className={analyticsStyles.subduedSpan}>{pctChangeAddRate} vs prev 7 days</span>
-                    </s-text>
-                  </>
-                }
-              />
-            </MetricSection>
-          </s-stack>
+        <s-section heading="Drawer opens (daily trend)">
+          <MetricSection>
+            <StatCard
+              label="Drawer opens"
+              value={
+                <>
+                  <div
+                    dangerouslySetInnerHTML={{ __html: sparklineDecisions }}
+                    className={analyticsStyles.sparkline}
+                  />
+                  <s-text>{totalDecisions} total</s-text>
+                </>
+              }
+            />
+            <StatCard
+              label="Add-to-carts from recommendations"
+              value={
+                <>
+                  <div
+                    dangerouslySetInnerHTML={{ __html: sparklineAddRate }}
+                    className={analyticsStyles.sparkline}
+                  />
+                  <s-text>
+                    {cp.summary.addRate > 1 ? cp.summary.addRate.toFixed(2) : `${(cp.summary.addRate * 100).toFixed(1)}%`} rate
+                  </s-text>
+                </>
+              }
+            />
+          </MetricSection>
+          {cp.trend.length > 0 && cp.trend.length <= 90 && (
+            <div className={analyticsStyles.tableWrapper}>
+              <table className={analyticsStyles.table}>
+                <thead>
+                  <tr>
+                    <th><s-text tone="neutral">Date</s-text></th>
+                    <th><s-text tone="neutral">Drawer opens</s-text></th>
+                    <th><s-text tone="neutral">Add rate</s-text></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cp.trend.map((p) => (
+                    <tr key={p.date}>
+                      <td><s-text tone="auto">{p.date}</s-text></td>
+                      <td><s-text tone="auto">{p.decisions}</s-text></td>
+                      <td><s-text tone="auto">{p.addRate > 0 ? `${(p.addRate * 100).toFixed(1)}%` : "—"}</s-text></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </s-section>
 
-        <s-section heading="Compared to previous 30 days">
-          <FeatureGate locked={blurAdvanced} ctaLabel="Activate plan" ctaTo="/app/upgrade">
-            <DataPanel>
-              <s-stack direction="block" gap="base">
-                {capabilities.allowComparison && cp.previousThirtyDaySummary != null && (
-                  <>
-                    <ComparisonRow
-                      label="Drawer opens"
-                      current={cp.thirtyDaySummary.totalDecisions}
-                      previous={cp.previousThirtyDaySummary.totalDecisions}
-                      currency={CURRENCY}
-                    />
-                    <ComparisonRow
-                      label="Drawer opens with recommendations shown (%)"
-                      current={cp.thirtyDaySummary.showRate}
-                      previous={cp.previousThirtyDaySummary.showRate}
-                      format="percent"
-                      currency={CURRENCY}
-                    />
-                    <ComparisonRow
-                      label="Add-to-carts from recommendations (per session shown)"
-                      current={cp.thirtyDaySummary.addRate}
-                      previous={cp.previousThirtyDaySummary.addRate}
-                      format="addRate"
-                      currency={CURRENCY}
-                    />
-                    <ComparisonRow
-                      label="Avg. cart total at drawer open"
-                      current={cp.thirtyDaySummary.avgCartValue}
-                      previous={cp.previousThirtyDaySummary.avgCartValue}
-                      format="currency"
-                      currency={CURRENCY}
-                    />
-                  </>
-                )}
-              </s-stack>
-            </DataPanel>
-          </FeatureGate>
-        </s-section>
-
-        <s-section heading="Recommendation engagement (30 days)">
+        <s-section heading="Recommendation engagement">
           <p className={analyticsStyles.sectionSubtext}>
-            Impressions = times a recommendation card was shown. Clicks = times a card was clicked. Click-through rate = clicks ÷ impressions. Conversion rate = add-to-carts from recommendations ÷ drawer opens with recommendations shown.
+            Impressions, Clicks, Click-through rate, Conversion rate. {rangeLabel}.
           </p>
           <MetricSection>
-            <StatCard label="Impressions" value={engagement.impressions30d} contextLabel="30 days" />
-            <StatCard label="Clicks" value={engagement.clicks30d} contextLabel="30 days" />
+            <StatCard label="Impressions" value={engagement.impressions} contextLabel={rangeLabel} />
+            <StatCard label="Clicks" value={engagement.clicks} contextLabel={rangeLabel} />
             <StatCard
               label="Click-through rate"
-              value={engagement.impressions30d > 0 ? `${(engagement.ctr30d * 100).toFixed(2)}%` : "—"}
-              contextLabel="30 days"
+              value={engagement.impressions > 0 ? `${(engagement.ctr * 100).toFixed(2)}%` : "—"}
+              contextLabel={rangeLabel}
             />
             <StatCard
               label="Conversion rate"
-              value={engagement.conversionRate30d > 0 ? `${(engagement.conversionRate30d * 100).toFixed(2)}%` : "—"}
+              value={engagement.conversionRate > 0 ? `${(engagement.conversionRate * 100).toFixed(2)}%` : "—"}
               contextLabel="adds ÷ sessions with recs shown"
             />
           </MetricSection>
@@ -387,10 +311,10 @@ export default function AnalyticsPage() {
         {metrics.revenue != null && (
           <s-section heading="Revenue (paid orders)">
             <p className={analyticsStyles.sectionSubtext}>
-              Total from paid orders webhook. We do not claim this revenue is attributable to the app. To stop storing order data, turn off in Settings → Order data &amp; revenue.
+              Actual order revenue from paid orders webhook. We do not claim this revenue is attributable to the app. To stop storing order data, turn off in Settings → Order data &amp; revenue.
             </p>
             <MetricSection>
-              <StatCard label="Revenue (30 days)" value={formatCurrency(metrics.revenue.revenue30d, CURRENCY)} contextLabel="from paid orders" />
+              <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, CURRENCY)} contextLabel={rangeLabel} />
             </MetricSection>
           </s-section>
         )}

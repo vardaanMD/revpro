@@ -4,11 +4,15 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getDashboardMetrics } from "~/lib/dashboard-metrics.server";
-import { getAnalyticsMetrics } from "~/lib/analytics.server";
+import { getAnalyticsMetrics, parseAnalyticsRange } from "~/lib/analytics.server";
 import { resolveCapabilities, type Plan } from "~/lib/capabilities.server";
 import { prisma } from "~/lib/prisma.server";
 
 const TEST_SHOP = "gating-test.myshopify.com";
+
+function defaultRange() {
+  return parseAnalyticsRange(new URL("http://x/?range=30d"));
+}
 
 vi.mock("~/lib/prisma.server", () => ({
   prisma: {
@@ -74,14 +78,12 @@ describe("analytics gating (response shape by plan)", () => {
       .mockResolvedValueOnce([{ revenue: 0n }]);
   }
 
-  function mockAnalyticsAdvanced() {
+  function mockAnalyticsWithRange() {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce(emptyThirtyBase())
       .mockResolvedValueOnce(emptyEngagement())
-      .mockResolvedValueOnce([{ revenue: 0n }])
-      .mockResolvedValueOnce([{ ...emptyThirtyBase()[0], total: 0n, shown: 0n, added: 0n }])
-      .mockResolvedValueOnce([{ total: 0n, shown: 0n, added: 0n }]);
+      .mockResolvedValueOnce([{ revenue: 0n }]);
   }
 
   describe("BASIC plan", () => {
@@ -99,15 +101,14 @@ describe("analytics gating (response shape by plan)", () => {
       expect(data.engagement.clicks7d).toBe(0);
     });
 
-    it("analytics has cartPerformance and engagement, no comparison", async () => {
+    it("analytics has cartPerformance and engagement", async () => {
       mockAnalyticsBasic();
-      const data = await getAnalyticsMetrics(TEST_SHOP, capabilities);
+      const data = await getAnalyticsMetrics(TEST_SHOP, capabilities, { range: defaultRange() });
 
+      expect(data.range).toBeDefined();
       expect(data.cartPerformance).toBeDefined();
-      expect(data.cartPerformance.sevenDayTrend).toBeDefined();
-      expect(data.cartPerformance.thirtyDaySummary).toBeDefined();
-      expect(data.cartPerformance.previousSevenDaySummary).toBeUndefined();
-      expect(data.cartPerformance.previousThirtyDaySummary).toBeUndefined();
+      expect(data.cartPerformance.trend).toBeDefined();
+      expect(data.cartPerformance.summary).toBeDefined();
       expect(data.engagement).toBeDefined();
     });
   });
@@ -123,12 +124,11 @@ describe("analytics gating (response shape by plan)", () => {
       expect(data.engagement).toBeDefined();
     });
 
-    it("analytics has cartPerformance with comparison and engagement", async () => {
-      mockAnalyticsAdvanced();
-      const data = await getAnalyticsMetrics(TEST_SHOP, capabilities);
+    it("analytics has cartPerformance and engagement", async () => {
+      mockAnalyticsWithRange();
+      const data = await getAnalyticsMetrics(TEST_SHOP, capabilities, { range: defaultRange() });
 
-      expect(data.cartPerformance.previousSevenDaySummary).toBeDefined();
-      expect(data.cartPerformance.previousThirtyDaySummary).toBeDefined();
+      expect(data.cartPerformance).toBeDefined();
       expect(data.engagement).toBeDefined();
     });
   });
@@ -145,8 +145,8 @@ describe("analytics gating (response shape by plan)", () => {
     });
 
     it("analytics has cartPerformance and engagement", async () => {
-      mockAnalyticsAdvanced();
-      const data = await getAnalyticsMetrics(TEST_SHOP, capabilities);
+      mockAnalyticsWithRange();
+      const data = await getAnalyticsMetrics(TEST_SHOP, capabilities, { range: defaultRange() });
 
       expect(data.cartPerformance).toBeDefined();
       expect(data.engagement).toBeDefined();

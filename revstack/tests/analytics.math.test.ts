@@ -3,12 +3,16 @@
  * Order Impact removed; engagement from CrossSellEvent.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getAnalyticsMetrics } from "~/lib/analytics.server";
+import { getAnalyticsMetrics, parseAnalyticsRange } from "~/lib/analytics.server";
 import { getDashboardMetrics } from "~/lib/dashboard-metrics.server";
 import { resolveCapabilities, type Plan } from "~/lib/capabilities.server";
 import { prisma } from "~/lib/prisma.server";
 
 const TEST_SHOP = "analytics-math-test.myshopify.com";
+
+function defaultRange() {
+  return parseAnalyticsRange(new URL("http://x/?range=30d"));
+}
 
 vi.mock("~/lib/prisma.server", () => ({
   prisma: {
@@ -46,7 +50,7 @@ describe("analytics math validation", () => {
   });
 
   it("analytics returns cartPerformance and engagement", async () => {
-    const thirtyRow = {
+    const summaryRow = {
       total: 100n,
       shown: 50n,
       avg_cart: 110,
@@ -54,28 +58,26 @@ describe("analytics math validation", () => {
       added: 0n,
       sum_cart_with: 6000n,
     };
-    const prevThirtyRow = [{ ...thirtyRow, total: 20n, shown: 10n, added: 0n }];
-    const prevSevenRow = [{ total: 10n, shown: 5n, added: 0n }];
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
-      .mockResolvedValueOnce([thirtyRow])
+      .mockResolvedValueOnce([summaryRow])
       .mockResolvedValueOnce(emptyEngagement())
-      .mockResolvedValueOnce([{ revenue: 0n }])
-      .mockResolvedValueOnce(prevThirtyRow)
-      .mockResolvedValueOnce(prevSevenRow);
-    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("growth" as Plan));
+      .mockResolvedValueOnce([{ revenue: 0n }]);
+    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("growth" as Plan), { range: defaultRange() });
 
+    expect(data.range).toBeDefined();
     expect(data.cartPerformance).toBeDefined();
-    expect(data.cartPerformance.thirtyDaySummary.totalDecisions).toBe(100);
+    expect(data.cartPerformance.summary.totalDecisions).toBe(100);
+    expect(data.cartPerformance.trend).toBeDefined();
     expect(data.engagement).toBeDefined();
-    expect(data.engagement.impressions30d).toBe(0);
-    expect(data.engagement.clicks30d).toBe(0);
-    expect(data.engagement.ctr30d).toBe(0);
-    expect(data.engagement.conversionRate30d).toBeDefined();
+    expect(data.engagement.impressions).toBe(0);
+    expect(data.engagement.clicks).toBe(0);
+    expect(data.engagement.ctr).toBe(0);
+    expect(data.engagement.conversionRate).toBeDefined();
   });
 
   it("engagement CTR = clicks / impressions when impressions > 0", async () => {
-    const thirtyRow = {
+    const summaryRow = {
       total: 100n,
       shown: 50n,
       avg_cart: 100,
@@ -85,18 +87,18 @@ describe("analytics math validation", () => {
     };
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
-      .mockResolvedValueOnce([thirtyRow])
+      .mockResolvedValueOnce([summaryRow])
       .mockResolvedValueOnce([{ impressions: 100n, clicks: 15n }])
       .mockResolvedValueOnce([{ revenue: 0n }]);
-    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan));
+    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan), { range: defaultRange() });
 
-    expect(data.engagement.impressions30d).toBe(100);
-    expect(data.engagement.clicks30d).toBe(15);
-    expect(data.engagement.ctr30d).toBe(0.15);
+    expect(data.engagement.impressions).toBe(100);
+    expect(data.engagement.clicks).toBe(15);
+    expect(data.engagement.ctr).toBe(0.15);
   });
 
   it("adds per recommendation session — addRate 1.5", async () => {
-    const thirtyRow = {
+    const summaryRow = {
       total: 100n,
       shown: 50n,
       avg_cart: 100,
@@ -104,18 +106,14 @@ describe("analytics math validation", () => {
       added: 75n,
       sum_cart_with: 5000n,
     };
-    const prevThirtyRow = [{ ...thirtyRow, total: 50n, shown: 25n, added: 0n }];
-    const prevSevenRow = [{ total: 20n, shown: 10n, added: 0n }];
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
-      .mockResolvedValueOnce([thirtyRow])
+      .mockResolvedValueOnce([summaryRow])
       .mockResolvedValueOnce(emptyEngagement())
-      .mockResolvedValueOnce([{ revenue: 0n }])
-      .mockResolvedValueOnce(prevThirtyRow)
-      .mockResolvedValueOnce(prevSevenRow);
-    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("advanced" as Plan));
+      .mockResolvedValueOnce([{ revenue: 0n }]);
+    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("advanced" as Plan), { range: defaultRange() });
 
-    expect(data.cartPerformance.thirtyDaySummary.addRate).toBe(1.5);
+    expect(data.cartPerformance.summary.addRate).toBe(1.5);
   });
 
   it("dashboard returns cartPerformance and engagement", async () => {
@@ -150,7 +148,7 @@ describe("analytics math validation", () => {
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce([{ total: 10n, shown: 5n, avg_cart: 100, count_all: 10n, added: 0n, sum_cart_with: 1000n }])
       .mockResolvedValueOnce(emptyEngagement());
-    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan), { allowOrderMetrics: false });
+    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan), { allowOrderMetrics: false, range: defaultRange() });
     expect(data.revenue).toBeUndefined();
   });
 });

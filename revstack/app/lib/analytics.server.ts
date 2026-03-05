@@ -3,9 +3,92 @@ import type { Capabilities } from "~/lib/capabilities.server";
 import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import { logWarn, logResilience } from "~/lib/logger.server";
 
-// --- Phase 6.3 analytics metrics (7d trend, 30d summary, period comparison) ---
+// --- Analytics with configurable date range (single view) ---
 
-export type SevenDayTrendPoint = {
+/** Preset range key for URL (e.g. ?range=30d). */
+export type AnalyticsRangePreset = "7d" | "30d" | "90d";
+
+/** Parsed date range for analytics. All metrics are computed for this window. */
+export type AnalyticsDateRange = {
+  startDate: Date;
+  endDate: Date;
+  /** Human label e.g. "Last 30 days" or "Jan 1 – Jan 31, 2025". */
+  label: string;
+  /** Preset used, if any. */
+  preset?: AnalyticsRangePreset;
+};
+
+const MAX_ANALYTICS_DAYS = 365;
+
+/**
+ * Parse analytics date range from URL search params.
+ * Supports ?range=7d|30d|90d or ?start=YYYY-MM-DD&end=YYYY-MM-DD.
+ * Default: last 30 days. Max range: MAX_ANALYTICS_DAYS.
+ */
+export function parseAnalyticsRange(url: URL): AnalyticsDateRange {
+  const rangeParam = url.searchParams.get("range");
+  const startParam = url.searchParams.get("start");
+  const endParam = url.searchParams.get("end");
+  const now = new Date();
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+
+  if (rangeParam === "7d" || rangeParam === "30d" || rangeParam === "90d") {
+    const days = rangeParam === "7d" ? 7 : rangeParam === "30d" ? 30 : 90;
+    const startDate = new Date(todayStart);
+    startDate.setUTCDate(startDate.getUTCDate() - (days - 1));
+    const endDate = new Date(todayStart);
+    const label = days === 7 ? "Last 7 days" : days === 30 ? "Last 30 days" : "Last 90 days";
+    return { startDate, endDate, label, preset: rangeParam };
+  }
+
+  if (startParam && endParam) {
+    const start = parseISODate(startParam);
+    const end = parseISODate(endParam);
+    if (start && end && start <= end) {
+      const startDate = startOfDayUtcDate(start);
+      let endDate = startOfDayUtcDate(end);
+      const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+      if (days > MAX_ANALYTICS_DAYS) {
+        endDate = new Date(startDate);
+        endDate.setUTCDate(endDate.getUTCDate() + MAX_ANALYTICS_DAYS - 1);
+      }
+      const label = formatRangeLabel(startDate, endDate);
+      return { startDate, endDate, label };
+    }
+  }
+
+  // Default: last 30 days
+  const startDate = new Date(todayStart);
+  startDate.setUTCDate(startDate.getUTCDate() - 29);
+  return {
+    startDate,
+    endDate: new Date(todayStart),
+    label: "Last 30 days",
+    preset: "30d",
+  };
+}
+
+function parseISODate(s: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!match) return null;
+  const y = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10) - 1;
+  const d = parseInt(match[3], 10);
+  const date = new Date(Date.UTC(y, m, d, 0, 0, 0, 0));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m || date.getUTCDate() !== d) return null;
+  return date;
+}
+
+function startOfDayUtcDate(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+}
+
+function formatRangeLabel(start: Date, end: Date): string {
+  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+export type TrendPoint = {
   date: string;
   decisions: number;
   showRate: number;
@@ -18,11 +101,6 @@ export type PeriodSummary = {
   showRate: number;
   addRate: number;
   avgCartValue: number;
-};
-
-export type PreviousSevenDaySummary = {
-  totalDecisions: number;
-  addRate: number;
 };
 
 /** Recursively freeze an object so it cannot be mutated (future-proof against cross-request leakage). */
@@ -39,48 +117,42 @@ function deepFreeze<T>(obj: T): T {
   return obj;
 }
 
-/** Cart drawer metrics: one row per drawer open (cart evaluated). Not revenue. */
+/** Cart drawer metrics for the selected date range. One row per drawer open. Not revenue. */
 export type CartPerformanceAnalytics = {
-  sevenDayTrend: SevenDayTrendPoint[];
-  thirtyDaySummary: PeriodSummary;
-  /** Sum of cart total at each drawer open (30-day). Cart state only, not revenue. */
+  trend: TrendPoint[];
+  summary: PeriodSummary;
+  /** Sum of cart total at each drawer open in range. Cart state only, not revenue. */
   cartValueAtEvaluation: number;
-  previousSevenDaySummary?: PreviousSevenDaySummary;
-  previousThirtyDaySummary?: PeriodSummary;
 };
 
-/** Recommendation block engagement: impressions, clicks, CTR, conversion rate (30-day). */
+/** Recommendation engagement for the selected date range. */
 export type EngagementAnalytics = {
-  impressions30d: number;
-  clicks30d: number;
-  ctr30d: number; // click-through rate: clicks ÷ impressions
-  conversionRate30d: number; // adds from recommendations ÷ drawer opens with recommendations shown
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  conversionRate: number;
 };
 
-/** Revenue from paid orders (webhook). Shown only when allowOrderMetrics is enabled. We do not claim attribution. */
+/** Revenue from paid orders (webhook) for the selected date range. We do not claim attribution. */
 export type RevenueAnalytics = {
-  revenue30d: number; // cents, SUM(orderValue) from OrderInfluenceEvent
+  revenueCents: number;
 };
 
 export type AnalyticsMetrics = {
+  /** Date range these metrics apply to. */
+  range: AnalyticsDateRange;
   cartPerformance: CartPerformanceAnalytics;
   engagement: EngagementAnalytics;
-  /** Present only when shop has allowOrderMetrics enabled. */
+  /** Present only when allowOrderMetrics enabled. */
   revenue?: RevenueAnalytics;
 };
 
-/** Zeroed metrics when DB has no data for shop or on error. No analytics served from stale memory. */
-function zeroedAnalyticsMetrics(): AnalyticsMetrics {
-  const sevenDayStart = (() => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() - 6);
-    d.setUTCHours(0, 0, 0, 0);
-    return d;
-  })();
-  const trend: SevenDayTrendPoint[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(sevenDayStart);
-    d.setUTCDate(d.getUTCDate() + i);
+/** Zeroed metrics when DB has no data or on error. Uses the given range for trend length. */
+function zeroedAnalyticsMetrics(range: AnalyticsDateRange): AnalyticsMetrics {
+  const trend: TrendPoint[] = [];
+  const start = new Date(range.startDate);
+  const end = new Date(range.endDate);
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
     trend.push({
       date: d.toISOString().slice(0, 10),
       decisions: 0,
@@ -90,22 +162,13 @@ function zeroedAnalyticsMetrics(): AnalyticsMetrics {
     });
   }
   return deepFreeze({
+    range,
     cartPerformance: {
-      sevenDayTrend: trend,
-      thirtyDaySummary: {
-        totalDecisions: 0,
-        showRate: 0,
-        addRate: 0,
-        avgCartValue: 0,
-      },
+      trend,
+      summary: { totalDecisions: 0, showRate: 0, addRate: 0, avgCartValue: 0 },
       cartValueAtEvaluation: 0,
     },
-    engagement: {
-      impressions30d: 0,
-      clicks30d: 0,
-      ctr30d: 0,
-      conversionRate30d: 0,
-    },
+    engagement: { impressions: 0, clicks: 0, ctr: 0, conversionRate: 0 },
   });
 }
 
@@ -119,28 +182,29 @@ function startOfDayUtc(daysAgo: number): Date {
   return d;
 }
 
-/**
- * Analytics: cartPerformance (7d trend, 30d summary, optional previous period, cart value at evaluation) and engagement (impressions, clicks, CTR from CrossSellEvent).
- * Reads from DecisionMetric + CrossSellConversion + CrossSellEvent. No in-memory cache. Fail-safe: on error return zeroed metrics.
- */
 export type GetAnalyticsMetricsOptions = {
-  /** When true, include revenue from paid orders (OrderInfluenceEvent). When false, revenue is omitted. */
   allowOrderMetrics?: boolean;
+  /** Date range for all metrics. Defaults to last 30 days if not provided. */
+  range: AnalyticsDateRange;
 };
 
+/**
+ * Analytics for a single date range: cart performance (trend + summary), engagement, optional revenue.
+ * Reads from DecisionMetric + CrossSellConversion + CrossSellEvent + OrderInfluenceEvent. Fail-safe: on error returns zeroed metrics.
+ */
 export async function getAnalyticsMetrics(
   shop: string,
   capabilities: Capabilities,
-  options?: GetAnalyticsMetricsOptions
+  options: GetAnalyticsMetricsOptions
 ): Promise<AnalyticsMetrics> {
   const normalized = normalizeShopDomain(shop);
-  const allowOrderMetrics = options?.allowOrderMetrics !== false;
+  const { allowOrderMetrics = true, range } = options;
   try {
     const total = await prisma.decisionMetric.count({
       where: { shopDomain: normalized },
     });
     if (total === 0) {
-      return zeroedAnalyticsMetrics();
+      return zeroedAnalyticsMetrics(range);
     }
   } catch (err) {
     logResilience({
@@ -153,10 +217,10 @@ export async function getAnalyticsMetrics(
         stack: process.env.NODE_ENV === "development" && err instanceof Error ? err.stack : undefined,
       },
     });
-    return zeroedAnalyticsMetrics();
+    return zeroedAnalyticsMetrics(range);
   }
   try {
-    return await getAnalyticsMetricsUncached(normalized, capabilities, allowOrderMetrics);
+    return await getAnalyticsMetricsUncached(normalized, capabilities, allowOrderMetrics, range);
   } catch (err) {
     logResilience({
       shop: normalized,
@@ -168,7 +232,7 @@ export async function getAnalyticsMetrics(
         stack: process.env.NODE_ENV === "development" && err instanceof Error ? err.stack : undefined,
       },
     });
-    return zeroedAnalyticsMetrics();
+    return zeroedAnalyticsMetrics(range);
   }
 }
 
@@ -185,17 +249,25 @@ function toDateKey(d: Date): string {
   return d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
 }
 
+/** End of day (exclusive) for SQL: next day 00:00:00 UTC. */
+function endOfRangeExclusive(endDate: Date): Date {
+  const d = new Date(endDate);
+  d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
 async function getAnalyticsMetricsUncached(
   shop: string,
   capabilities: Capabilities,
-  allowOrderMetrics: boolean
+  allowOrderMetrics: boolean,
+  range: AnalyticsDateRange
 ): Promise<AnalyticsMetrics> {
-  const sevenDayStart = startOfDayUtc(6);
-  const thirtyDayStart = startOfDayUtc(29);
+  const rangeEndExclusive = endOfRangeExclusive(range.endDate);
 
   if (process.env.NODE_ENV === "development") {
     const distinctShops = await prisma.decisionMetric.findMany({
-      where: { shopDomain: shop, createdAt: { gte: sevenDayStart } },
+      where: { shopDomain: shop, createdAt: { gte: range.startDate, lt: rangeEndExclusive } },
       select: { shopDomain: true },
       distinct: ["shopDomain"],
     });
@@ -206,10 +278,9 @@ async function getAnalyticsMetricsUncached(
   }
 
   type DayRow = { day: Date; total: bigint; shown: bigint; sum_cart: bigint; adds: bigint };
-
   type EngagementRow = { impressions: bigint; clicks: bigint };
 
-  const [sevenDayRowsWithAdds, thirtyDayRow, engagementRow] = await Promise.all([
+  const [dayRows, summaryRow, engagementRow] = await Promise.all([
     prisma.$queryRaw<DayRow[]>`
       WITH dm AS (
         SELECT
@@ -218,7 +289,7 @@ async function getAnalyticsMetricsUncached(
           COUNT(*) FILTER (WHERE "hasCrossSell" = true)::bigint AS shown,
           COALESCE(SUM("cartValue")::bigint, 0) AS sum_cart
         FROM "DecisionMetric"
-        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
+        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
         GROUP BY DATE_TRUNC('day', "createdAt")
       ),
       conv AS (
@@ -226,7 +297,7 @@ async function getAnalyticsMetricsUncached(
           DATE_TRUNC('day', "createdAt")::date AS day,
           COUNT(*)::bigint AS adds
         FROM "CrossSellConversion"
-        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
+        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
         GROUP BY DATE_TRUNC('day', "createdAt")
       )
       SELECT dm.day, dm.total, dm.shown, dm.sum_cart, COALESCE(conv.adds, 0)::bigint AS adds
@@ -239,16 +310,16 @@ async function getAnalyticsMetricsUncached(
         SELECT
           COUNT(*)::bigint AS total,
           COUNT(*) FILTER (WHERE "hasCrossSell" = true)::bigint AS shown,
-          AVG("cartValue") FILTER (WHERE "createdAt" >= ${thirtyDayStart}) AS avg_cart,
-          COUNT(*) FILTER (WHERE "createdAt" >= ${thirtyDayStart})::bigint AS count_all,
-          COALESCE(SUM("cartValue") FILTER (WHERE "hasCrossSell" = true AND "createdAt" >= ${thirtyDayStart}), 0)::bigint AS sum_cart_with
+          AVG("cartValue") AS avg_cart,
+          COUNT(*)::bigint AS count_all,
+          COALESCE(SUM("cartValue") FILTER (WHERE "hasCrossSell" = true), 0)::bigint AS sum_cart_with
         FROM "DecisionMetric"
-        WHERE "shopDomain" = ${shop}
+        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
       ),
       conv AS (
         SELECT COUNT(*)::bigint AS added
         FROM "CrossSellConversion"
-        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${thirtyDayStart}
+        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
       )
       SELECT dm.total, dm.shown, dm.avg_cart, dm.count_all, conv.added, dm.sum_cart_with FROM dm, conv
     `,
@@ -257,7 +328,7 @@ async function getAnalyticsMetricsUncached(
         COUNT(*) FILTER (WHERE "eventType" = 'impression')::bigint AS impressions,
         COUNT(*) FILTER (WHERE "eventType" = 'click')::bigint AS clicks
       FROM "CrossSellEvent"
-      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${thirtyDayStart}
+      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
     `,
   ]);
 
@@ -267,128 +338,58 @@ async function getAnalyticsMetricsUncached(
       const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
         SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
         FROM "OrderInfluenceEvent"
-        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${thirtyDayStart}
+        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
       `;
-      revenue = { revenue30d: Number(revRows[0]?.revenue ?? 0) };
+      revenue = { revenueCents: Number(revRows[0]?.revenue ?? 0) };
     } catch {
-      revenue = { revenue30d: 0 };
+      revenue = { revenueCents: 0 };
     }
   }
 
-  const s30 = thirtyDayRow[0];
-  const total30 = s30 ? Number(s30.total) : 0;
-  const shown30 = s30 ? Number(s30.shown) : 0;
-  const added30 = s30 ? Number(s30.added) : 0;
-  const cartValueAtEvaluation = s30 && "sum_cart_with" in s30 ? Number(s30.sum_cart_with) : 0;
-  const avgCartValue30 =
-    s30 && s30.count_all > 0n && s30.avg_cart != null
-      ? Math.round(s30.avg_cart)
-      : 0;
-  const showRate30 = total30 > 0 ? shown30 / total30 : 0;
-  const addRate30 = shown30 > 0 ? added30 / shown30 : 0;
+  const s = summaryRow[0];
+  const total = s ? Number(s.total) : 0;
+  const shown = s ? Number(s.shown) : 0;
+  const added = s ? Number(s.added) : 0;
+  const cartValueAtEvaluation = s && "sum_cart_with" in s ? Number(s.sum_cart_with) : 0;
+  const avgCartValue =
+    s && s.count_all > 0n && s.avg_cart != null ? Math.round(s.avg_cart) : 0;
+  const showRate = total > 0 ? shown / total : 0;
+  const addRate = shown > 0 ? added / shown : 0;
 
-  const sevenDayTrend: SevenDayTrendPoint[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(sevenDayStart);
-    d.setUTCDate(d.getUTCDate() + i);
+  const trend: TrendPoint[] = [];
+  for (let d = new Date(range.startDate); d <= range.endDate; d.setUTCDate(d.getUTCDate() + 1)) {
     const dateStr = toDateKey(d);
-    const row = sevenDayRowsWithAdds.find((r) => toDateKey(r.day) === dateStr);
-    const total = row ? Number(row.total) : 0;
-    const shown = row ? Number(row.shown) : 0;
+    const row = dayRows.find((r) => toDateKey(r.day) === dateStr);
+    const dayTotal = row ? Number(row.total) : 0;
+    const dayShown = row ? Number(row.shown) : 0;
     const sumCart = row ? Number(row.sum_cart) : 0;
     const adds = row ? Number(row.adds) : 0;
-    sevenDayTrend.push({
+    trend.push({
       date: dateStr,
-      decisions: total,
-      showRate: total > 0 ? shown / total : 0,
-      addRate: shown > 0 ? adds / shown : 0,
-      avgCartValue: total > 0 ? Math.round(sumCart / total) : 0,
+      decisions: dayTotal,
+      showRate: dayTotal > 0 ? dayShown / dayTotal : 0,
+      addRate: dayShown > 0 ? adds / dayShown : 0,
+      avgCartValue: dayTotal > 0 ? Math.round(sumCart / dayTotal) : 0,
     });
   }
 
   const cartPerformance: CartPerformanceAnalytics = {
-    sevenDayTrend,
-    thirtyDaySummary: {
-      totalDecisions: total30,
-      showRate: showRate30,
-      addRate: addRate30,
-      avgCartValue: avgCartValue30,
-    },
+    trend,
+    summary: { totalDecisions: total, showRate, addRate, avgCartValue },
     cartValueAtEvaluation,
   };
 
   const eng = engagementRow[0];
-  const impressions30d = eng ? Number(eng.impressions) : 0;
-  const clicks30d = eng ? Number(eng.clicks) : 0;
+  const impressions = eng ? Number(eng.impressions) : 0;
+  const clicks = eng ? Number(eng.clicks) : 0;
   const engagement: EngagementAnalytics = {
-    impressions30d,
-    clicks30d,
-    ctr30d: impressions30d > 0 ? clicks30d / impressions30d : 0,
-    conversionRate30d: addRate30,
+    impressions,
+    clicks,
+    ctr: impressions > 0 ? clicks / impressions : 0,
+    conversionRate: addRate,
   };
 
-  if (capabilities.allowComparison) {
-    const previousThirtyStart = startOfDayUtc(59);
-    const previousThirtyEnd = startOfDayUtc(29);
-    const prevSevenDayStart = startOfDayUtc(13);
-    const prevSevenDayEnd = startOfDayUtc(6);
-    const [prevThirtyRow, prevSevenRow] = await Promise.all([
-      prisma.$queryRaw<SummaryRowBase[]>`
-        WITH dm AS (
-          SELECT
-            COUNT(*) FILTER (WHERE "createdAt" >= ${previousThirtyStart} AND "createdAt" < ${previousThirtyEnd})::bigint AS total,
-            COUNT(*) FILTER (WHERE "hasCrossSell" = true AND "createdAt" >= ${previousThirtyStart} AND "createdAt" < ${previousThirtyEnd})::bigint AS shown,
-            AVG("cartValue") FILTER (WHERE "createdAt" >= ${previousThirtyStart} AND "createdAt" < ${previousThirtyEnd}) AS avg_cart,
-            COUNT(*) FILTER (WHERE "createdAt" >= ${previousThirtyStart} AND "createdAt" < ${previousThirtyEnd})::bigint AS count_all
-            FROM "DecisionMetric"
-            WHERE "shopDomain" = ${shop}
-        ),
-        conv AS (
-          SELECT COUNT(*)::bigint AS added
-          FROM "CrossSellConversion"
-          WHERE "shopDomain" = ${shop} AND "createdAt" >= ${previousThirtyStart} AND "createdAt" < ${previousThirtyEnd}
-        )
-        SELECT dm.total, dm.shown, dm.avg_cart, dm.count_all, conv.added FROM dm, conv
-      `,
-      prisma.$queryRaw<{ total: bigint; shown: bigint; added: bigint }[]>`
-        WITH dm AS (
-          SELECT
-            COUNT(*) FILTER (WHERE "createdAt" >= ${prevSevenDayStart} AND "createdAt" < ${prevSevenDayEnd})::bigint AS total,
-            COUNT(*) FILTER (WHERE "hasCrossSell" = true AND "createdAt" >= ${prevSevenDayStart} AND "createdAt" < ${prevSevenDayEnd})::bigint AS shown
-          FROM "DecisionMetric"
-          WHERE "shopDomain" = ${shop}
-        ),
-        conv AS (
-          SELECT COUNT(*)::bigint AS added
-          FROM "CrossSellConversion"
-          WHERE "shopDomain" = ${shop} AND "createdAt" >= ${prevSevenDayStart} AND "createdAt" < ${prevSevenDayEnd}
-        )
-        SELECT dm.total, dm.shown, conv.added FROM dm, conv
-      `,
-    ]);
-    const p30 = prevThirtyRow[0];
-    const p7 = prevSevenRow[0];
-    const totalPrev30 = p30 ? Number(p30.total) : 0;
-    const shownPrev30 = p30 ? Number(p30.shown) : 0;
-    const addedPrev30 = p30 ? Number(p30.added) : 0;
-    const totalPrev7 = p7 ? Number(p7.total) : 0;
-    const shownPrev7 = p7 ? Number(p7.shown) : 0;
-    const addedPrev7 = p7 ? Number(p7.added) : 0;
-    const showRatePrev = totalPrev30 > 0 ? shownPrev30 / totalPrev30 : 0;
-    const addRatePrev = shownPrev30 > 0 ? addedPrev30 / shownPrev30 : 0;
-    const avgCartValuePrev =
-      p30 && p30.count_all > 0n && p30.avg_cart != null ? Math.round(p30.avg_cart) : 0;
-    const prev7AddRate = shownPrev7 > 0 ? addedPrev7 / shownPrev7 : 0;
-    cartPerformance.previousSevenDaySummary = { totalDecisions: totalPrev7, addRate: prev7AddRate };
-    cartPerformance.previousThirtyDaySummary = {
-      totalDecisions: totalPrev30,
-      showRate: showRatePrev,
-      addRate: addRatePrev,
-      avgCartValue: avgCartValuePrev,
-    };
-  }
-
-  return { cartPerformance, engagement, ...(revenue && { revenue }) };
+  return { range, cartPerformance, engagement, ...(revenue && { revenue }) };
 }
 
 // --- Phase 5.6 aggregation types (per-shop analytics from DecisionMetric + conversions) ---
