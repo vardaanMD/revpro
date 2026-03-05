@@ -331,7 +331,7 @@ export function resolveAiOverlayProducts(
   return result.slice(0, limit);
 }
 
-/** Hydrated product shape for recommendations (e.g. snapshot v3). Matches UI expectations. */
+/** Hydrated product shape for recommendations (e.g. snapshot v3). amount is in cents (UI divides by 100). */
 export type HydratedRecommendation = {
   id: string;
   variantId: number;
@@ -404,7 +404,7 @@ export async function getHydratedRecommendationsForShop(
       title: p.title,
       imageUrl: p.imageUrl ?? null,
       price: {
-        amount: priceCents / 100,
+        amount: priceCents,
         compare_at_amount: null,
       },
       handle: p.handle ?? "",

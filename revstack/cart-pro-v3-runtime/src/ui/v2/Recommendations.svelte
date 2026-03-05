@@ -24,7 +24,10 @@
         ...primaryRecommendations,
         ...aiRecommendations.map((r) => ({
           variantId: r.variantId,
-          title: `Variant #${r.variantId}`,
+          title: r.title ?? `Variant #${r.variantId}`,
+          imageUrl: r.imageUrl ?? null,
+          handle: r.handle ?? '',
+          price: r.price ?? { amount: 0 },
         })),
       ];
   $: hasRecs = recs.length > 0;
