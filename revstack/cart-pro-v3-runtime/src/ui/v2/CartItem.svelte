@@ -27,12 +27,16 @@
   $: title = item?.title ?? item?.product_title ?? 'Item';
   $: linePrice = item?.final_line_price ?? item?.line_price ?? 0;
   $: imgSrc = safeImageUrl(item?.image ?? '');
+  $: cartState = $engine?.stateStore?.cart;
+  $: changeInFlight = (cartState?.changeInFlightLineKeys ?? []).includes(item?.key);
 
   function onIncrease() {
+    if (changeInFlight) return;
     engine.changeCart(item.key, item.quantity + 1);
   }
 
   function onDecrease() {
+    if (changeInFlight) return;
     if (item.quantity <= 1) {
       engine.removeItem(item.key);
     } else {
@@ -41,6 +45,7 @@
   }
 
   function onRemove() {
+    if (changeInFlight) return;
     engine.removeItem(item.key);
   }
 
@@ -55,12 +60,12 @@
     <div class="cart-pro-title">{title}</div>
     <div class="cart-pro-item-row">
       <div class="cart-pro-qty-controls">
-        <button type="button" class="decrease qty-btn" data-key={item.key} data-index={index} aria-label="Decrease quantity" on:click={onDecrease}>−</button>
+        <button type="button" class="decrease qty-btn" data-key={item.key} data-index={index} aria-label="Decrease quantity" disabled={changeInFlight} on:click={onDecrease}>−</button>
         <span class="cart-pro-qty-value">{item.quantity}</span>
-        <button type="button" class="increase qty-btn" data-key={item.key} data-index={index} aria-label="Increase quantity" on:click={onIncrease}>+</button>
+        <button type="button" class="increase qty-btn" data-key={item.key} data-index={index} aria-label="Increase quantity" disabled={changeInFlight} on:click={onIncrease}>+</button>
       </div>
       <span class="cart-pro-line-price">{formatMoney(linePrice)}</span>
-      <button type="button" class="remove qty-btn cart-pro-remove-btn" data-key={item.key} data-index={index} aria-label="Remove" on:click={onRemove}>{@html TRASH_ICON}</button>
+      <button type="button" class="remove qty-btn cart-pro-remove-btn" data-key={item.key} data-index={index} aria-label="Remove" disabled={changeInFlight} on:click={onRemove}>{@html TRASH_ICON}</button>
     </div>
   </div>
 </div>

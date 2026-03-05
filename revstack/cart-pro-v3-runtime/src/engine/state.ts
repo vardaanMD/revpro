@@ -28,6 +28,8 @@ export interface CartState {
   total: number;
   syncing: boolean;
   lastSyncedAt: number | null;
+  /** Line keys with a changeCart request in flight (for UI to disable +/- per line). */
+  changeInFlightLineKeys?: string[];
 }
 
 export type DiscountType = 'percentage' | 'fixed';
@@ -221,6 +223,7 @@ export function createInitialState(): EngineState {
       total: 0,
       syncing: false,
       lastSyncedAt: null,
+      changeInFlightLineKeys: [],
     },
     discount: {
       applied: [],

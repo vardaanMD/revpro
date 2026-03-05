@@ -224,6 +224,26 @@ export class Engine {
   /** Grace period (ms) after applying our own mutation during which we skip any sync and ignore cart:external-update (v1-style: mutation response is source of truth). */
   private static readonly MUTATION_GRACE_MS = 600;
 
+  /** Expected quantity per line for changeCart; only apply mutation response if server qty matches (prevents snap-back from out-of-order responses). */
+  private expectedQtyByLine = new Map<string, number>();
+  /** Line keys we expect to be removed; only apply removeItem response if line is gone and we still expect it (prevents stale remove overwriting). */
+  private expectedRemovedLineKeys = new Set<string>();
+  /** Per-line in-flight guard: don't send a second changeCart for the same line until the first completes; merge by updating expected qty. */
+  private changeCartInFlightByLine = new Set<string>();
+
+  /** Sync changeInFlightLineKeys to state so UI can disable +/- per line. */
+  private syncChangeInFlightLineKeysToState(): void {
+    const lineKeys = Array.from(this.changeCartInFlightByLine);
+    this.updateState((s) => ({
+      cart: { ...s.cart, changeInFlightLineKeys: lineKeys },
+    }));
+  }
+
+  /** Whether a changeCart request is in flight for this line (for disabling +/- in CartItem). */
+  isChangeInFlightForLine(lineKey: string): boolean {
+    return this.changeCartInFlightByLine.has(lineKey);
+  }
+
   constructor() {
     this.stateStore = createStateStore();
     this.eventBus = createEventBus();
@@ -1574,6 +1594,15 @@ export class Engine {
       }
       return;
     }
+    // Per-line in-flight: merge rapid clicks by updating expected qty; don't start a second request
+    if (this.changeCartInFlightByLine.has(lineKey)) {
+      this.expectedQtyByLine.set(lineKey, quantity);
+      return;
+    }
+    this.changeCartInFlightByLine.add(lineKey);
+    this.syncChangeInFlightLineKeysToState();
+    this.expectedQtyByLine.set(lineKey, quantity);
+    this.expectedRemovedLineKeys.delete(lineKey);
     this.internalMutationInProgress = true;
     this.lastMutationAppliedAt = Date.now();
     const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
@@ -1592,11 +1621,11 @@ export class Engine {
     try {
       const raw = await apiChangeCart(lineKey, quantity);
       this.lastMutationAppliedAt = Date.now();
+      const expectedQty = this.expectedQtyByLine.get(lineKey);
       if (raw?.items != null && typeof raw.item_count === 'number') {
         const serverLine = raw.items.find((i: any) => (i?.key ?? '') === lineKey);
-        if (serverLine && Number(serverLine.quantity) === quantity) {
-          // Happy path: qty confirmed. Single batched setState to avoid flash from
-          // multiple sequential re-renders that applyCartRaw normally triggers.
+        // Only apply if server qty matches what we currently expect (avoids snap-back from out-of-order responses)
+        if (serverLine && expectedQty !== undefined && Number(serverLine.quantity) === expectedQty) {
           this.applyCartRawBatched(raw);
         } else {
           await this.syncCart();
@@ -1604,14 +1633,17 @@ export class Engine {
       } else {
         await this.syncCart();
       }
-      // Defer analytics event to avoid an immediate extra re-render after batched apply
+      this.expectedQtyByLine.delete(lineKey);
       setTimeout(() => this.emitEvent('cart:change', { lineKey, quantity }), 0);
     } catch (_err) {
+      this.expectedQtyByLine.delete(lineKey);
       this.setState({ cart: cartSnapshot });
       throw _err;
     } finally {
       this.lastMutationAppliedAt = Date.now();
       this.internalMutationInProgress = false;
+      this.changeCartInFlightByLine.delete(lineKey);
+      this.syncChangeInFlightLineKeysToState();
     }
   }
 
@@ -1624,6 +1656,8 @@ export class Engine {
       this.applyOptimisticCart({ ...raw, items, item_count: items.length, items_subtotal_price: itemsSubtotal, total_price: raw.total_price ?? itemsSubtotal });
       return;
     }
+    this.expectedRemovedLineKeys.add(lineKey);
+    this.expectedQtyByLine.delete(lineKey);
     this.internalMutationInProgress = true;
     this.lastMutationAppliedAt = Date.now();
     const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
@@ -1636,13 +1670,21 @@ export class Engine {
     try {
       const raw = await apiRemoveItem(lineKey);
       this.lastMutationAppliedAt = Date.now();
+      const stillExpectRemoved = this.expectedRemovedLineKeys.has(lineKey);
       if (raw?.items != null && typeof raw.item_count === 'number') {
-        this.applyCartRawBatched(raw);
+        const lineStillPresent = raw.items.some((i: any) => (i?.key ?? '') === lineKey);
+        if (stillExpectRemoved && !lineStillPresent) {
+          this.applyCartRawBatched(raw);
+        } else {
+          await this.syncCart();
+        }
       } else {
         await this.syncCart();
       }
+      this.expectedRemovedLineKeys.delete(lineKey);
       setTimeout(() => this.emitEvent('cart:remove', { lineKey }), 0);
     } catch (_err) {
+      this.expectedRemovedLineKeys.delete(lineKey);
       this.setState({ cart: cartSnapshot });
       throw _err;
     } finally {
