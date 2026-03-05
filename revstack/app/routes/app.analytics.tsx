@@ -210,31 +210,51 @@ export default function AnalyticsPage() {
         </s-stack>
       </s-section>
 
-      {/* Single view: cart, trend, engagement, revenue */}
+      {/* Order: recommendation engagement first, then cart metrics, then chart, then revenue (always shown) */}
       <div>
-        <s-section heading="Cart drawer metrics">
+        <s-section heading="Recommendation engagement">
           <p className={analyticsStyles.sectionSubtext}>
-            One row per drawer open. All values are cart state at that moment only — not revenue or completed orders. {rangeLabel}.
+            How often customers saw and clicked your recommendations. {rangeLabel}.
           </p>
           <MetricSection>
-            <StatCard label="Drawer opens" value={cp.summary.totalDecisions} contextLabel={rangeLabel} />
-            <StatCard label="Drawer opens with ≥1 recommendation shown" value={`${(cp.summary.showRate * 100).toFixed(1)}%`} contextLabel="of drawer opens" />
-            <StatCard label="Add-to-carts from recommendations" value={addRateDisplay} contextLabel="per drawer open with recommendations shown" />
-            <StatCard label="Avg. cart total at drawer open" contextLabel={rangeLabel} value={formatCurrency(cp.summary.avgCartValue, CURRENCY)} />
-            <StatCard label="Sum of cart totals (at each drawer open)" contextLabel={`${rangeLabel}, not revenue`} value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
+            <StatCard label="Recommendation cards shown" value={engagement.impressions} contextLabel={rangeLabel} />
+            <StatCard label="Recommendation cards clicked" value={engagement.clicks} contextLabel={rangeLabel} />
+            <StatCard
+              label="Click rate"
+              value={engagement.impressions > 0 ? `${(engagement.ctr * 100).toFixed(2)}%` : "—"}
+              contextLabel="clicks ÷ shown"
+            />
+            <StatCard
+              label="Conversion rate"
+              value={engagement.conversionRate > 0 ? `${(engagement.conversionRate * 100).toFixed(2)}%` : "—"}
+              contextLabel="added to cart ÷ saw recommendations"
+            />
           </MetricSection>
         </s-section>
 
-        <s-section heading="Drawer opens (daily trend)">
+        <s-section heading="Cart activity">
           <p className={analyticsStyles.sectionSubtext}>
-            Date-wise view for {rangeLabel}. Chart only — no table.
+            How often the cart was opened and what was in it at that moment. Not completed orders. {rangeLabel}.
           </p>
           <MetricSection>
-            <StatCard label="Drawer opens (total)" value={totalDecisions} contextLabel={rangeLabel} />
+            <StatCard label="Cart opens" value={cp.summary.totalDecisions} contextLabel={rangeLabel} />
+            <StatCard label="Carts that saw recommendations" value={`${(cp.summary.showRate * 100).toFixed(1)}%`} contextLabel="of cart opens" />
+            <StatCard label="Added to cart from recommendations" value={addRateDisplay} contextLabel="when recommendations were shown" />
+            <StatCard label="Average cart total when opened" contextLabel={rangeLabel} value={formatCurrency(cp.summary.avgCartValue, CURRENCY)} />
+            <StatCard label="Total cart value (sum when opened)" contextLabel={`${rangeLabel} — not revenue`} value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
+          </MetricSection>
+        </s-section>
+
+        <s-section heading="Cart opens over time">
+          <p className={analyticsStyles.sectionSubtext}>
+            Daily view for {rangeLabel}.
+          </p>
+          <MetricSection>
+            <StatCard label="Cart opens (total)" value={totalDecisions} contextLabel={rangeLabel} />
             <StatCard
               label="Add rate"
               value={cp.summary.addRate > 1 ? cp.summary.addRate.toFixed(2) : `${(cp.summary.addRate * 100).toFixed(1)}%`}
-              contextLabel="adds ÷ sessions with recs shown"
+              contextLabel="added from recommendations when shown"
             />
           </MetricSection>
           {cp.trend.length > 0 && (
@@ -243,7 +263,7 @@ export default function AnalyticsPage() {
                 data={cp.trend.map((p) => ({ date: p.date, value: p.decisions }))}
                 width={520}
                 height={220}
-                label="Drawer opens by date"
+                label="Cart opens by date"
                 maxXLabels={8}
                 className={analyticsStyles.trendChart}
               />
@@ -251,36 +271,22 @@ export default function AnalyticsPage() {
           )}
         </s-section>
 
-        <s-section heading="Recommendation engagement">
+        <s-section heading="Revenue from paid orders">
           <p className={analyticsStyles.sectionSubtext}>
-            Impressions, Clicks, Click-through rate, Conversion rate. {rangeLabel}.
+            Real revenue from your store’s paid orders (we use the orders/paid webhook). We don’t claim this is caused by the app. You can turn this off in Settings → Order data &amp; revenue.
           </p>
           <MetricSection>
-            <StatCard label="Impressions" value={engagement.impressions} contextLabel={rangeLabel} />
-            <StatCard label="Clicks" value={engagement.clicks} contextLabel={rangeLabel} />
-            <StatCard
-              label="Click-through rate"
-              value={engagement.impressions > 0 ? `${(engagement.ctr * 100).toFixed(2)}%` : "—"}
-              contextLabel={rangeLabel}
-            />
-            <StatCard
-              label="Conversion rate"
-              value={engagement.conversionRate > 0 ? `${(engagement.conversionRate * 100).toFixed(2)}%` : "—"}
-              contextLabel="adds ÷ sessions with recs shown"
-            />
+            {metrics.revenue != null ? (
+              <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, CURRENCY)} contextLabel={`${rangeLabel} from paid orders`} />
+            ) : (
+              <StatCard
+                label="Revenue"
+                value="—"
+                contextLabel="Enable in Settings → Order data & revenue to see revenue from paid orders"
+              />
+            )}
           </MetricSection>
         </s-section>
-
-        {metrics.revenue != null && (
-          <s-section heading="Revenue (paid orders)">
-            <p className={analyticsStyles.sectionSubtext}>
-              Actual order revenue from paid orders webhook. We do not claim this revenue is attributable to the app. To stop storing order data, turn off in Settings → Order data &amp; revenue.
-            </p>
-            <MetricSection>
-              <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, CURRENCY)} contextLabel={rangeLabel} />
-            </MetricSection>
-          </s-section>
-        )}
       </div>
         </div>
       )}

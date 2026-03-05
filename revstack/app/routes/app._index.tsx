@@ -308,27 +308,27 @@ export default function DashboardIndex() {
         </s-section>
       ) : (
         <>
-          {/* Section A — Recommendation engagement (7 days) */}
+          {/* Recommendation engagement first */}
           <s-section>
             <div className={dashboardStyles.sectionCartMetrics}>
               <div className={dashboardStyles.sectionHeader}>
                 <s-text tone="auto">👆 Recommendation engagement</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                Impressions, Clicks, Click-through rate, Conversion rate. Last 7 days.
+                How often customers saw and clicked your recommendations. Last 7 days.
               </p>
               <MetricSection>
-                <StatCard label="Impressions" value={engagement.impressions7d} contextLabel="7 days" />
-                <StatCard label="Clicks" value={engagement.clicks7d} contextLabel="7 days" />
+                <StatCard label="Recommendation cards shown" value={engagement.impressions7d} contextLabel="7 days" />
+                <StatCard label="Recommendation cards clicked" value={engagement.clicks7d} contextLabel="7 days" />
                 <StatCard
-                  label="Click-through rate"
+                  label="Click rate"
                   value={engagement.impressions7d > 0 ? `${(engagement.ctr7d * 100).toFixed(2)}%` : "—"}
-                  contextLabel="7 days"
+                  contextLabel="clicks ÷ shown"
                 />
                 <StatCard
                   label="Conversion rate"
                   value={engagement.conversionRate7d > 0 ? `${(engagement.conversionRate7d * 100).toFixed(2)}%` : "—"}
-                  contextLabel="adds ÷ sessions with recs shown"
+                  contextLabel="added to cart ÷ saw recommendations"
                 />
               </MetricSection>
             </div>
@@ -336,67 +336,70 @@ export default function DashboardIndex() {
 
           <div className={dashboardStyles.divider} />
 
-          {/* Section B — Cart drawer metrics (7 days) */}
+          {/* Cart activity */}
           <s-section>
             <div className={dashboardStyles.sectionCartMetrics}>
               <div className={dashboardStyles.sectionHeader}>
-                <s-text tone="auto">🛒 Cart drawer metrics</s-text>
+                <s-text tone="auto">🛒 Cart activity</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                One row per drawer open when the cart was evaluated. All values are cart state at that moment only — not revenue or completed orders. Last 7 days.
+                How often the cart was opened and what was in it. Not completed orders. Last 7 days.
               </p>
               <MetricSection>
-                <StatCard label="Drawer opens" value={uniqueCartsEvaluated7d} contextLabel="7 days" />
-                <StatCard label="Drawer opens (today)" value={cp.todayDecisions} contextLabel="so far" />
+                <StatCard label="Cart opens" value={uniqueCartsEvaluated7d} contextLabel="7 days" />
+                <StatCard label="Cart opens (today)" value={cp.todayDecisions} contextLabel="so far" />
                 <StatCard
-                  label="Drawer opens with ≥1 recommendation shown"
+                  label="Carts that saw recommendations"
                   value={`${showRatePct}%`}
-                  contextLabel="of drawer opens"
+                  contextLabel="of cart opens"
                 />
                 <StatCard
-                  label="Add-to-carts from recommendations"
+                  label="Added to cart from recommendations"
                   value={addRateDisplay}
-                  subtext={`when recommendations were shown`}
-                  contextLabel="per session shown"
+                  subtext="when recommendations were shown"
+                  contextLabel="add rate"
                 />
                 <StatCard
-                  label="Avg. cart total at drawer open"
+                  label="Average cart total when opened"
                   contextLabel="7 days"
                   value={avgCartFormatted}
                 />
                 <StatCard
-                  label="Sum of cart totals (at each drawer open)"
-                  contextLabel="7 days, not revenue"
+                  label="Total cart value (sum when opened)"
+                  contextLabel="7 days — not revenue"
                   value={formatCurrency(cp.cartValueAtEvaluation, currency)}
                 />
               </MetricSection>
             </div>
           </s-section>
 
-          {metrics.revenue != null && (
-            <s-section>
-              <div className={dashboardStyles.sectionCartMetrics}>
-                <div className={dashboardStyles.sectionHeader}>
-                  <s-text tone="auto">Revenue (paid orders)</s-text>
-                </div>
-                <p className={dashboardStyles.sectionSubtext}>
-                  Total from paid orders webhook. We do not claim this revenue is attributable to the app. To stop storing order data, turn off in Settings → Order data &amp; revenue.
-                </p>
-                <MetricSection>
-                  <StatCard label="Revenue (7 days)" value={formatCurrency(metrics.revenue.revenue7d, currency)} contextLabel="from paid orders" />
-                </MetricSection>
+          {/* Revenue from paid orders — always show; prompt to enable if off */}
+          <s-section>
+            <div className={dashboardStyles.sectionCartMetrics}>
+              <div className={dashboardStyles.sectionHeader}>
+                <s-text tone="auto">Revenue from paid orders</s-text>
               </div>
-            </s-section>
-          )}
+              <p className={dashboardStyles.sectionSubtext}>
+                Real revenue from your store’s paid orders (orders/paid webhook). We don’t claim this is caused by the app. Turn off in Settings → Order data &amp; revenue if you prefer.
+              </p>
+              <MetricSection>
+                {metrics.revenue != null ? (
+                  <StatCard label="Revenue (7 days)" value={formatCurrency(metrics.revenue.revenue7d, currency)} contextLabel="from paid orders" />
+                ) : (
+                  <StatCard label="Revenue" value="—" contextLabel="Enable in Settings → Order data & revenue to see revenue from paid orders" />
+                )}
+              </MetricSection>
+            </div>
+          </s-section>
 
           {retention && (
             <s-section heading="Momentum">
               <s-stack direction="block" gap="base">
                 <MetricSection>
                   <StatCard
-                    label="Drawer opens this week"
+                    label="Cart opens this week"
                     value={retention.thisWeekDecisions}
-                    subtext="Cart drawer opens (evaluations)"
+                    subtext="Times cart was opened"
                     tone={retention.thisWeekDecisions >= (retention.lastWeekDecisions || 0) ? "success" : "default"}
                   />
                   <StatCard
@@ -410,7 +413,7 @@ export default function DashboardIndex() {
                     <s-stack direction="block" gap="small">
                       <s-text tone="neutral">This week vs last week</s-text>
                       <PerformanceDelta
-                        label="Drawer opens"
+                        label="Cart opens"
                         current={retention.thisWeekDecisions}
                         previous={retention.lastWeekDecisions}
                         format="number"
@@ -426,13 +429,13 @@ export default function DashboardIndex() {
             <FeatureGate locked={!isBillingActive} ctaLabel="Activate plan" ctaTo="/app/upgrade">
               <DataPanel>
                 <s-stack direction="block" gap="base">
-                  <s-heading>Drawer opens (7-day trend)</s-heading>
+                  <s-heading>Cart opens (7-day trend)</s-heading>
                   <div className={dashboardStyles.tableWrapper}>
                     <table className={dashboardStyles.table}>
                       <thead>
                         <tr>
                           <th><s-text tone="neutral">Date</s-text></th>
-                          <th><s-text tone="neutral">Drawer opens</s-text></th>
+                          <th><s-text tone="neutral">Cart opens</s-text></th>
                         </tr>
                       </thead>
                       <tbody>
