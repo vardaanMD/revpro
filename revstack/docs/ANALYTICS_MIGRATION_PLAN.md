@@ -59,14 +59,18 @@ Safe, phased migration to remove revenue liability and focus on cart-engagement 
 
 ---
 
-## New metric definitions (cart-engagement)
+## Metric definitions (unambiguous)
 
-| Metric | Definition | Source |
-|--------|------------|--------|
-| **Impressions** | Count of recommendation product exposures (decision returns product; written as `CrossSellEvent` with `eventType: "impression"`). | `CrossSellEvent` (decision route + legacy event route). |
-| **Clicks** | Count of recommendation clicks (storefront sends `recommendation:click`; written as `CrossSellEvent` with `eventType: "click"`). | `CrossSellEvent` (cart.analytics.v3 for V3; cart.analytics.event for V2). |
-| **CTR** | clicks ÷ impressions (0 when impressions = 0). | Derived from above. |
-| **Cart metrics** | Decisions, show rate, add rate, cart value at evaluation (unchanged). | `DecisionMetric`, `CrossSellConversion`. |
+| UI label | Definition | Source |
+|----------|------------|--------|
+| **Drawer opens** | Count of times the cart drawer was opened and the cart was evaluated (one row per open). | `DecisionMetric` (one row per evaluation). |
+| **Drawer opens with ≥1 recommendation shown** | % of drawer opens where at least one recommendation card was shown. | `DecisionMetric.hasCrossSell`. |
+| **Add-to-carts from recommendations** | Count or rate of products added to cart from a recommendation (per drawer open where recommendations were shown). | `CrossSellConversion` + `DecisionMetric`. |
+| **Avg. cart total at drawer open** | Average cart subtotal at the moment the drawer was opened. Cart state only, not revenue. | `DecisionMetric.cartValue`. |
+| **Sum of cart totals (at each drawer open)** | Sum of cart subtotals at each drawer open in the period. Not revenue. | `DecisionMetric.cartValue` (sum). |
+| **Recommendation card impressions** | Count of times a recommendation product card was shown. | `CrossSellEvent` (`eventType: "impression"`). |
+| **Recommendation card clicks** | Count of times a recommendation card was clicked. | `CrossSellEvent` (`eventType: "click"`). |
+| **Recommendation CTR** | Recommendation card clicks ÷ recommendation card impressions. | Derived. |
 
 ---
 

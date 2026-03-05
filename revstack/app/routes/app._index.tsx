@@ -211,7 +211,7 @@ export default function DashboardIndex() {
           <s-section>
             <DataPanel>
               <s-stack direction="block" gap="base">
-                <s-heading>7 Day Trend</s-heading>
+                <s-heading>Drawer opens (7-day trend)</s-heading>
                 <ChartSkeleton />
               </s-stack>
             </DataPanel>
@@ -306,20 +306,20 @@ export default function DashboardIndex() {
         </s-section>
       ) : (
         <>
-          {/* Section A — Recommendation engagement (7 days) */}
+          {/* Section A — Recommendation block engagement (7 days) */}
           <s-section>
             <div className={dashboardStyles.sectionCartMetrics}>
               <div className={dashboardStyles.sectionHeader}>
-                <s-text tone="auto">👆 Recommendation engagement</s-text>
+                <s-text tone="auto">👆 Recommendation block engagement</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                Impressions and clicks on recommended products (last 7 days). CTR = clicks ÷ impressions.
+                Times a recommendation card was shown (impressions) and clicked (clicks). CTR = recommendation clicks ÷ recommendation impressions. Last 7 days.
               </p>
               <MetricSection>
-                <StatCard label="Impressions" value={engagement.impressions7d} contextLabel="7 days" />
-                <StatCard label="Clicks" value={engagement.clicks7d} contextLabel="7 days" />
+                <StatCard label="Recommendation card impressions" value={engagement.impressions7d} contextLabel="7 days" />
+                <StatCard label="Recommendation card clicks" value={engagement.clicks7d} contextLabel="7 days" />
                 <StatCard
-                  label="Click-through rate (CTR)"
+                  label="Recommendation CTR (clicks ÷ impressions)"
                   value={engagement.impressions7d > 0 ? `${(engagement.ctr7d * 100).toFixed(2)}%` : "—"}
                   contextLabel="7 days"
                 />
@@ -329,37 +329,37 @@ export default function DashboardIndex() {
 
           <div className={dashboardStyles.divider} />
 
-          {/* Section B — Cart Metrics (At Evaluation) */}
+          {/* Section B — Cart drawer metrics (7 days) */}
           <s-section>
             <div className={dashboardStyles.sectionCartMetrics}>
               <div className={dashboardStyles.sectionHeader}>
-                <s-text tone="auto">🛒 Cart Metrics (At Evaluation)</s-text>
+                <s-text tone="auto">🛒 Cart drawer metrics</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                Cart state at the moment the engine evaluated the cart. These are not revenue figures.
+                One row per drawer open when the cart was evaluated. All values are cart state at that moment only — not revenue or completed orders. Last 7 days.
               </p>
               <MetricSection>
-                <StatCard label="Unique carts evaluated" value={uniqueCartsEvaluated7d} contextLabel="At Evaluation" />
-                <StatCard label="Decisions taken" value={cp.todayDecisions} contextLabel="At Evaluation" />
+                <StatCard label="Drawer opens" value={uniqueCartsEvaluated7d} contextLabel="7 days" />
+                <StatCard label="Drawer opens (today)" value={cp.todayDecisions} contextLabel="so far" />
                 <StatCard
-                  label="Recommendation show rate"
+                  label="Drawer opens with ≥1 recommendation shown"
                   value={`${showRatePct}%`}
-                  contextLabel="At Evaluation"
+                  contextLabel="of drawer opens"
                 />
                 <StatCard
-                  label="Adds per recommendation session"
+                  label="Add-to-carts from recommendations"
                   value={addRateDisplay}
-                  subtext={`${showRatePct}% show rate`}
-                  contextLabel="At Evaluation"
+                  subtext={`when recommendations were shown`}
+                  contextLabel="per session shown"
                 />
                 <StatCard
-                  label="Avg cart value (at evaluation)"
-                  contextLabel="At Evaluation"
+                  label="Avg. cart total at drawer open"
+                  contextLabel="7 days"
                   value={avgCartFormatted}
                 />
                 <StatCard
-                  label="Total cart value at evaluation"
-                  contextLabel="At Evaluation (not revenue)"
+                  label="Sum of cart totals (at each drawer open)"
+                  contextLabel="7 days, not revenue"
                   value={formatCurrency(cp.cartValueAtEvaluation, currency)}
                 />
               </MetricSection>
@@ -371,15 +371,15 @@ export default function DashboardIndex() {
               <s-stack direction="block" gap="base">
                 <MetricSection>
                   <StatCard
-                    label="7-day performance"
-                    value={`${retention.thisWeekDecisions} decisions`}
-                    subtext="This week"
+                    label="Drawer opens this week"
+                    value={retention.thisWeekDecisions}
+                    subtext="Cart drawer opens (evaluations)"
                     tone={retention.thisWeekDecisions >= (retention.lastWeekDecisions || 0) ? "success" : "default"}
                   />
                   <StatCard
-                    label="Days active"
+                    label="Days since first use"
                     value={retention.daysActive > 0 ? `${retention.daysActive} days` : "Just started"}
-                    subtext="Since setup"
+                    subtext="Since app setup"
                   />
                 </MetricSection>
                 {retention.lastWeekDecisions > 0 && (
@@ -387,7 +387,7 @@ export default function DashboardIndex() {
                     <s-stack direction="block" gap="small">
                       <s-text tone="neutral">This week vs last week</s-text>
                       <PerformanceDelta
-                        label="Decisions"
+                        label="Drawer opens"
                         current={retention.thisWeekDecisions}
                         previous={retention.lastWeekDecisions}
                         format="number"
@@ -403,13 +403,13 @@ export default function DashboardIndex() {
             <FeatureGate locked={!isBillingActive} ctaLabel="Activate plan" ctaTo="/app/upgrade">
               <DataPanel>
                 <s-stack direction="block" gap="base">
-                  <s-heading>7 Day Trend</s-heading>
+                  <s-heading>Drawer opens (7-day trend)</s-heading>
                   <div className={dashboardStyles.tableWrapper}>
                     <table className={dashboardStyles.table}>
                       <thead>
                         <tr>
                           <th><s-text tone="neutral">Date</s-text></th>
-                          <th><s-text tone="neutral">Decisions</s-text></th>
+                          <th><s-text tone="neutral">Drawer opens</s-text></th>
                         </tr>
                       </thead>
                       <tbody>

@@ -39,21 +39,21 @@ function deepFreeze<T>(obj: T): T {
   return obj;
 }
 
-/** Cart Performance: behavioral (7d trend, 30d summary, cart revenue at decision). */
+/** Cart drawer metrics: one row per drawer open (cart evaluated). Not revenue. */
 export type CartPerformanceAnalytics = {
   sevenDayTrend: SevenDayTrendPoint[];
   thirtyDaySummary: PeriodSummary;
-  /** Sum of cart value at decision time (30-day). Not revenue. */
+  /** Sum of cart total at each drawer open (30-day). Cart state only, not revenue. */
   cartValueAtEvaluation: number;
   previousSevenDaySummary?: PreviousSevenDaySummary;
   previousThirtyDaySummary?: PeriodSummary;
 };
 
-/** Engagement: recommendation impressions, clicks, CTR from CrossSellEvent (30-day). */
+/** Recommendation block engagement: card impressions, card clicks, CTR (30-day). */
 export type EngagementAnalytics = {
   impressions30d: number;
   clicks30d: number;
-  ctr30d: number; // 0–1, or 0 when no impressions
+  ctr30d: number; // clicks ÷ impressions, or 0 when no impressions
 };
 
 export type AnalyticsMetrics = {

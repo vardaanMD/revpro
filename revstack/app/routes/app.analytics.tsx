@@ -273,25 +273,24 @@ export default function AnalyticsPage() {
 
       {/* Cart metrics */}
       <div>
-        <s-section heading="Cart Metrics (At Evaluation)">
+        <s-section heading="Cart drawer metrics (30 days)">
           <p className={analyticsStyles.sectionSubtext}>
-            Cart state at the moment the engine evaluated the cart. These are not revenue figures.
+            One row per drawer open when the cart was evaluated. All values are cart state at that moment only — not revenue or completed orders.
           </p>
           <MetricSection>
-            <StatCard label="Total decisions" value={cp.thirtyDaySummary.totalDecisions} contextLabel="At Evaluation" />
-            <StatCard label="Unique carts evaluated" value={cp.thirtyDaySummary.totalDecisions} contextLabel="At Evaluation" />
-            <StatCard label="Recommendation show rate" value={`${(cp.thirtyDaySummary.showRate * 100).toFixed(1)}%`} contextLabel="At Evaluation" />
-            <StatCard label="Adds per recommendation session" value={addRate30Display} contextLabel="At Evaluation" />
-            <StatCard label="Avg cart value (at evaluation)" contextLabel="At Evaluation" value={formatCurrency(cp.thirtyDaySummary.avgCartValue, CURRENCY)} />
-            <StatCard label="Total cart value at evaluation" contextLabel="At Evaluation (not revenue)" value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
+            <StatCard label="Drawer opens" value={cp.thirtyDaySummary.totalDecisions} contextLabel="30 days" />
+            <StatCard label="Drawer opens with ≥1 recommendation shown" value={`${(cp.thirtyDaySummary.showRate * 100).toFixed(1)}%`} contextLabel="of drawer opens" />
+            <StatCard label="Add-to-carts from recommendations" value={addRate30Display} contextLabel="per drawer open with recommendations shown" />
+            <StatCard label="Avg. cart total at drawer open" contextLabel="30 days" value={formatCurrency(cp.thirtyDaySummary.avgCartValue, CURRENCY)} />
+            <StatCard label="Sum of cart totals (at each drawer open)" contextLabel="30 days, not revenue" value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
           </MetricSection>
         </s-section>
 
-        <s-section heading="7-day / 30-day trend">
+        <s-section heading="Drawer opens (7-day trend)">
           <s-stack direction="block" gap="large">
             <MetricSection>
               <StatCard
-                label="Decisions (7 days)"
+                label="Drawer opens (last 7 days)"
                 value={
                   <>
                     <div
@@ -305,7 +304,7 @@ export default function AnalyticsPage() {
                 }
               />
               <StatCard
-                label="Adds per recommendation session (7 days)"
+                label="Add-to-carts from recommendations (7 days)"
                 value={
                   <>
                     <div
@@ -330,27 +329,27 @@ export default function AnalyticsPage() {
                 {capabilities.allowComparison && cp.previousThirtyDaySummary != null && (
                   <>
                     <ComparisonRow
-                      label="Total Decisions"
+                      label="Drawer opens"
                       current={cp.thirtyDaySummary.totalDecisions}
                       previous={cp.previousThirtyDaySummary.totalDecisions}
                       currency={CURRENCY}
                     />
                     <ComparisonRow
-                      label="Show Rate"
+                      label="Drawer opens with recommendations shown (%)"
                       current={cp.thirtyDaySummary.showRate}
                       previous={cp.previousThirtyDaySummary.showRate}
                       format="percent"
                       currency={CURRENCY}
                     />
                     <ComparisonRow
-                      label="Adds per Recommendation Session"
+                      label="Add-to-carts from recommendations (per session shown)"
                       current={cp.thirtyDaySummary.addRate}
                       previous={cp.previousThirtyDaySummary.addRate}
                       format="addRate"
                       currency={CURRENCY}
                     />
                     <ComparisonRow
-                      label="Avg cart value (at evaluation)"
+                      label="Avg. cart total at drawer open"
                       current={cp.thirtyDaySummary.avgCartValue}
                       previous={cp.previousThirtyDaySummary.avgCartValue}
                       format="currency"
@@ -363,15 +362,15 @@ export default function AnalyticsPage() {
           </FeatureGate>
         </s-section>
 
-        <s-section heading="Recommendation engagement (30 days)">
+        <s-section heading="Recommendation block engagement (30 days)">
           <p className={analyticsStyles.sectionSubtext}>
-            Impressions and clicks on recommended products. CTR = clicks ÷ impressions.
+            Times a recommendation card was shown (impressions) and clicked (clicks). CTR = recommendation clicks ÷ recommendation impressions.
           </p>
           <MetricSection>
-            <StatCard label="Impressions" value={engagement.impressions30d} contextLabel="30 days" />
-            <StatCard label="Clicks" value={engagement.clicks30d} contextLabel="30 days" />
+            <StatCard label="Recommendation card impressions" value={engagement.impressions30d} contextLabel="30 days" />
+            <StatCard label="Recommendation card clicks" value={engagement.clicks30d} contextLabel="30 days" />
             <StatCard
-              label="Click-through rate (CTR)"
+              label="Recommendation CTR (clicks ÷ impressions)"
               value={engagement.impressions30d > 0 ? `${(engagement.ctr30d * 100).toFixed(2)}%` : "—"}
               contextLabel="30 days"
             />
