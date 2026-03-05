@@ -1117,6 +1117,7 @@ export class Engine {
    */
   async syncCart(options?: { fromReapply?: boolean }): Promise<void> {
     if (this.destroyed) return;
+    if (this.internalMutationInProgress) return;
     if (Date.now() - this.lastMutationAppliedAt < Engine.MUTATION_GRACE_MS) return;
     const state = getStateFromStore(this.stateStore);
     if (state.cart.syncing) return;
@@ -1362,6 +1363,7 @@ export class Engine {
 
   async addToCart(variantId: number, quantity: number): Promise<void> {
     this.internalMutationInProgress = true;
+    this.lastMutationAppliedAt = Date.now();
     const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
     const current = cartSnapshot.raw;
     const placeholderKey = `${Engine.OPTIMISTIC_KEY_PREFIX}${variantId}-${Date.now()}`;
@@ -1429,6 +1431,7 @@ export class Engine {
       this.setState({ cart: cartSnapshot });
       throw _err;
     } finally {
+      this.lastMutationAppliedAt = Date.now();
       this.internalMutationInProgress = false;
     }
   }
@@ -1453,6 +1456,7 @@ export class Engine {
       return;
     }
     this.internalMutationInProgress = true;
+    this.lastMutationAppliedAt = Date.now();
     const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
     const current = cartSnapshot.raw;
     if (current?.items) {
@@ -1468,10 +1472,10 @@ export class Engine {
     }
     try {
       const raw = await apiChangeCart(lineKey, quantity);
+      this.lastMutationAppliedAt = Date.now();
       if (raw?.items != null && typeof raw.item_count === 'number') {
         const serverLine = raw.items.find((i: any) => (i?.key ?? '') === lineKey);
         if (serverLine && Number(serverLine.quantity) === quantity) {
-          this.lastMutationAppliedAt = Date.now();
           this.applyCartRaw(raw, { fromReapply: true });
         } else {
           await this.syncCart();
@@ -1484,6 +1488,7 @@ export class Engine {
       this.setState({ cart: cartSnapshot });
       throw _err;
     } finally {
+      this.lastMutationAppliedAt = Date.now();
       this.internalMutationInProgress = false;
     }
   }
@@ -1498,6 +1503,7 @@ export class Engine {
       return;
     }
     this.internalMutationInProgress = true;
+    this.lastMutationAppliedAt = Date.now();
     const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
     const current = cartSnapshot.raw;
     if (current?.items) {
@@ -1507,8 +1513,8 @@ export class Engine {
     }
     try {
       const raw = await apiRemoveItem(lineKey);
+      this.lastMutationAppliedAt = Date.now();
       if (raw?.items != null && typeof raw.item_count === 'number') {
-        this.lastMutationAppliedAt = Date.now();
         this.applyCartRaw(raw, { fromReapply: true });
       } else {
         await this.syncCart();
@@ -1518,6 +1524,7 @@ export class Engine {
       this.setState({ cart: cartSnapshot });
       throw _err;
     } finally {
+      this.lastMutationAppliedAt = Date.now();
       this.internalMutationInProgress = false;
     }
   }
