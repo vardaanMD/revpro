@@ -3,8 +3,17 @@ import { Engine } from './engine/Engine';
 import { createThemeConnector, type ThemeConnector } from './integration/themeConnector';
 import type { RawCartProConfig } from './engine/configSchema';
 
-const ROOT_ID = 'revstack-v3-root';
+/** Canonical host element id. Used by both the Liquid embed block and the runtime fallback. */
+const ROOT_ID = 'cart-pro-root';
 const CONFIG_CACHE_KEY = 'cart-pro-v3-config';
+
+/**
+ * Resolves the host element for mounting (no side effects).
+ * Returns #cart-pro-root if it exists, otherwise null (caller creates it).
+ */
+function getResolvedHostElement(): HTMLElement | null {
+  return document.getElementById(ROOT_ID) ?? null;
+}
 
 /** Global snapshot authority. Dynamic embed sets __CART_PRO_SNAPSHOT__; legacy embed may set __CART_PRO_V3_SNAPSHOT__. */
 const getGlobalSnapshot = (): RawCartProConfig | null => {
@@ -29,7 +38,7 @@ const APPEARANCE_FALLBACKS = {
 /**
  * Apply appearance CSS variables on the shadow host from snapshot config.
  * V2 styling authority: ONLY --cp-primary, --cp-accent, --cp-radius (no semantic vars).
- * Variables are applied to #revstack-v3-root and cascade into shadow DOM.
+ * Variables are applied to the resolved host (#cart-pro-root or #revstack-v3-root) and cascade into shadow DOM.
  */
 export function applyAppearanceVariables(host: HTMLElement, config: RawCartProConfig | null | undefined): void {
   console.log('[CartPro V3] Applied appearance:', config?.appearance);
@@ -83,14 +92,17 @@ function bootstrapConfig(engine: Engine, host: HTMLElement): boolean {
 
 let engineInstance: Engine | null = null;
 let themeConnectorInstance: ThemeConnector | null = null;
+/** Host element actually used by the last mount (for correct unmount). */
+let mountedHost: HTMLElement | null = null;
 
 function ensureBodyHost(): HTMLElement {
-  let host = document.getElementById(ROOT_ID) as HTMLElement | null;
+  // Use #cart-pro-root (canonical). Create it if absent.
+  let host = getResolvedHostElement();
 
-  // Cleanup old host id if it exists
-  const legacy = document.getElementById('cart-pro-v3-root');
-  if (legacy && legacy !== host) {
-    legacy.remove();
+  // Remove legacy host ids from older runtime versions.
+  for (const legacyId of ['cart-pro-v3-root', 'revstack-v3-root']) {
+    const legacy = document.getElementById(legacyId);
+    if (legacy && legacy !== host) legacy.remove();
   }
 
   if (!host) {
@@ -112,6 +124,7 @@ function ensureBodyHost(): HTMLElement {
   host.style.background = 'transparent';
   host.style.display = 'block';
 
+  mountedHost = host;
   return host;
 }
 
@@ -166,13 +179,22 @@ export function mountCartProV3(componentCss: string): void {
   const host = ensureBodyHost();
   if (typeof window !== "undefined") {
     (window as unknown as Record<string, unknown>).__applyCartProAppearance = function (config: RawCartProConfig | null | undefined) {
-      const hostEl = document.getElementById('revstack-v3-root');
+      const hostEl = getResolvedHostElement();
       if (!hostEl) return;
-      applyAppearanceVariables(hostEl as HTMLElement, config);
+      applyAppearanceVariables(hostEl, config);
     };
   }
 
   const configLoaded = bootstrapConfig(engine, host);
+
+  if (typeof window !== 'undefined') {
+    (window as unknown as { __CART_PRO_RELOAD_CONFIG__?: (config: RawCartProConfig) => void }).__CART_PRO_RELOAD_CONFIG__ =
+      (config: RawCartProConfig) => {
+        applyAppearanceVariables(host, config);
+        engine.loadConfig(config);
+      };
+  }
+
   if (!configLoaded && typeof window !== 'undefined') {
     let attempts = 0;
     const maxAttempts = 40;
@@ -211,15 +233,18 @@ export function mountCartProV3(componentCss: string): void {
 
 /**
  * Unmounts Cart Pro V3: tears down theme connector and engine. Idempotent.
+ * Removes whichever host was actually used (stored at mount time).
  */
 export function unmountCartProV3(): void {
-  const host = document.getElementById(ROOT_ID) as HTMLElement | null;
+  const host = mountedHost ?? getResolvedHostElement();
   if (typeof window !== 'undefined') {
     delete (window as unknown as Record<string, unknown>).__applyCartProAppearance;
+    delete (window as unknown as { __CART_PRO_RELOAD_CONFIG__?: unknown }).__CART_PRO_RELOAD_CONFIG__;
   }
   themeConnectorInstance?.destroy();
   themeConnectorInstance = null;
   engineInstance?.destroy();
   engineInstance = null;
   host?.remove();
+  mountedHost = null;
 }

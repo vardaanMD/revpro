@@ -212,6 +212,10 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     typeof a.countdownDurationMs === 'number' && Number.isFinite(a.countdownDurationMs) && a.countdownDurationMs > 0
       ? Math.floor(a.countdownDurationMs)
       : defaultCountdownDurationMs;
+  const merchantCartDrawerSelector =
+    typeof a.merchantCartDrawerSelector === 'string' && a.merchantCartDrawerSelector.trim()
+      ? a.merchantCartDrawerSelector.trim()
+      : undefined;
   return {
     primaryColor,
     accentColor,
@@ -220,6 +224,7 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     countdownEnabled: typeof a.countdownEnabled === 'boolean' ? a.countdownEnabled : true,
     emojiMode: typeof a.emojiMode === 'boolean' ? a.emojiMode : true,
     countdownDurationMs,
+    merchantCartDrawerSelector,
   };
 }
 

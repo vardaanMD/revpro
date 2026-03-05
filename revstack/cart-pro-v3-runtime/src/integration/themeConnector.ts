@@ -15,6 +15,22 @@ const DEFAULT_CART_SELECTORS = [
   '[data-cart-toggle]',
 ];
 
+/**
+ * Default selectors for other-cart UIs that should be suppressed when Cart Pro is active.
+ * Used when config.appearance.merchantCartDrawerSelector is not set.
+ * CSS <style> covers cart-drawer / #CartDrawer / .js-drawer-open::after;
+ * this list extends JS-based coverage to additional common cart elements.
+ */
+const DEFAULT_OTHER_CART_SELECTORS = [
+  'cart-drawer',
+  '#CartDrawer',
+  '#cart-drawer',
+  '.cart-drawer',
+  '#monster-upsell-cart',
+  '#shopify-section-cart-drawer',
+  '[id*="cart-drawer"][class*="drawer"]',
+];
+
 const OBSERVER_DEBOUNCE_MS = 200;
 
 export interface ThemeConnectorOptions {
@@ -52,6 +68,64 @@ export function createThemeConnector(
   let observer: MutationObserver | null = null;
   let observerDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   const hiddenElements: HiddenElement[] = [];
+
+  /** Returns the active selector list: merchant config selector when set, else built-in defaults. */
+  function effectiveOtherCartSelectors(): string[] {
+    const merchant = engine.getConfig()?.appearance?.merchantCartDrawerSelector;
+    return merchant ? [merchant] : DEFAULT_OTHER_CART_SELECTORS;
+  }
+
+  function hideElement(el: HTMLElement): void {
+    if (!el.style) return;
+    hiddenElements.push({
+      element: el,
+      originalDisplay: el.style.display,
+      originalVisibility: el.style.visibility,
+      originalPointerEvents: el.style.pointerEvents,
+    });
+    el.style.setProperty('display', 'none', 'important');
+    el.style.setProperty('visibility', 'hidden', 'important');
+    el.style.setProperty('pointer-events', 'none', 'important');
+  }
+
+  function hideExistingOtherCarts(): void {
+    if (typeof document === 'undefined') return;
+    const selectors = effectiveOtherCartSelectors();
+    for (const selector of selectors) {
+      try {
+        const nodes = document.querySelectorAll<HTMLElement>(selector);
+        for (const el of nodes) {
+          if (!hiddenElements.some((h) => h.element === el)) hideElement(el);
+        }
+      } catch {
+        // Invalid selector
+      }
+    }
+  }
+
+  /**
+   * Check addedNodes in each mutation against other-cart selectors and hide matches.
+   * Called immediately (no debounce) so elements are hidden before the next paint.
+   */
+  function hideAddedOtherCartNodes(mutations: MutationRecord[]): void {
+    const selectors = effectiveOtherCartSelectors();
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        const el = node as HTMLElement;
+        for (const selector of selectors) {
+          try {
+            if (el.matches(selector) && !hiddenElements.some((h) => h.element === el)) {
+              hideElement(el);
+              break;
+            }
+          } catch {
+            // Invalid selector
+          }
+        }
+      }
+    }
+  }
 
   function attachCartIconListeners(): void {
     if (typeof document === 'undefined') return;
@@ -100,24 +174,15 @@ export function createThemeConnector(
 
   attachCartIconListeners();
 
+  // Hide other-cart elements already present in the DOM.
+  hideExistingOtherCarts();
+  // Also apply any explicit selectors passed via options (legacy path).
   if (options?.otherCartSelectors?.length) {
     for (const selector of options.otherCartSelectors) {
       try {
-        const nodes = document.querySelectorAll(selector);
-        for (const node of nodes) {
-          const el = node as HTMLElement;
-          if (el && el.style) {
-            const originalDisplay = el.style.display;
-            const originalVisibility = el.style.visibility;
-            const originalPointerEvents = el.style.pointerEvents;
-            el.style.display = 'none';
-            hiddenElements.push({
-              element: el,
-              originalDisplay,
-              originalVisibility,
-              originalPointerEvents,
-            });
-          }
+        const nodes = document.querySelectorAll<HTMLElement>(selector);
+        for (const el of nodes) {
+          if (!hiddenElements.some((h) => h.element === el)) hideElement(el);
         }
       } catch {
         // Selector may be invalid
@@ -126,7 +191,10 @@ export function createThemeConnector(
   }
 
   if (typeof document !== 'undefined' && document.body) {
-    observer = new MutationObserver(() => {
+    observer = new MutationObserver((mutations) => {
+      // Hide other-cart nodes immediately — no debounce so they're gone before next paint.
+      if (!destroyed) hideAddedOtherCartNodes(mutations);
+      // Reattach cart icon listeners (debounced — heavier DOM query).
       if (observerDebounceTimer) clearTimeout(observerDebounceTimer);
       observerDebounceTimer = setTimeout(() => {
         observerDebounceTimer = null;

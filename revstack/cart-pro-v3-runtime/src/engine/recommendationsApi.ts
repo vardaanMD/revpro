@@ -1,10 +1,10 @@
 /**
  * Cart Pro V3 — AI recommendations API.
  * POST /apps/cart-pro/ai/v2 with { lastAddedProductId }; response { products: ProductSnapshot[] }.
- * Debounced; cache by cart signature. Does not block cart UI.
+ * Debounced (0ms = parity with cart.txt; cache by cart signature still dedupes same cart). Does not block cart UI.
  */
 
-const DEBOUNCE_MS = 500;
+const DEBOUNCE_MS = 0;
 
 const AI_V2_ENDPOINT = '/apps/cart-pro/ai/v2';
 

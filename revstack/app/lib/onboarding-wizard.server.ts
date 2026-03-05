@@ -3,12 +3,50 @@
  * No auto-completion, no DecisionMetric-driven progress. All transitions via explicit POST.
  * Onboarding completion means: "System is correctly installed and capable of functioning"
  * (infrastructure verified via synthetic decision / healthcheck), not live traffic or metrics.
+ * When complete, configV3 (including runtimeVersion if chosen) is persisted for snapshot v3.
  */
 import { prisma } from "~/lib/prisma.server";
 import { getShopConfig, invalidateShopConfigCache } from "~/lib/shop-config.server";
 import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import { generatePreviewDecision } from "~/lib/preview-simulator.server";
+import { mergeWithDefaultV3, type CartProConfigV3, type RuntimeVersion } from "~/lib/config-v3";
 import type { ShopConfig } from "@prisma/client";
+
+/** Map onboarding recommendation strategy to V3 upsell strategy (same as settings). */
+const ONBOARDING_STRATEGY_TO_V3: Record<string, CartProConfigV3["upsell"]["strategy"]> = {
+  MANUAL_COLLECTION: "manual",
+  COLLECTION_MATCH: "collection",
+  TAG_MATCH: "aov",
+  BEST_SELLING: "aov",
+  NEW_ARRIVALS: "aov",
+};
+
+/**
+ * Build configV3 from onboarding step3 form data for snapshot v3.
+ * Merges with existing configV3 so other fields are preserved.
+ */
+export function buildConfigV3FromOnboardingStep3(
+  existingConfigV3: unknown,
+  payload: { freeShippingThresholdCents: number; recommendationStrategy: string },
+  runtimeVersion?: RuntimeVersion
+): CartProConfigV3 {
+  const base = mergeWithDefaultV3(existingConfigV3 as Partial<CartProConfigV3> | null | undefined);
+  base.freeShipping = {
+    thresholdCents:
+      payload.freeShippingThresholdCents > 0 ? payload.freeShippingThresholdCents : base.freeShipping?.thresholdCents ?? null,
+  };
+  base.upsell.strategy =
+    ONBOARDING_STRATEGY_TO_V3[payload.recommendationStrategy] ?? base.upsell.strategy;
+  if (
+    runtimeVersion === "v1" ||
+    runtimeVersion === "v2" ||
+    runtimeVersion === "v3"
+  ) {
+    base.runtimeVersion = runtimeVersion;
+  }
+  base.version = "3.0.0";
+  return base;
+}
 
 export const WIZARD_STEP_WELCOME = 0;
 export const WIZARD_STEP_ACTIVATE_EXTENSION = 1;
@@ -99,12 +137,32 @@ export function step3RequiresMutation(
   return false;
 }
 
-/** Mark onboarding complete (step 4 → done). */
+/** Mark onboarding complete (step 4 → done). Ensures configV3 is set for snapshot v3 (from legacy columns if null). */
 export async function completeOnboardingWizard(shop: string): Promise<void> {
   const domain = normalizeShopDomain(shop);
+  const row = await prisma.shopConfig.findUnique({
+    where: { shopDomain: domain },
+    select: {
+      configV3: true,
+      freeShippingThresholdCents: true,
+      recommendationStrategy: true,
+    },
+  });
+  let configV3Update: object | undefined;
+  if (row && (row.configV3 == null || (typeof row.configV3 === "object" && Object.keys(row.configV3 as object).length === 0))) {
+    const configV3 = buildConfigV3FromOnboardingStep3(row.configV3, {
+      freeShippingThresholdCents: row.freeShippingThresholdCents ?? 0,
+      recommendationStrategy: row.recommendationStrategy ?? "COLLECTION_MATCH",
+    });
+    configV3Update = configV3 as object;
+  }
   await prisma.shopConfig.update({
     where: { shopDomain: domain },
-    data: { onboardingCompleted: true, onboardingStep: WIZARD_STEP_LAUNCH },
+    data: {
+      onboardingCompleted: true,
+      onboardingStep: WIZARD_STEP_LAUNCH,
+      ...(configV3Update != null && { configV3: configV3Update }),
+    },
   });
   invalidateShopConfigCache(domain);
 }

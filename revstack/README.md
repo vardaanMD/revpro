@@ -33,6 +33,12 @@ The CLI often shows a temporary Cloudflare URL; we keep the app and app proxy on
 
 Press P to open the app (it will load via app.revenity.io if the tunnel is running). Storefront requests to `/apps/cart-pro/decision` proxy to app.revenity.io → your tunnel → localhost:3000.
 
+### Cart Pro V3 host element
+
+The canonical host element id is **`cart-pro-root`**. The Liquid embed block (`blocks/cart_pro_embed_v3.liquid`) renders `<div id="cart-pro-root">` on the storefront. The V3 runtime mounts its shadow DOM into this element, and creates it at `document.body` if the Liquid embed block is absent.
+
+Theme CSS that needs to target the host element (e.g. to set custom properties) should use `#cart-pro-root`. The old ids `cart-pro-v3-root` and `revstack-v3-root` are cleaned up automatically by the runtime.
+
 ### Authenticating and querying data
 
 To authenticate and query data you can use the `shopify` const that is exported from `/app/shopify.server.js`:

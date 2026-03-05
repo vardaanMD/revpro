@@ -96,7 +96,7 @@
       <span id="cart-pro-title">Your Cart</span>
       <button id="cart-pro-close" type="button" aria-label="Close drawer" on:click={handleClose}>×</button>
     </div>
-    <Milestones tiers={rewards.tiers} unlockedTierIndex={rewards.unlockedTierIndex} subtotalCents={cart.subtotal} {currency} />
+    <Milestones {engine} {currency} />
     <CartItems {engine} items={items} {currency} onClose={handleClose} />
     <Recommendations {engine} standard={upsell.standard} aiRecommendations={upsell.aiRecommendations} loading={upsell.loading} {currency} />
     <div id="cart-pro-footer">

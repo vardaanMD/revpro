@@ -86,3 +86,8 @@
   font-size: var(--app-font-sm, 0.875rem);
   opacity: 0.85;
 }
+
+/* Runtime badge: same source as V3 runtime (DecisionMetric + CrossSellConversion) */
+.runtimeBadgeWrap {
+  margin-bottom: var(--app-space-4);
+}

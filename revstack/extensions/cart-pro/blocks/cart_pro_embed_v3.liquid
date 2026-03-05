@@ -15,9 +15,10 @@
 <script>
 (function() {
 
-  function loadRuntime(version) {
-    const script = document.createElement('script');
+  var CACHE_KEY = 'cart-pro-v3-config';
 
+  function loadRuntime(version) {
+    var script = document.createElement('script');
     if (version === 'v3') {
       script.src = "{{ 'cart-pro-v3.js' | asset_url }}";
     } else if (version === 'v2') {
@@ -25,25 +26,50 @@
     } else {
       script.src = "{{ 'cart-pro-v1.js' | asset_url }}";
     }
-
     script.defer = true;
     document.body.appendChild(script);
   }
 
+  function applySnapshot(config) {
+    window.__CART_PRO_SNAPSHOT__ = config;
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(config));
+    } catch (e) {}
+    if (typeof window.__CART_PRO_RELOAD_CONFIG__ === 'function') {
+      window.__CART_PRO_RELOAD_CONFIG__(config);
+    }
+  }
+
+  function useConfigAndLoad(config) {
+    var version = (config && config.runtimeVersion) ? config.runtimeVersion : 'v2';
+    applySnapshot(config);
+    loadRuntime(version);
+  }
+
+  try {
+    var cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (parsed && typeof parsed.runtimeVersion !== 'undefined') {
+        useConfigAndLoad(parsed);
+        fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
+          .then(function(r) { return r.json(); })
+          .then(function(config) {
+            applySnapshot(config);
+          })
+          .catch(function() {});
+        return;
+      }
+    }
+  } catch (e) {}
+
   fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
-    .then(r => r.json())
-    .then(config => {
-
-      window.__CART_PRO_SNAPSHOT__ = config;
-
-      const version = config.runtimeVersion || 'v2';
-
-      loadRuntime(version);
-
+    .then(function(r) { return r.json(); })
+    .then(function(config) {
+      useConfigAndLoad(config);
     })
-    .catch(err => {
+    .catch(function(err) {
       console.error('[CartPro] Snapshot load failed', err);
-
       loadRuntime('v2');
     });
 

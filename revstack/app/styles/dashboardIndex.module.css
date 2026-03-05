@@ -65,3 +65,15 @@
   font-size: var(--app-font-sm, 0.875rem);
   opacity: 0.85;
 }
+
+/* Runtime version badge (e.g. V1 / V2 / V3) */
+.runtimeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--app-space-1) var(--app-space-2);
+  border-radius: var(--p-border-radius-base, 8px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--p-color-bg-fill-secondary);
+  color: var(--p-color-text);
+}

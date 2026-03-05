@@ -269,3 +269,5 @@
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+/* Shipping bar uses .cp-milestone-* classes from cart-pro-v2.css (same track, fill, icon, colour). */

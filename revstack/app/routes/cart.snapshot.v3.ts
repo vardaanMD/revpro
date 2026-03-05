@@ -8,11 +8,10 @@ import { authenticate } from "~/shopify.server";
 import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import { getShopConfig } from "~/lib/shop-config.server";
 import { getBillingContext } from "~/lib/billing-context.server";
-import type { Capabilities } from "~/lib/capabilities.server";
+import { featureFlagsFromCapabilities } from "~/lib/feature-flags-from-billing.server";
 import {
   mergeWithDefaultV3,
   type CartProConfigV3,
-  type CartProConfigV3FeatureFlags,
 } from "~/lib/config-v3";
 import { warmCatalogForShop } from "~/lib/catalog-warm.server";
 import { prisma } from "~/lib/prisma.server";
@@ -20,20 +19,6 @@ import {
   getHydratedRecommendationsForShop,
   buildV3SnapshotPayload,
 } from "~/lib/upsell-engine-v2/buildSnapshot";
-
-/** Map billing capabilities to V3 feature flags. Billing gates features. */
-function featureFlagsFromCapabilities(
-  capabilities: Capabilities
-): CartProConfigV3FeatureFlags {
-  return {
-    enableUpsell: capabilities.allowCrossSell ?? false,
-    enableRewards: capabilities.allowMilestones ?? false,
-    enableDiscounts: capabilities.allowCouponTease ?? false,
-    enableFreeGifts: false,
-    enableCheckoutOverride: false,
-    enableAnalytics: capabilities.analyticsLevel === "advanced",
-  };
-}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await authenticate.public.appProxy(request);
@@ -88,6 +73,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   console.log("[CartPro Snapshot] freeShipping threshold:", configV3.freeShipping?.thresholdCents);
   console.log("[CartPro Snapshot] teaseMessage:", configV3.discounts?.teaseMessage);
+  console.log("[CartPro Snapshot] recommendations count:", recommendations.length);
 
   const runtimeVersion = configV3.runtimeVersion ?? "v2";
 

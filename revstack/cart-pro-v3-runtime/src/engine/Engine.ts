@@ -39,12 +39,13 @@ import { buildStubRecommendations } from './recommendationsStub';
 import type { AppliedDiscount, OneClickOfferState } from './state';
 import { normalizeConfig } from './normalizeConfig';
 import type { NormalizedEngineConfig, RawCartProConfig } from './configSchema';
+import { defaultConfig } from './defaultConfig';
 import { createCountdown, type CountdownApi } from './countdown';
 
 const REVALIDATION_DEBOUNCE_MS = 800;
 
 /** Bundle-level default so getConfig() never returns null before snapshot loads. */
-const DEFAULT_RUNTIME_CONFIG = Object.freeze(normalizeConfig({})) as NormalizedEngineConfig;
+const DEFAULT_RUNTIME_CONFIG = Object.freeze(normalizeConfig(defaultConfig)) as NormalizedEngineConfig;
 
 /** Fallback countdown duration when config.appearance.countdownDurationMs is missing. */
 const DEFAULT_COUNTDOWN_MS = 10 * 60 * 1000;
@@ -121,6 +122,11 @@ export class Engine {
   readonly countdown: CountdownApi;
   /** Cart signature when countdown was last started; restart only when signature changes. */
   private lastCountdownSignature: string | null = null;
+  /** When we last applied cart from our own mutation (add/change/remove). Skip external-update sync for a short window to avoid overwriting with stale fetch (v1-style: UI stays stable). */
+  private lastMutationAppliedAt = 0;
+
+  /** Grace period (ms) after applying our own mutation during which we skip any sync and ignore cart:external-update (v1-style: mutation response is source of truth). */
+  private static readonly MUTATION_GRACE_MS = 600;
 
   constructor() {
     this.stateStore = createStateStore();
@@ -135,7 +141,10 @@ export class Engine {
   }
 
   getInternalMutationInProgress(): boolean {
-    return this.internalMutationInProgress;
+    return (
+      this.internalMutationInProgress ||
+      Date.now() - this.lastMutationAppliedAt < Engine.MUTATION_GRACE_MS
+    );
   }
 
   init(): void {
@@ -147,6 +156,7 @@ export class Engine {
     });
     this.interceptorTeardown = createCartInterceptor(this);
     this.on('cart:external-update', () => {
+      if (Date.now() - this.lastMutationAppliedAt < Engine.MUTATION_GRACE_MS) return;
       this.enqueueEffect(async () => {
         await this.syncCart();
       });
@@ -310,12 +320,21 @@ export class Engine {
 
   /**
    * Start countdown when drawer opens (if enabled). Call from mount/connector when setting drawerOpen true.
+   * Also emits cart:evaluated for analytics when enableAnalytics: one decision per drawer open for admin metrics.
    */
   onDrawerOpened(): void {
+    const state = getStateFromStore(this.stateStore);
+    if (this.config?.featureFlags?.enableAnalytics) {
+      const hasCrossSell =
+        (state.snapshotRecommendations?.length ?? 0) > 0 ||
+        (state.upsell?.aiRecommendations?.length ?? 0) > 0;
+      const cartValue = Math.round(Number(state.cart?.subtotal ?? 0));
+      this.emitEvent('cart:evaluated', { hasCrossSell, cartValue });
+    }
     if (!this.config.appearance.countdownEnabled) return;
     const duration = this.config.appearance.countdownDurationMs ?? DEFAULT_COUNTDOWN_MS;
     if (duration <= 0) return;
-    const raw = getStateFromStore(this.stateStore).cart.raw;
+    const raw = state.cart.raw;
     this.lastCountdownSignature = raw ? this.getCartSignature(raw) : null;
     this.countdown.start(duration);
   }
@@ -633,56 +652,59 @@ export class Engine {
     }
   }
 
+  /** Key prefix for optimistic placeholder lines (add-to-cart). Change/remove of these is local-only. */
+  private static readonly OPTIMISTIC_KEY_PREFIX = 'opt-';
+
+  /** Compute itemCount, subtotal, total from cart.js-style raw object. */
+  private static cartMetricsFromRaw(raw: any): { itemCount: number; subtotal: number; total: number } {
+    const itemCount = raw?.item_count ?? (Array.isArray(raw?.items) ? raw.items.length : 0);
+    const subtotal =
+      raw?.items_subtotal_price ??
+      (Array.isArray(raw?.items)
+        ? raw.items.reduce((sum: number, item: any) => sum + ((item.line_price ?? (item.price ?? 0) * (item.quantity ?? 0)) || 0), 0)
+        : 0);
+    const total = raw?.total_price ?? subtotal;
+    return { itemCount, subtotal, total };
+  }
+
   /**
-   * Sync cart from Shopify. Must be called inside enqueueEffect() to avoid race conditions.
-   * When fromReapply is true, does not enqueue reapplyDiscounts to avoid loop.
-   *
-   * PRESSURE POINT (reapply): If not fromReapply and we have applied discounts, we enqueue
-   * reapplyDiscounts(), which then calls syncCart({ fromReapply: true }). That can mean 2 syncs
-   * per cart mutation. Acceptable for Phase 4; optimize in Phase 5 (e.g. coalesce or skip reapply
-   * when backend already applies during validation). See DISCOUNT_DESIGN_NOTES.md.
+   * Apply only cart slice from raw (no reconcile/shipping/rewards). For optimistic UI only.
    */
-  async syncCart(options?: { fromReapply?: boolean }): Promise<void> {
-    const t0 = performance.now();
-    console.log("[CartPro V3] syncCart START", t0);
+  private applyOptimisticCart(raw: any): void {
     if (this.destroyed) return;
-    const state = getStateFromStore(this.stateStore);
-    if (state.cart.syncing) return;
-    const syncStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    const { itemCount, subtotal, total } = Engine.cartMetricsFromRaw(raw);
+    const prev = getStateFromStore(this.stateStore).cart;
     this.setState({
-      cart: { syncing: true },
+      cart: {
+        raw,
+        itemCount,
+        subtotal,
+        total,
+        syncing: false,
+        lastSyncedAt: prev.lastSyncedAt,
+      },
     });
-    try {
-      console.log("[CartPro V3] syncCart → apiFetchCart START", performance.now());
-      const raw = await apiFetchCart();
-      console.log("[CartPro V3] syncCart → apiFetchCart END", performance.now());
-      const itemCount = raw.item_count ?? 0;
-      const subtotal =
-        raw.items_subtotal_price ??
-        (Array.isArray(raw.items)
-          ? raw.items.reduce((sum: number, item: any) => sum + (item.line_price ?? 0), 0)
-          : 0);
-      const total = raw.total_price ?? 0;
-      console.log("[CartPro V3] syncCart → setState START", performance.now());
-      this.setState({
-        cart: {
-          raw,
-          itemCount,
-          subtotal,
-          total,
-          syncing: false,
-          lastSyncedAt: Date.now(),
-        },
-      });
-      console.log("[CartPro V3] syncCart → setState END", performance.now());
-      console.log("[CartPro V3] syncCart → reconcileCartDiscountState START", performance.now());
-      this.reconcileCartDiscountState(raw);
-      console.log("[CartPro V3] syncCart → reconcileCartDiscountState END", performance.now());
-      this.perf.cartSyncDuration =
-        typeof performance !== 'undefined' && performance.now
-          ? performance.now() - syncStart
-          : 0;
-      this.emit('cart:updated', { raw });
+  }
+
+  /**
+   * Apply a cart raw object to state (reconcile, shipping, rewards, upsell). Used by syncCart
+   * and by mutation handlers for instant updates when the API returns full/merged cart.
+   */
+  private applyCartRaw(raw: any, options?: { fromReapply?: boolean }): void {
+    if (this.destroyed) return;
+    const { itemCount, subtotal, total } = Engine.cartMetricsFromRaw(raw);
+    this.setState({
+      cart: {
+        raw,
+        itemCount,
+        subtotal,
+        total,
+        syncing: false,
+        lastSyncedAt: Date.now(),
+      },
+    });
+    this.reconcileCartDiscountState(raw);
+    this.emit('cart:updated', { raw });
 
       // V2 lever: trace config-derived lever state (do not clear these in syncCart).
       console.log('[CartPro V3] Lever state:', {
@@ -911,7 +933,35 @@ export class Engine {
         }
       }
       this.triggerRevalidation();
-      console.log("[CartPro V3] syncCart END", performance.now(), "TOTAL:", performance.now() - t0);
+  }
+
+  /**
+   * Sync cart from Shopify. Fetches cart then applies via applyCartRaw.
+   * When fromReapply is true, does not enqueue reapplyDiscounts to avoid loop.
+   * V1-style guards to prevent snap-back / stuck:
+   * - Skip entirely when within MUTATION_GRACE_MS of our own add/change/remove (don't start fetch).
+   * - After fetch returns, skip apply if we're now in grace (fetch was in flight when user mutated; don't overwrite with stale result).
+   */
+  async syncCart(options?: { fromReapply?: boolean }): Promise<void> {
+    if (this.destroyed) return;
+    if (Date.now() - this.lastMutationAppliedAt < Engine.MUTATION_GRACE_MS) return;
+    const state = getStateFromStore(this.stateStore);
+    if (state.cart.syncing) return;
+    const syncStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    this.setState({
+      cart: { syncing: true },
+    });
+    try {
+      const raw = await apiFetchCart();
+      if (Date.now() - this.lastMutationAppliedAt < Engine.MUTATION_GRACE_MS) {
+        this.setState({ cart: { syncing: false } });
+        return;
+      }
+      this.perf.cartSyncDuration =
+        typeof performance !== 'undefined' && performance.now
+          ? performance.now() - syncStart
+          : 0;
+      this.applyCartRaw(raw, options);
     } catch (err) {
       this.setState({
         cart: { syncing: false },
@@ -1118,49 +1168,153 @@ export class Engine {
   }
 
   async addToCart(variantId: number, quantity: number): Promise<void> {
-    const operation = 'addToCart';
-    console.log('[CartPro V3] Mutation start:', operation);
     this.internalMutationInProgress = true;
+    const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
+    const current = cartSnapshot.raw;
+    const placeholderKey = `${Engine.OPTIMISTIC_KEY_PREFIX}${variantId}-${Date.now()}`;
+    const placeholderLine: any = {
+      key: placeholderKey,
+      variant_id: variantId,
+      quantity,
+      title: 'Adding…',
+      product_title: 'Adding…',
+      line_price: 0,
+      price: 0,
+    };
+    const optimisticItems = [...(current?.items ?? []), placeholderLine];
+    const optimisticRaw = {
+      ...(current ?? {}),
+      items: optimisticItems,
+      item_count: optimisticItems.length,
+      items_subtotal_price: current?.items_subtotal_price ?? 0,
+      total_price: current?.total_price ?? 0,
+    };
+    this.applyOptimisticCart(optimisticRaw);
     try {
-      await apiAddToCart(variantId, quantity);
-      await this.syncCart();
+      const response = await apiAddToCart(variantId, quantity);
+      const addedItems = response?.items != null ? (Array.isArray(response.items) ? response.items : [response.items]) : [];
+      if (addedItems.length > 0) {
+        const stateRaw = getStateFromStore(this.stateStore).cart.raw;
+        const withoutPlaceholder = (stateRaw?.items ?? []).filter((i: any) => !String(i?.key ?? '').startsWith(Engine.OPTIMISTIC_KEY_PREFIX));
+        const items = [...withoutPlaceholder, ...addedItems];
+        const itemsSubtotal = items.reduce(
+          (sum: number, item: any) => sum + (Number(item.line_price) || Number(item.price) * Number(item.quantity) || 0),
+          0
+        );
+        const prevTotal = stateRaw?.total_price != null ? Number(stateRaw.total_price) : 0;
+        const newLinesTotal = addedItems.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
+        const mergedRaw = {
+          ...(stateRaw ?? {}),
+          items,
+          item_count: items.length,
+          items_subtotal_price: itemsSubtotal,
+          total_price: prevTotal + newLinesTotal,
+        };
+        this.lastMutationAppliedAt = Date.now();
+        this.applyCartRaw(mergedRaw, { fromReapply: true });
+      } else {
+        await this.syncCart();
+      }
       this.emitEvent('cart:add', { variantId, quantity });
       const s = getStateFromStore(this.stateStore);
       const isUpsell =
         s.upsell.standard.some((r) => r.variantId === variantId) ||
         s.upsell.aiRecommendations.some((r) => r.variantId === variantId);
       if (isUpsell) this.emitEvent('upsell:add', { variantId, quantity });
+    } catch (_err) {
+      this.setState({ cart: cartSnapshot });
+      throw _err;
     } finally {
       this.internalMutationInProgress = false;
-      console.log('[CartPro V3] Mutation end:', operation);
     }
   }
 
   async changeCart(lineKey: string, quantity: number): Promise<void> {
-    const operation = 'changeCart';
-    console.log('[CartPro V3] Mutation start:', operation);
+    if (String(lineKey).startsWith(Engine.OPTIMISTIC_KEY_PREFIX)) {
+      const raw = getStateFromStore(this.stateStore).cart.raw;
+      if (!raw?.items) return;
+      if (quantity <= 0) {
+        const items = raw.items.filter((i: any) => (i?.key ?? '') !== lineKey);
+        const itemsSubtotal = items.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
+        this.applyOptimisticCart({ ...raw, items, item_count: items.length, items_subtotal_price: itemsSubtotal, total_price: raw.total_price ?? itemsSubtotal });
+      } else {
+        const optimisticItems = raw.items.map((i: any) => {
+          if ((i?.key ?? '') !== lineKey) return i;
+          const p = Number(i.price) || 0;
+          return { ...i, quantity, line_price: p * quantity };
+        });
+        const itemsSubtotal = optimisticItems.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
+        this.applyOptimisticCart({ ...raw, items: optimisticItems, item_count: optimisticItems.length, items_subtotal_price: itemsSubtotal, total_price: raw.total_price ?? itemsSubtotal });
+      }
+      return;
+    }
     this.internalMutationInProgress = true;
+    const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
+    const current = cartSnapshot.raw;
+    if (current?.items) {
+      const optimisticItems = current.items.map((i: any) => {
+        if ((i?.key ?? '') !== lineKey) return i;
+        const q = quantity;
+        const p = Number(i.price) || 0;
+        return { ...i, quantity: q, line_price: p * q };
+      });
+      const itemsSubtotal = optimisticItems.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
+      const optimisticRaw = { ...current, items: optimisticItems, item_count: optimisticItems.length, items_subtotal_price: itemsSubtotal, total_price: current.total_price ?? itemsSubtotal };
+      this.applyOptimisticCart(optimisticRaw);
+    }
     try {
-      await apiChangeCart(lineKey, quantity);
-      await this.syncCart();
+      const raw = await apiChangeCart(lineKey, quantity);
+      if (raw?.items != null && typeof raw.item_count === 'number') {
+        const serverLine = raw.items.find((i: any) => (i?.key ?? '') === lineKey);
+        if (serverLine && Number(serverLine.quantity) === quantity) {
+          this.lastMutationAppliedAt = Date.now();
+          this.applyCartRaw(raw, { fromReapply: true });
+        } else {
+          await this.syncCart();
+        }
+      } else {
+        await this.syncCart();
+      }
       this.emitEvent('cart:change', { lineKey, quantity });
+    } catch (_err) {
+      this.setState({ cart: cartSnapshot });
+      throw _err;
     } finally {
       this.internalMutationInProgress = false;
-      console.log('[CartPro V3] Mutation end:', operation);
     }
   }
 
   async removeItem(lineKey: string): Promise<void> {
-    const operation = 'removeItem';
-    console.log('[CartPro V3] Mutation start:', operation);
+    if (String(lineKey).startsWith(Engine.OPTIMISTIC_KEY_PREFIX)) {
+      const raw = getStateFromStore(this.stateStore).cart.raw;
+      if (!raw?.items) return;
+      const items = raw.items.filter((i: any) => (i?.key ?? '') !== lineKey);
+      const itemsSubtotal = items.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
+      this.applyOptimisticCart({ ...raw, items, item_count: items.length, items_subtotal_price: itemsSubtotal, total_price: raw.total_price ?? itemsSubtotal });
+      return;
+    }
     this.internalMutationInProgress = true;
+    const cartSnapshot = { ...getStateFromStore(this.stateStore).cart };
+    const current = cartSnapshot.raw;
+    if (current?.items) {
+      const items = current.items.filter((i: any) => (i?.key ?? '') !== lineKey);
+      const itemsSubtotal = items.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
+      this.applyOptimisticCart({ ...current, items, item_count: items.length, items_subtotal_price: itemsSubtotal, total_price: current.total_price ?? itemsSubtotal });
+    }
     try {
-      await apiRemoveItem(lineKey);
-      await this.syncCart();
+      const raw = await apiRemoveItem(lineKey);
+      if (raw?.items != null && typeof raw.item_count === 'number') {
+        this.lastMutationAppliedAt = Date.now();
+        this.applyCartRaw(raw, { fromReapply: true });
+      } else {
+        await this.syncCart();
+      }
       this.emitEvent('cart:remove', { lineKey });
+    } catch (_err) {
+      this.setState({ cart: cartSnapshot });
+      throw _err;
     } finally {
       this.internalMutationInProgress = false;
-      console.log('[CartPro V3] Mutation end:', operation);
     }
   }
 

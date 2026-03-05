@@ -9,6 +9,7 @@ import { getBillingContext } from "~/lib/billing-context.server";
 import { authenticate } from "~/shopify.server";
 import type { Plan } from "~/lib/capabilities.server";
 
+/** Billing page: uses layout config and getBillingContext (same source as snapshot v3 feature flags). No V2-only flows. */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const appLayout = getAppLayoutFromContext();
   let config: Awaited<ReturnType<typeof getShopConfig>>;

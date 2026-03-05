@@ -111,7 +111,8 @@ function startOfDayUtc(daysAgo: number): Date {
 
 /**
  * Analytics: cartPerformance (7d trend, 30d summary, optional previous period, cart revenue) and optional orderImpact (7d, OrderInfluenceEvent only).
- * No in-memory cache. DB truth gate: if DecisionMetric count for shop is zero, return zeroed metrics. Fail-safe: on Prisma/Redis error return zeroed metrics.
+ * Reads from same source V3 runtime writes to: DecisionMetric + CrossSellConversion (cart.analytics.v3.ts). V2 writes via cart.decision + cart.analytics.event.
+ * Single pipeline for all runtime versions; use configV3.runtimeVersion in the route only for UI (e.g. badge). No in-memory cache. DB truth gate: if DecisionMetric count for shop is zero, return zeroed metrics. Fail-safe: on Prisma/Redis error return zeroed metrics.
  */
 export async function getAnalyticsMetrics(
   shop: string,

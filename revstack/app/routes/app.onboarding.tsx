@@ -10,10 +10,11 @@ import { getAppLayoutFromContext } from "~/lib/request-context.server";
 import { getShopConfig } from "~/lib/shop-config.server";
 import { prisma } from "~/lib/prisma.server";
 import { invalidateShopConfigCache } from "~/lib/shop-config.server";
+import { buildConfigV3FromOnboardingStep3 } from "~/lib/onboarding-wizard.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
 import onboardingStyles from "~/styles/onboarding.module.css";
 
-/** Step indices for UI only; server step logic uses onboarding-wizard.server (dynamic import in action). */
+/** Onboarding: on completion configV3 (including runtimeVersion) is persisted for snapshot v3. No V2-only flows. */
 const WIZARD_STEP_WELCOME = 0;
 const WIZARD_STEP_ACTIVATE_EXTENSION = 1;
 const WIZARD_STEP_VERIFY_CART = 2;
@@ -114,11 +115,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       );
     }
     const domain = normalizeShopDomain(shop);
+    const configV3 = buildConfigV3FromOnboardingStep3(config.configV3, {
+      freeShippingThresholdCents,
+      recommendationStrategy,
+    });
     await prisma.shopConfig.update({
       where: { shopDomain: domain },
       data: {
         freeShippingThresholdCents,
         recommendationStrategy,
+        configV3: configV3 as object,
       },
     });
     invalidateShopConfigCache(domain);

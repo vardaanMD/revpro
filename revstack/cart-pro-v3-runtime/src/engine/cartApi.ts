@@ -33,11 +33,13 @@ const FETCH_OPTIONS: RequestInit = {
 
 /**
  * GET /cart.js — fetch current cart.
+ * Uses cache: 'no-store' so we never get a stale cart after mutations (avoids qty/price snap-back).
  */
 export async function fetchCart(): Promise<any> {
   const res = await fetch(cartJsUrl(), {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
+    cache: 'no-store',
   });
   if (!res.ok) {
     throw new Error(`Cart fetch failed: ${res.status}`);

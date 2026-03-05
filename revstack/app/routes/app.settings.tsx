@@ -3,7 +3,7 @@ import type {
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { Form, useActionData, useLoaderData, useNavigation } from "react-router";
+import { Form, redirect, useActionData, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import { AppLink } from "~/components/AppLink";
 import { useState, useMemo, useEffect } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -15,6 +15,7 @@ import { getBillingContext } from "~/lib/billing-context.server";
 import { validateSettingsForm, parseMilestonesJson, parseManualCollectionIds, parseMilestonesForUI } from "~/lib/settings-validation.server";
 import type { SettingsFormData } from "~/lib/settings-validation.server";
 import { type CartProConfigV3, mergeWithDefaultV3 } from "~/lib/config-v3";
+import { featureFlagsFromCapabilities } from "~/lib/feature-flags-from-billing.server";
 import { logWarn, logResilience } from "~/lib/logger.server";
 import { prisma } from "~/lib/prisma.server";
 import { getCatalogForShop } from "~/lib/catalog.server";
@@ -166,7 +167,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ? configV3.runtimeVersion
       : "v2";
 
+  /** Feature flags as applied on storefront (from billing). Shown so merchants see plan state. */
+  const planFeatureFlags = featureFlagsFromCapabilities(billing.capabilities);
+
+  const savedFromRedirect = new URL(request.url).searchParams.get("saved") === "1";
   return {
+    savedFromRedirect,
+    planFeatureFlags,
     config: {
       freeShippingThresholdCents: config.freeShippingThresholdCents,
       baselineAovCents: config.baselineAovCents,
@@ -255,7 +262,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   invalidateShopConfigCache(shop);
-  return Response.json({ success: true });
+  const url = new URL(request.url);
+  url.searchParams.set("saved", "1");
+  return redirect(url.pathname + "?" + url.searchParams.toString());
 };
 
 function centsToDollars(cents: number): string {
@@ -356,10 +365,11 @@ function mergePreviewRenderState(
 }
 
 export default function SettingsPage() {
-  const { config, capabilities, initialPreviewRenderState } = useLoaderData<typeof loader>();
+  const { config, capabilities, planFeatureFlags, initialPreviewRenderState, savedFromRedirect } = useLoaderData<typeof loader>();
   const actionData = useActionData() as ActionData | undefined;
   const navigation = useNavigation();
-  const success = actionData?.success === true;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const success = savedFromRedirect === true || actionData?.success === true;
   const error = actionData && !actionData.success ? actionData.error : null;
   const isSubmitting = navigation.state === "submitting";
 
@@ -391,13 +401,23 @@ export default function SettingsPage() {
   useEffect(() => {
     if (actionData && !actionData.success && actionData.error) {
       setFieldErrors(parseActionErrorToFieldErrors(actionData.error));
-    } else if (actionData?.success === true) {
+    } else if (savedFromRedirect || actionData?.success === true) {
       setFieldErrors({});
       setShowSuccessBanner(true);
+      if (searchParams.get("saved") === "1") {
+        setSearchParams(
+          (prev) => {
+            const p = new URLSearchParams(prev);
+            p.delete("saved");
+            return p;
+          },
+          { replace: true }
+        );
+      }
       const t = setTimeout(() => setShowSuccessBanner(false), 4500);
       return () => clearTimeout(t);
     }
-  }, [actionData]);
+  }, [actionData, savedFromRedirect]);
 
   const milestonesJsonValue = useMemo(() => {
     const valid = milestoneRows.filter(
@@ -529,6 +549,40 @@ export default function SettingsPage() {
         <input type="hidden" name="milestonesJson" value={milestonesJsonValue} />
         <fieldset disabled={isSubmitting} className={settingsStyles.fieldsetReset}>
         <s-stack direction="block" gap="base">
+          <div className={settingsStyles.section}>
+            <FormSection
+              heading="Storefront state"
+              description="What your storefront is using. Features are gated by your plan."
+            >
+              <div className={settingsStyles.planStateBlock}>
+                <div className={settingsStyles.planStateRow}>
+                  <s-text tone="subdued">Runtime</s-text>
+                  <s-text><strong>{(config as { runtimeVersion?: string }).runtimeVersion === "v3" ? "V3" : (config as { runtimeVersion?: string }).runtimeVersion === "v1" ? "V1" : "V2"}</strong></s-text>
+                </div>
+                <div className={settingsStyles.planStateRow}>
+                  <s-text tone="subdued">Upsell</s-text>
+                  <s-text>{planFeatureFlags.enableUpsell ? "On" : "Off"}</s-text>
+                </div>
+                <div className={settingsStyles.planStateRow}>
+                  <s-text tone="subdued">Rewards</s-text>
+                  <s-text>{planFeatureFlags.enableRewards ? "On" : "Off"}</s-text>
+                </div>
+                <div className={settingsStyles.planStateRow}>
+                  <s-text tone="subdued">Coupon tease</s-text>
+                  <s-text>{planFeatureFlags.enableDiscounts ? "On" : "Off"}</s-text>
+                </div>
+                <div className={settingsStyles.planStateRow}>
+                  <s-text tone="subdued">Analytics</s-text>
+                  <s-text>{planFeatureFlags.enableAnalytics ? "On" : "Off"}</s-text>
+                </div>
+                {(!capabilities.allowStrategySelection || !capabilities.allowUIConfig || !capabilities.allowCouponTease) && (
+                  <p className={settingsStyles.lockHint}>
+                    Some features are limited by your plan. <AppLink to="/app/upgrade">Upgrade</AppLink> for more.
+                  </p>
+                )}
+              </div>
+            </FormSection>
+          </div>
           <div className={settingsStyles.section}>
             <FormSection
               heading="Cart Pro Engine"
@@ -833,6 +887,23 @@ export default function SettingsPage() {
           <div className={previewPanelStyles.previewDrawerWrap}>
             <CartPreview ui={previewRenderState.ui} decision={previewRenderState.decision} capabilities={capabilities} enableCrossSellOverride={previewEnableCrossSell} />
           </div>
+          {runtimeVersion === "v3" && (
+            <>
+              <div className={previewPanelStyles.previewLabel} style={{ marginTop: "var(--app-space-6)" }}>
+                V3 preview
+              </div>
+              <p className={settingsStyles.v3PreviewHint}>
+                Same snapshot as storefront (mergeWithDefaultV3 + featureFlags + recommendations). Save to refresh.
+              </p>
+              <div className={previewPanelStyles.previewDrawerWrap}>
+                <iframe
+                  title="Cart Pro V3 preview"
+                  src="/app/preview-v3-frame"
+                  className={previewPanelStyles.previewV3Iframe}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </s-page>

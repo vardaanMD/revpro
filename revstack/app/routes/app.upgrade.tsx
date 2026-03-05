@@ -49,6 +49,7 @@ const PLANS = [
   },
 ];
 
+/** Uses layout config and getBillingContext for plan limits (same source as snapshot v3). No V2-only flows. */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const appLayout = getAppLayoutFromContext();
   let shop: string;

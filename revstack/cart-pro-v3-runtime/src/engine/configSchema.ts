@@ -20,6 +20,9 @@ export interface CartProConfigV3Appearance {
   textColor?: string;
   borderColor?: string;
   shadowColor?: string;
+  /** CSS selector for the merchant theme's native cart drawer. When set, this selector
+   *  is used exclusively (instead of the built-in default list) to hide other cart UIs. */
+  merchantCartDrawerSelector?: string;
 }
 
 export interface CartProConfigV3FeatureFlags {
@@ -190,6 +193,7 @@ export interface ConfigAppearance {
   textColor?: string;
   borderColor?: string;
   shadowColor?: string;
+  merchantCartDrawerSelector?: string;
 }
 
 /**

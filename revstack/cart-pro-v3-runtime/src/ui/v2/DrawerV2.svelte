@@ -9,6 +9,7 @@
   import CheckoutSection from './CheckoutSection.svelte';
 
   export let engine;
+  export let contentReady = false;
   const stateStore = engine.stateStore;
   const dispatch = createEventDispatcher();
 
@@ -42,6 +43,9 @@
 
   $: drawerOpen = $stateStore?.ui?.drawerOpen ?? false;
   $: countdownVisible = engine?.getConfig?.()?.appearance?.countdownEnabled === true;
+  // Feature flags — default true while config not yet loaded so sections don't flash-hide on init.
+  $: enableUpsell = engine?.getConfig?.()?.featureFlags?.enableUpsell ?? true;
+  $: enableDiscounts = engine?.getConfig?.()?.featureFlags?.enableDiscounts ?? true;
   $: if (drawerOpen) {
     document.body.style.overflow = 'hidden';
   } else {
@@ -106,25 +110,31 @@
       <span id="cart-pro-title">Your Cart</span>
       <button id="cart-pro-close" type="button" aria-label="Close drawer" on:click={handleClose}>×</button>
     </div>
-    <Milestones tiers={rewards.tiers} unlockedTierIndex={rewards.unlockedTierIndex} subtotalCents={cart.subtotal} {currency} />
-    <CartItems {engine} items={items} {currency} onClose={handleClose} />
-    <Recommendations {engine} />
-    <div id="cart-pro-footer">
-      <CouponSection {engine} applied={discount.applied} validating={discount.validating} lastError={discount.lastError} />
-      <CheckoutSection
-        {engine}
-        subtotalCents={cart.subtotal}
-        totalDiscountCents={totalDiscountCents}
-        {currency}
-        checkoutEnabled={checkout.enabled}
-        checkoutUrl={checkout.checkoutUrl}
-        syncing={cart.syncing}
-        countdownVisible={countdownVisible}
-        shippingLoading={false}
-        freeShippingMsg={shippingMsg}
-        savingsMsg={savingsMsg}
-      />
-    </div>
+    {#if contentReady}
+      <Milestones {engine} {currency} />
+      <CartItems {engine} items={items} {currency} onClose={handleClose} />
+      {#if enableUpsell}
+        <Recommendations {engine} />
+      {/if}
+      <div id="cart-pro-footer">
+        {#if enableDiscounts}
+          <CouponSection {engine} applied={discount.applied} validating={discount.validating} lastError={discount.lastError} />
+        {/if}
+        <CheckoutSection
+          {engine}
+          subtotalCents={cart.subtotal}
+          totalDiscountCents={totalDiscountCents}
+          {currency}
+          checkoutEnabled={checkout.enabled}
+          checkoutUrl={checkout.checkoutUrl}
+          syncing={cart.syncing}
+          countdownVisible={countdownVisible}
+          shippingLoading={false}
+          freeShippingMsg={shippingMsg}
+          savingsMsg={savingsMsg}
+        />
+      </div>
+    {/if}
   </div>
 </div>
 {#if showCheckoutIframe}

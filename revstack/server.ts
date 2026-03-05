@@ -83,6 +83,11 @@ async function main() {
   );
   app.use(publicPath, express.static(assetsBuildDirectory));
   app.use(express.static("public", { maxAge: "1h" }));
+  // Cart Pro V3 runtime script for admin preview iframe (settings V3 preview)
+  app.use(
+    "/extensions-assets",
+    express.static(path.join(process.cwd(), "extensions/cart-pro/assets"), { maxAge: "1h" })
+  );
   app.use(morgan("tiny"));
 
   app.get("/health-direct", (_req: ExpressRequest, res: ExpressResponse) => {
@@ -97,7 +102,7 @@ async function main() {
       const requestId = crypto.randomUUID();
       return requestContext.run({ requestId }, async () => {
         const pathname = new URL(request.url).pathname;
-        if (pathname.startsWith("/app") && request.method === "GET") {
+        if (pathname.startsWith("/app")) {
           const redirectResponse = await runAppAuth(request);
           if (redirectResponse) return redirectResponse;
         }
@@ -132,7 +137,7 @@ async function main() {
       const pathname = req.path || (req.url && req.url.split("?")[0]) || "";
       const requestId = crypto.randomUUID();
       requestContext.run({ requestId }, () => {
-        if (req.method === "GET" && pathname.startsWith("/app")) {
+        if (pathname.startsWith("/app")) {
           const request = toRequest(req);
           runAppAuth(request)
             .then((redirect) => {

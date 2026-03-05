@@ -1,5 +1,6 @@
 <script>
   import ShippingSection from './ShippingSection.svelte';
+  import { getUIText } from '../../lib/uiText';
 
   /** @type { import('../../engine/Engine').default } */
   export let engine;
@@ -26,9 +27,15 @@
 
   $: countdownStore = engine?.countdown?.store;
   $: countdownState = countdownStore ? $countdownStore : { remainingMs: 0, running: false };
-  // V2 lever: visibility from config only; no runtime flags (countdownVisible, running).
   $: countdownEnabled = engine?.getConfig?.()?.appearance?.countdownEnabled === true;
   $: showCountdown = countdownEnabled && countdownState.remainingMs > 0;
+  $: appearance = engine?.getConfig?.()?.appearance ?? {};
+  $: emojiConfig = { emojiMode: appearance.emojiMode !== false };
+
+  /** V2-style: "Offer reserved for MM:SS" with optional emoji. */
+  $: countdownDisplay = showCountdown && countdownState.remainingMs > 0
+    ? getUIText('🔥 Offer reserved for ' + formatCountdown(countdownState.remainingMs), emojiConfig)
+    : '';
 
   function formatMoney(cents) {
     if (cents == null) return '0.00';
@@ -68,9 +75,9 @@
 <ShippingSection {engine} {currency} />
 <div class="cp-checkout-container">
   <button id="cart-pro-checkout" class="cp-checkout-btn" type="button" disabled={!checkoutEnabled || syncing} on:click={onCheckout}>Checkout →</button>
-  <div id="cart-pro-countdown" class="cp-countdown" class:cp-countdown-urgent={showCountdown && countdownState.remainingMs < 60000} style="display: {showCountdown ? '' : 'none'};">
-    {#if showCountdown}
-      {formatCountdown(countdownState.remainingMs)}
+  <div id="cart-pro-countdown" class="cp-countdown" class:cp-countdown-urgent={showCountdown && countdownState.remainingMs < 120000} style="display: {showCountdown ? '' : 'none'};">
+    {#if countdownDisplay}
+      {countdownDisplay}
     {/if}
   </div>
 </div>

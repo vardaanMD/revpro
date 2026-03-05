@@ -25,6 +25,7 @@ import { DataPanel } from "~/components/ui/DataPanel";
 import { FeatureGate } from "~/components/ui/FeatureGate";
 import { MetricSection } from "~/components/ui/MetricSection";
 import analyticsStyles from "~/styles/analyticsPage.module.css";
+import dashboardStyles from "~/styles/dashboardIndex.module.css";
 import { MetricCardSkeleton } from "~/components/skeleton/MetricCardSkeleton";
 import { TableSkeleton } from "~/components/skeleton/TableSkeleton";
 import skeletonStyles from "~/styles/skeleton.module.css";
@@ -63,6 +64,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const billing = await getBillingContext(shop, config);
 
+  // Analytics reads from same source V3 runtime writes to: DecisionMetric + CrossSellConversion
+  // (cart.analytics.v3.ts). No separate V2 vs V3 pipeline — unified store.
   const tMetrics = performance.now();
   const [metrics] = await Promise.all([
     getAnalyticsMetrics(shop, billing.capabilities),
@@ -78,6 +81,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   }
 
+  const configV3 = config.configV3 as { runtimeVersion?: "v1" | "v2" | "v3" } | null | undefined;
+  const runtimeVersion: "v1" | "v2" | "v3" =
+    configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
+      ? configV3.runtimeVersion
+      : "v2";
+
   const sparklineDecisions = generateSparkline(
     metrics.cartPerformance.sevenDayTrend.map((p) => p.decisions)
   );
@@ -92,6 +101,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     isEntitled: billing.isEntitled,
     sparklineDecisions,
     sparklineAddRate,
+    configV3: configV3 ?? null,
+    runtimeVersion,
   };
 };
 
@@ -103,6 +114,8 @@ type LoaderData = {
   isEntitled: boolean;
   sparklineDecisions: string;
   sparklineAddRate: string;
+  configV3: { runtimeVersion?: "v1" | "v2" | "v3" } | null;
+  runtimeVersion: "v1" | "v2" | "v3";
 };
 
 function formatPctChange(prev: number, curr: number): string {
@@ -153,7 +166,7 @@ function ComparisonRow({
 export default function AnalyticsPage() {
   const navigation = useNavigation();
   const isLoading = navigation.state === "loading";
-  const { metrics, plan, capabilities, billingStatus, isEntitled, sparklineDecisions, sparklineAddRate } =
+  const { metrics, plan, capabilities, billingStatus, isEntitled, sparklineDecisions, sparklineAddRate, runtimeVersion } =
     useLoaderData<LoaderData>();
 
   const cp = metrics.cartPerformance;
@@ -214,8 +227,15 @@ export default function AnalyticsPage() {
 
   const [activeTab, setActiveTab] = useState<"cart" | "order">("cart");
 
+  const runtimeLabel = runtimeVersion === "v3" ? "V3" : runtimeVersion === "v1" ? "V1" : "V2";
+
   return (
     <s-page heading="Analytics">
+      <div className={analyticsStyles.runtimeBadgeWrap}>
+        <span className={dashboardStyles.runtimeBadge} title={`Cart Pro runtime: ${runtimeLabel}. Analytics show events from this runtime.`}>
+          Runtime: {runtimeLabel}
+        </span>
+      </div>
       {isLoading ? (
         <>
           <s-section heading="Last 7 Days">
