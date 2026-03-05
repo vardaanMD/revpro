@@ -143,13 +143,15 @@ describe("analytics math validation", () => {
     expect(data.engagement.ctr7d).toBe(0);
   });
 
-  it("analytics omits revenue when allowOrderMetrics false", async () => {
+  it("analytics always includes revenue", async () => {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce([{ total: 10n, shown: 5n, avg_cart: 100, count_all: 10n, added: 0n, sum_cart_with: 1000n }])
-      .mockResolvedValueOnce(emptyEngagement());
-    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan), { allowOrderMetrics: false, range: defaultRange() });
-    expect(data.revenue).toBeUndefined();
+      .mockResolvedValueOnce(emptyEngagement())
+      .mockResolvedValueOnce([{ revenue: 50000n }]);
+    const data = await getAnalyticsMetrics(TEST_SHOP, resolveCapabilities("basic" as Plan), { range: defaultRange() });
+    expect(data.revenue).toBeDefined();
+    expect(data.revenue.revenueCents).toBe(50000);
   });
 });
 

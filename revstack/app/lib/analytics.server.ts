@@ -143,8 +143,8 @@ export type AnalyticsMetrics = {
   range: AnalyticsDateRange;
   cartPerformance: CartPerformanceAnalytics;
   engagement: EngagementAnalytics;
-  /** Present only when allowOrderMetrics enabled. */
-  revenue?: RevenueAnalytics;
+  /** Revenue from paid orders (orders/paid webhook). */
+  revenue: RevenueAnalytics;
 };
 
 /** Zeroed metrics when DB has no data or on error. Uses the given range for trend length. */
@@ -169,6 +169,7 @@ function zeroedAnalyticsMetrics(range: AnalyticsDateRange): AnalyticsMetrics {
       cartValueAtEvaluation: 0,
     },
     engagement: { impressions: 0, clicks: 0, ctr: 0, conversionRate: 0 },
+    revenue: { revenueCents: 0 },
   });
 }
 
@@ -183,8 +184,7 @@ function startOfDayUtc(daysAgo: number): Date {
 }
 
 export type GetAnalyticsMetricsOptions = {
-  allowOrderMetrics?: boolean;
-  /** Date range for all metrics. Defaults to last 30 days if not provided. */
+  /** Date range for all metrics. */
   range: AnalyticsDateRange;
 };
 
@@ -198,7 +198,7 @@ export async function getAnalyticsMetrics(
   options: GetAnalyticsMetricsOptions
 ): Promise<AnalyticsMetrics> {
   const normalized = normalizeShopDomain(shop);
-  const { allowOrderMetrics = true, range } = options;
+  const { range } = options;
   try {
     const total = await prisma.decisionMetric.count({
       where: { shopDomain: normalized },
@@ -220,7 +220,7 @@ export async function getAnalyticsMetrics(
     return zeroedAnalyticsMetrics(range);
   }
   try {
-    return await getAnalyticsMetricsUncached(normalized, capabilities, allowOrderMetrics, range);
+    return await getAnalyticsMetricsUncached(normalized, capabilities, range);
   } catch (err) {
     logResilience({
       shop: normalized,
@@ -260,7 +260,6 @@ function endOfRangeExclusive(endDate: Date): Date {
 async function getAnalyticsMetricsUncached(
   shop: string,
   capabilities: Capabilities,
-  allowOrderMetrics: boolean,
   range: AnalyticsDateRange
 ): Promise<AnalyticsMetrics> {
   const rangeEndExclusive = endOfRangeExclusive(range.endDate);
@@ -332,18 +331,16 @@ async function getAnalyticsMetricsUncached(
     `,
   ]);
 
-  let revenue: RevenueAnalytics | undefined;
-  if (allowOrderMetrics) {
-    try {
-      const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
-        SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
-        FROM "OrderInfluenceEvent"
-        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
-      `;
-      revenue = { revenueCents: Number(revRows[0]?.revenue ?? 0) };
-    } catch {
-      revenue = { revenueCents: 0 };
-    }
+  let revenue: RevenueAnalytics;
+  try {
+    const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
+      SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
+      FROM "OrderInfluenceEvent"
+      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
+    `;
+    revenue = { revenueCents: Number(revRows[0]?.revenue ?? 0) };
+  } catch {
+    revenue = { revenueCents: 0 };
   }
 
   const s = summaryRow[0];
@@ -389,7 +386,7 @@ async function getAnalyticsMetricsUncached(
     conversionRate: addRate,
   };
 
-  return { range, cartPerformance, engagement, ...(revenue && { revenue }) };
+  return { range, cartPerformance, engagement, revenue };
 }
 
 // --- Phase 5.6 aggregation types (per-shop analytics from DecisionMetric + conversions) ---

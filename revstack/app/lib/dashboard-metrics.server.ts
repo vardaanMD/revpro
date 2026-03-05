@@ -39,7 +39,7 @@ export type EngagementMetrics = {
   conversionRate7d: number; // adds from recommendations ÷ drawer opens with recommendations shown
 };
 
-/** Revenue from paid orders (webhook). Shown only when allowOrderMetrics is enabled. We do not claim attribution. */
+/** Revenue from paid orders (orders/paid webhook). */
 export type RevenueMetrics = {
   revenue7d: number; // cents
 };
@@ -47,8 +47,7 @@ export type RevenueMetrics = {
 export type DashboardMetrics = {
   cartPerformance: CartPerformance;
   engagement: EngagementMetrics;
-  /** Present only when shop has allowOrderMetrics enabled. */
-  revenue?: RevenueMetrics;
+  revenue: RevenueMetrics;
 };
 
 /** Zeroed metrics when DB has no data for shop or on error. */
@@ -83,6 +82,7 @@ function zeroedDashboardMetrics(): DashboardMetrics {
       ctr7d: 0,
       conversionRate7d: 0,
     },
+    revenue: { revenue7d: 0 },
   });
 }
 
@@ -106,21 +106,15 @@ function toDateKey(date: Date): string {
     : String(date).slice(0, 10);
 }
 
-export type GetDashboardMetricsOptions = {
-  allowOrderMetrics?: boolean;
-};
-
 /**
  * Dashboard metrics for /app home. All aggregations server-side, scoped to shop.
  * No in-memory cache. DB truth gate: if DecisionMetric count for shop is zero, return zeroed metrics. Fail-safe: on error return zeroed metrics.
  */
 export async function getDashboardMetrics(
   shop: string,
-  capabilities: Capabilities,
-  options?: GetDashboardMetricsOptions
+  capabilities: Capabilities
 ): Promise<DashboardMetrics> {
   const normalized = normalizeShopDomain(shop);
-  const allowOrderMetrics = options?.allowOrderMetrics !== false;
   try {
     const total = await prisma.decisionMetric.count({
       where: { shopDomain: normalized },
@@ -141,7 +135,7 @@ export async function getDashboardMetrics(
     return zeroedDashboardMetrics();
   }
   try {
-    return await getDashboardMetricsUncached(normalized, capabilities, allowOrderMetrics);
+    return await getDashboardMetricsUncached(normalized, capabilities);
   } catch (err) {
     logResilience({
       shop: normalized,
@@ -168,8 +162,7 @@ type AggRowBase = {
 
 async function getDashboardMetricsUncached(
   shop: string,
-  capabilities: Capabilities,
-  allowOrderMetrics: boolean
+  capabilities: Capabilities
 ): Promise<DashboardMetrics> {
   const since24h = twentyFourHoursAgo();
   const sevenDayStart = startOfDayUtc(6);
@@ -266,19 +259,17 @@ async function getDashboardMetricsUncached(
     conversionRate7d: crossSellAddRate,
   };
 
-  let revenue: RevenueMetrics | undefined;
-  if (allowOrderMetrics) {
-    try {
-      const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
-        SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
-        FROM "OrderInfluenceEvent"
-        WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
-      `;
-      revenue = { revenue7d: Number(revRows[0]?.revenue ?? 0) };
-    } catch {
-      revenue = { revenue7d: 0 };
-    }
+  let revenue: RevenueMetrics;
+  try {
+    const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
+      SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
+      FROM "OrderInfluenceEvent"
+      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
+    `;
+    revenue = { revenue7d: Number(revRows[0]?.revenue ?? 0) };
+  } catch {
+    revenue = { revenue7d: 0 };
   }
 
-  return { cartPerformance, engagement, ...(revenue && { revenue }) };
+  return { cartPerformance, engagement, revenue };
 }

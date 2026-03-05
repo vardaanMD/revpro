@@ -65,14 +65,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const url = new URL(request.url);
   const range = parseAnalyticsRange(url);
-  const configV3ForMetrics = config.configV3 as { allowOrderMetrics?: boolean } | null | undefined;
-  const allowOrderMetrics = configV3ForMetrics?.allowOrderMetrics !== false;
 
   const tMetrics = performance.now();
-  const metrics = await getAnalyticsMetrics(shop, billing.capabilities, {
-    allowOrderMetrics,
-    range,
-  });
+  const metrics = await getAnalyticsMetrics(shop, billing.capabilities, { range });
   timings.getAnalyticsMetrics = performance.now() - tMetrics;
 
   timings.total = performance.now() - requestStart;
@@ -273,18 +268,10 @@ export default function AnalyticsPage() {
 
         <s-section heading="Revenue from paid orders">
           <p className={analyticsStyles.sectionSubtext}>
-            Real revenue from your store’s paid orders (we use the orders/paid webhook). We don’t claim this is caused by the app. You can turn this off in Settings → Order data &amp; revenue.
+            Revenue from your store’s paid orders (we use the orders/paid webhook; permission is granted when you install the app). We don’t claim this is caused by the app.
           </p>
           <MetricSection>
-            {metrics.revenue != null ? (
-              <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, CURRENCY)} contextLabel={`${rangeLabel} from paid orders`} />
-            ) : (
-              <StatCard
-                label="Revenue"
-                value="—"
-                contextLabel="Enable in Settings → Order data & revenue to see revenue from paid orders"
-              />
-            )}
+            <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, CURRENCY)} contextLabel={`${rangeLabel} from paid orders`} />
           </MetricSection>
         </s-section>
       </div>

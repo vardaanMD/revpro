@@ -68,11 +68,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const billing = await getBillingContext(shop, config);
 
-  const configV3ForMetrics = config.configV3 as { allowOrderMetrics?: boolean } | null | undefined;
-  const allowOrderMetrics = configV3ForMetrics?.allowOrderMetrics !== false;
   const tMetrics = performance.now();
   const [metrics] = await Promise.all([
-    getDashboardMetrics(shop, billing.capabilities, { allowOrderMetrics }),
+    getDashboardMetrics(shop, billing.capabilities),
   ]);
   timings.getDashboardMetrics = performance.now() - tMetrics;
 
@@ -373,21 +371,17 @@ export default function DashboardIndex() {
             </div>
           </s-section>
 
-          {/* Revenue from paid orders — always show; prompt to enable if off */}
+          {/* Revenue from paid orders */}
           <s-section>
             <div className={dashboardStyles.sectionCartMetrics}>
               <div className={dashboardStyles.sectionHeader}>
                 <s-text tone="auto">Revenue from paid orders</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                Real revenue from your store’s paid orders (orders/paid webhook). We don’t claim this is caused by the app. Turn off in Settings → Order data &amp; revenue if you prefer.
+                Revenue from your store’s paid orders (orders/paid webhook; permission is granted when you install the app). We don’t claim this is caused by the app.
               </p>
               <MetricSection>
-                {metrics.revenue != null ? (
-                  <StatCard label="Revenue (7 days)" value={formatCurrency(metrics.revenue.revenue7d, currency)} contextLabel="from paid orders" />
-                ) : (
-                  <StatCard label="Revenue" value="—" contextLabel="Enable in Settings → Order data & revenue to see revenue from paid orders" />
-                )}
+                <StatCard label="Revenue (7 days)" value={formatCurrency(metrics.revenue.revenue7d, currency)} contextLabel="from paid orders" />
               </MetricSection>
             </div>
           </s-section>

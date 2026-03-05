@@ -124,26 +124,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
 
-  // Store order total for "Revenue (paid orders)" when merchant has allowed order metrics.
-  // When allowOrderMetrics is false, we do not store order data (merchant can turn off in Settings).
+  // Store order total for revenue metrics. Permission to read orders is granted on install.
   if (orderId && orderValueCents > 0) {
     try {
-      const shopConfig = await prisma.shopConfig.findUnique({
-        where: { shopDomain: shop },
-        select: { configV3: true },
+      await prisma.orderInfluenceEvent.create({
+        data: {
+          shopDomain: shop,
+          orderId,
+          orderValue: orderValueCents,
+          influenced,
+        },
       });
-      const configV3 = shopConfig?.configV3 as { allowOrderMetrics?: boolean } | null | undefined;
-      const allowOrderMetrics = configV3?.allowOrderMetrics !== false;
-      if (allowOrderMetrics) {
-        await prisma.orderInfluenceEvent.create({
-          data: {
-            shopDomain: shop,
-            orderId,
-            orderValue: orderValueCents,
-            influenced,
-          },
-        });
-      }
     } catch (err) {
       logWarn({
         shop,

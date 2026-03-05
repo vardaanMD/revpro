@@ -74,8 +74,6 @@ export interface CartProConfigV3 {
   version: string;
   /** Which runtime to load on storefront: v1, v2, or v3. Default "v3" for new installs. */
   runtimeVersion?: RuntimeVersion;
-  /** When true, orders/paid webhook stores order total for "Revenue (paid orders)" in analytics. When false, we do not store or show order totals. */
-  allowOrderMetrics?: boolean;
   appearance: CartProConfigV3Appearance;
   featureFlags: CartProConfigV3FeatureFlags;
   upsell: CartProConfigV3Upsell;
@@ -93,7 +91,6 @@ export interface CartProConfigV3 {
 export const DEFAULT_CONFIG_V3 = Object.freeze({
   version: "3.0.0",
   runtimeVersion: "v3" as RuntimeVersion,
-  allowOrderMetrics: true,
   appearance: {
     primaryColor: "#111111",
     accentColor: "#16a34a",
@@ -167,10 +164,6 @@ export function mergeWithDefaultV3(
     persisted.runtimeVersion === "v3"
   ) {
     base.runtimeVersion = persisted.runtimeVersion;
-  }
-
-  if (typeof persisted.allowOrderMetrics === "boolean") {
-    base.allowOrderMetrics = persisted.allowOrderMetrics;
   }
 
   if (persisted.appearance && typeof persisted.appearance === "object" && !Array.isArray(persisted.appearance)) {

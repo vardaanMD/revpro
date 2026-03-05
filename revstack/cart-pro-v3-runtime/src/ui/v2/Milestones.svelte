@@ -39,15 +39,16 @@
     return list;
   })();
 
-  /** Fixed positions for up to 3 tiers so all emojis are visible: 33%, 66%, 100%. */
-  const TIER_POSITIONS = [100 / 3, (2 * 100) / 3, 100];
+  $: lastThreshold = combinedMilestones.length > 0 ? combinedMilestones[combinedMilestones.length - 1].thresholdCents : 0;
+  /** Positions from actual thresholds so fill aligns with order value (e.g. $50 of $100 = 50% = second emoji). */
   $: displayPoints = (() => {
     const points = [];
     const n = Math.min(combinedMilestones.length, 3);
     for (let i = 0; i < n; i++) {
       const m = combinedMilestones[i];
+      const leftPct = lastThreshold > 0 ? (m.thresholdCents / lastThreshold) * 100 : (100 / 3) * (i + 1);
       points.push({
-        leftPct: TIER_POSITIONS[i],
+        leftPct,
         thresholdCents: m.thresholdCents,
         label: m.label,
         emoji: m.emoji,
@@ -56,9 +57,27 @@
     return points;
   })();
 
-  $: lastThreshold = combinedMilestones.length > 0 ? combinedMilestones[combinedMilestones.length - 1].thresholdCents : 0;
-  /** Bar fill grows with cart value (smooth progress). Fill is a separate layer behind the points so it never washes the emojis. */
+  /** Bar fill grows with cart value. Segmented so colour stops before each emoji and resumes after (no washing). */
   $: fillPct = lastThreshold > 0 ? Math.min(100, (subtotalCents / lastThreshold) * 100) : 0;
+
+  /** Gap each side of an emoji (percent of bar) so the colour bar breaks and emoji sits on neutral track. */
+  const EMOJI_GAP_PCT = 4;
+  $: fillSegments = (() => {
+    if (displayPoints.length === 0) return [];
+    const segments = [];
+    const positions = displayPoints.map((p) => p.leftPct);
+    for (let i = 0; i < positions.length; i++) {
+      const segmentStart = i === 0 ? 0 : positions[i - 1] + EMOJI_GAP_PCT;
+      const segmentEnd = i === positions.length - 1 ? 100 : positions[i] - EMOJI_GAP_PCT;
+      if (segmentEnd <= segmentStart) continue;
+      const fillEnd = Math.min(segmentEnd, Math.max(segmentStart, fillPct));
+      const widthPct = Math.max(0, fillEnd - segmentStart);
+      if (widthPct > 0) {
+        segments.push({ leftPct: segmentStart, widthPct });
+      }
+    }
+    return segments;
+  })();
   $: hasMilestones = combinedMilestones.length > 0 && !shipping?.loading;
 
   $: messageText = (() => {
@@ -92,8 +111,12 @@
     {#if hasMilestones}
       <div class="cp-milestone-wrapper cp-fade-in">
         <div class="cp-milestone-header">{combinedMilestones.length > 1 ? 'Unlock Rewards' : 'Free Shipping'}</div>
-        <div class="cp-milestone-track" style="--cp-fill-pct: {fillPct}%;">
-          <div class="cp-milestone-fill"></div>
+        <div class="cp-milestone-track">
+          <div class="cp-milestone-fills" aria-hidden="true">
+            {#each fillSegments as seg}
+              <div class="cp-milestone-fill-segment" style="left: {seg.leftPct}%; width: {seg.widthPct}%;"></div>
+            {/each}
+          </div>
           <div class="cp-milestone-points">
             {#each displayPoints as pt}
               {@const unlocked = subtotalCents >= pt.thresholdCents || (pt.emoji === '🚚' && !!shipping?.unlocked)}
