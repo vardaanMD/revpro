@@ -25,8 +25,8 @@ export type CartPerformance = {
   crossSellShowRate: number;
   crossSellAddRate: number;
   avgCartValue: number;
-  /** Sum of cartValue at decision time (last 7 days). */
-  cartRevenue: number;
+  /** Sum of cart value at decision time (last 7 days). Not revenue. */
+  cartValueAtEvaluation: number;
   last7DaysTrend: {
     date: string;
     decisions: number;
@@ -70,7 +70,7 @@ function zeroedDashboardMetrics(): DashboardMetrics {
       crossSellShowRate: 0,
       crossSellAddRate: 0,
       avgCartValue: 0,
-      cartRevenue: 0,
+      cartValueAtEvaluation: 0,
       last7DaysTrend,
     },
   });
@@ -226,7 +226,7 @@ async function getDashboardMetricsUncached(
       ? Math.round(a.avg_cart)
       : 0;
 
-  const cartRevenue = a && a.sum_cart_with != null ? Number(a.sum_cart_with) : 0;
+  const cartValueAtEvaluation = a && a.sum_cart_with != null ? Number(a.sum_cart_with) : 0;
 
   const decisionsByDay = new Map<string, number>();
   for (const r of decisionRows) {
@@ -249,7 +249,7 @@ async function getDashboardMetricsUncached(
     crossSellShowRate,
     crossSellAddRate,
     avgCartValue,
-    cartRevenue,
+    cartValueAtEvaluation,
     last7DaysTrend,
   };
 

@@ -163,6 +163,46 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
+  // Order Impact: record recommendation click for RevproClickSession (session linking).
+  const recommendationClicks = validEvents.filter(
+    (e) =>
+      e.name === "recommendation:click" &&
+      e.payload &&
+      typeof (e.payload as Record<string, unknown>).productId === "string" &&
+      Array.isArray((e.payload as Record<string, unknown>).recommendedProductIds)
+  );
+  for (const e of recommendationClicks) {
+    const p = e.payload as Record<string, unknown>;
+    const productId = String(p.productId);
+    const recommendedProductIds = (p.recommendedProductIds as string[]).filter((id): id is string => typeof id === "string");
+    const revproSessionId = e.sessionId?.trim();
+    if (!revproSessionId) continue;
+    try {
+      const existing = await prisma.revproClickSession.findUnique({
+        where: { shopDomain_revproSessionId: { shopDomain: shop, revproSessionId } },
+      });
+      const clickedIds = existing
+        ? [...(Array.isArray(existing.clickedProductIds) ? (existing.clickedProductIds as string[]) : []), productId]
+        : [productId];
+      await prisma.revproClickSession.upsert({
+        where: { shopDomain_revproSessionId: { shopDomain: shop, revproSessionId } },
+        create: {
+          shopDomain: shop,
+          revproSessionId,
+          clickedProductIds: clickedIds,
+          recommendedProductIds,
+        },
+        update: { clickedProductIds: clickedIds },
+      });
+    } catch (err) {
+      logWarn({
+        shop,
+        message: "analytics-v3 RevproClickSession upsert failed",
+        meta: { error: err instanceof Error ? err.message : String(err) },
+      });
+    }
+  }
+
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { "Content-Type": "application/json" },

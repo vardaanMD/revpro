@@ -143,7 +143,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const runtimeVersion: "v1" | "v2" | "v3" =
     configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
       ? configV3.runtimeVersion
-      : "v2";
+      : "v3";
 
   if (process.env.NODE_ENV === "development") {
     console.log("[SHOP CONTEXT]", shop);

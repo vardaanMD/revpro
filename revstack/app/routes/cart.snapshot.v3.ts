@@ -81,7 +81,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   console.log("[CartPro Snapshot] teaseMessage:", configV3.discounts?.teaseMessage);
   console.log("[CartPro Snapshot] recommendations count:", recommendations.length);
 
-  const runtimeVersion = configV3.runtimeVersion ?? "v2";
+  const runtimeVersion = configV3.runtimeVersion ?? "v3";
 
   const snapshotPayload = {
     ...buildV3SnapshotPayload(configV3),

@@ -41,7 +41,7 @@
   }
 
   function useConfigAndLoad(config) {
-    var version = (config && config.runtimeVersion) ? config.runtimeVersion : 'v2';
+    var version = (config && config.runtimeVersion) ? config.runtimeVersion : 'v3';
     applySnapshot(config);
     loadRuntime(version);
   }
@@ -70,7 +70,7 @@
     })
     .catch(function(err) {
       console.error('[CartPro] Snapshot load failed', err);
-      loadRuntime('v2');
+      loadRuntime('v3');
     });
 
 })();

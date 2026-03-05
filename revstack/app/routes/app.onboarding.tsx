@@ -204,9 +204,9 @@ export default function OnboardingWizardPage() {
           {step === WIZARD_STEP_ACTIVATE_EXTENSION && (
             <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
               <s-stack direction="block" gap="base">
-                <s-heading>Activate extension</s-heading>
+                <s-heading>Activate Cart Pro V3</s-heading>
                 <s-text tone="neutral">
-                  Add the app block to your theme in the Theme Editor and enable it so the cart runs on your storefront.
+                  In the Theme Editor, go to <strong>App embeds</strong> and enable <strong>Cart Pro V3</strong> (the block named &quot;Cart Pro V3&quot;). Do not enable an older &quot;Cart Pro&quot; block—use the V3 embed so the latest cart runs on your storefront.
                 </s-text>
                 <s-stack direction="inline" gap="base">
                   <a

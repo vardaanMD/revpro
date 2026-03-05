@@ -124,7 +124,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
 
-  if (orderId) {
+  // Order influence attribution: only write when explicitly enabled (rollback: set ENABLE_ORDER_INFLUENCE_EVENT=1).
+  // Default: do not write, to avoid revenue-liability framing; analytics focus on cart engagement.
+  if (orderId && process.env.ENABLE_ORDER_INFLUENCE_EVENT === "1") {
     try {
       await prisma.orderInfluenceEvent.create({
         data: {

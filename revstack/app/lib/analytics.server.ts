@@ -45,8 +45,8 @@ function deepFreeze<T>(obj: T): T {
 export type CartPerformanceAnalytics = {
   sevenDayTrend: SevenDayTrendPoint[];
   thirtyDaySummary: PeriodSummary;
-  /** Sum of cartValue at decision time (30-day). */
-  cartRevenue: number;
+  /** Sum of cart value at decision time (30-day). Not revenue. */
+  cartValueAtEvaluation: number;
   previousSevenDaySummary?: PreviousSevenDaySummary;
   previousThirtyDaySummary?: PeriodSummary;
 };
@@ -94,7 +94,7 @@ function zeroedAnalyticsMetrics(): AnalyticsMetrics {
         addRate: 0,
         avgCartValue: 0,
       },
-      cartRevenue: 0,
+      cartValueAtEvaluation: 0,
     },
   });
 }
@@ -257,7 +257,7 @@ async function getAnalyticsMetricsUncached(
   const total30 = s30 ? Number(s30.total) : 0;
   const shown30 = s30 ? Number(s30.shown) : 0;
   const added30 = s30 ? Number(s30.added) : 0;
-  const cartRevenue = s30 && "sum_cart_with" in s30 ? Number(s30.sum_cart_with) : 0;
+  const cartValueAtEvaluation = s30 && "sum_cart_with" in s30 ? Number(s30.sum_cart_with) : 0;
   const avgCartValue30 =
     s30 && s30.count_all > 0n && s30.avg_cart != null
       ? Math.round(s30.avg_cart)
@@ -292,7 +292,7 @@ async function getAnalyticsMetricsUncached(
       addRate: addRate30,
       avgCartValue: avgCartValue30,
     },
-    cartRevenue,
+    cartValueAtEvaluation,
   };
 
   let orderImpact: OrderImpact | undefined;

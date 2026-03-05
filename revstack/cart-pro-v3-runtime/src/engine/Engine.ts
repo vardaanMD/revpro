@@ -24,7 +24,7 @@ import {
 import { createEventBus, type EventBus } from './eventBus';
 import { createEffectQueue, type EffectQueue } from './effectQueue';
 import { createCartInterceptor } from './interceptor';
-import { fetchCart as apiFetchCart, addToCart as apiAddToCart, changeCart as apiChangeCart, removeItem as apiRemoveItem } from './cartApi';
+import { fetchCart as apiFetchCart, addToCart as apiAddToCart, changeCart as apiChangeCart, removeItem as apiRemoveItem, updateCartAttributes } from './cartApi';
 import { validateDiscount, removeDiscountFromCart } from './discountApi';
 import { computeExpectedGifts, diffGifts, getGiftVariantIds } from './freeGift';
 import { computeStandardUpsell } from './upsell';
@@ -46,6 +46,22 @@ import { createCountdown, type CountdownApi } from './countdown';
 const REVALIDATION_DEBOUNCE_MS = 800;
 /** Debounce for background decision call when cart changes (Phase 5). */
 const DECISION_DEBOUNCE_MS = 500;
+
+const REVPRO_SESSION_STORAGE_KEY = 'revpro_session_id';
+
+/** Persistent session ID for order attribution (cart attribute + RevproClickSession). Survives page reloads. */
+function getOrCreateRevproSessionId(): string {
+  if (typeof window === 'undefined' || !window.localStorage) return '';
+  try {
+    let id = window.localStorage.getItem(REVPRO_SESSION_STORAGE_KEY);
+    if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return id;
+    id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+    window.localStorage.setItem(REVPRO_SESSION_STORAGE_KEY, id);
+    return id;
+  } catch {
+    return '';
+  }
+}
 
 /** Bundle-level default so getConfig() never returns null before snapshot loads. */
 const DEFAULT_RUNTIME_CONFIG = Object.freeze(normalizeConfig(defaultConfig)) as NormalizedEngineConfig;
@@ -202,6 +218,8 @@ export class Engine {
   private lastCountdownSignature: string | null = null;
   /** When we last applied cart from our own mutation (add/change/remove). Skip external-update sync for a short window to avoid overwriting with stale fetch (v1-style: UI stays stable). */
   private lastMutationAppliedAt = 0;
+  /** True once we have set revpro_session_id on the cart this session (Order Impact attribution). */
+  private revproSessionIdSet = false;
 
   /** Grace period (ms) after applying our own mutation during which we skip any sync and ignore cart:external-update (v1-style: mutation response is source of truth). */
   private static readonly MUTATION_GRACE_MS = 600;
@@ -227,10 +245,11 @@ export class Engine {
 
   init(): void {
     const bootStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+    const sessionId = getOrCreateRevproSessionId() || createSessionId();
     this.setState({
       app: { status: 'BOOTING' },
       runtime: { initializedAt: Date.now() },
-      analytics: { sessionId: createSessionId() },
+      analytics: { sessionId },
     });
     this.interceptorTeardown = createCartInterceptor(this);
     this.on('cart:external-update', () => {
@@ -1116,12 +1135,32 @@ export class Engine {
           ? performance.now() - syncStart
           : 0;
       this.applyCartRaw(raw, options);
+      this.ensureCartHasRevproSessionId(raw);
     } catch (err) {
       this.setState({
         cart: { syncing: false },
       });
       throw err;
     }
+  }
+
+  /**
+   * Set cart attribute revpro_session_id once per session so orders carry it in note_attributes (Order Impact).
+   * Non-blocking; runs after syncCart applies cart.
+   */
+  private ensureCartHasRevproSessionId(raw: any): void {
+    if (this.revproSessionIdSet || this.destroyed) return;
+    const attrs = raw?.attributes ?? raw?.attributes_typed;
+    if (attrs && typeof attrs === 'object' && attrs['revpro_session_id']) {
+      this.revproSessionIdSet = true;
+      return;
+    }
+    const id = getOrCreateRevproSessionId();
+    if (!id) return;
+    this.revproSessionIdSet = true;
+    updateCartAttributes({ revpro_session_id: id }).catch(() => {
+      this.revproSessionIdSet = false;
+    });
   }
 
   /**
@@ -1373,8 +1412,19 @@ export class Engine {
       const s = getStateFromStore(this.stateStore);
       const isUpsell =
         s.upsell.standard.some((r) => r.variantId === variantId) ||
-        s.upsell.aiRecommendations.some((r) => r.variantId === variantId);
-      if (isUpsell) this.emitEvent('upsell:add', { variantId, quantity });
+        s.upsell.aiRecommendations.some((r) => r.variantId === variantId) ||
+        (s.snapshotRecommendations?.some((r) => r.variantId === variantId) ?? false);
+      if (isUpsell) {
+        this.emitEvent('upsell:add', { variantId, quantity });
+        const item = s.snapshotRecommendations?.find((r) => r.variantId === variantId);
+        const productId = item?.productId;
+        const recommendedProductIds = (s.snapshotRecommendations ?? [])
+          .map((r) => r.productId)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0);
+        if (productId && recommendedProductIds.length > 0) {
+          this.emitEvent('recommendation:click', { productId, recommendedProductIds });
+        }
+      }
     } catch (_err) {
       this.setState({ cart: cartSnapshot });
       throw _err;

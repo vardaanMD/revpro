@@ -50,8 +50,10 @@ function mapCrossSellItem(p: any): SnapshotRecommendationItem | null {
   }
   if (!variantId || variantId <= 0) return null;
   const priceAmount = typeof p?.price?.amount === 'number' ? p.price.amount : (typeof p?.price === 'number' ? p.price : 0);
+  const productId = p?.id != null ? String(p.id) : undefined;
   return {
     variantId,
+    productId,
     title: p.title,
     imageUrl: p?.imageUrl ?? p?.image_url ?? null,
     price: { amount: priceAmount },
@@ -83,7 +85,11 @@ export async function fetchDecisionCrossSell(cartRaw: any): Promise<FetchDecisio
     const res = await fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Cart-Pro-Runtime': 'v3',
+      },
       body: JSON.stringify(body),
     });
     if (!res.ok) return { items: [], ok: false };

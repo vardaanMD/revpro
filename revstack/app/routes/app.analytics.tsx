@@ -85,7 +85,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const runtimeVersion: "v1" | "v2" | "v3" =
     configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
       ? configV3.runtimeVersion
-      : "v2";
+      : "v3";
 
   const sparklineDecisions = generateSparkline(
     metrics.cartPerformance.sevenDayTrend.map((p) => p.decisions)
@@ -298,7 +298,7 @@ export default function AnalyticsPage() {
       <div className={activeTab === "cart" ? analyticsStyles.tabPanel : analyticsStyles.tabPanelHidden} role="tabpanel" aria-hidden={activeTab !== "cart"}>
         <s-section heading="Cart Metrics (At Evaluation)">
           <p className={analyticsStyles.sectionSubtext}>
-            Cart state at the moment the engine evaluated the cart. Not revenue figures.
+            Cart state at the moment the engine evaluated the cart. These are not revenue figures.
           </p>
           <MetricSection>
             <StatCard label="Total decisions" value={cp.thirtyDaySummary.totalDecisions} contextLabel="At Evaluation" />
@@ -306,7 +306,7 @@ export default function AnalyticsPage() {
             <StatCard label="Recommendation show rate" value={`${(cp.thirtyDaySummary.showRate * 100).toFixed(1)}%`} contextLabel="At Evaluation" />
             <StatCard label="Adds per recommendation session" value={addRate30Display} contextLabel="At Evaluation" />
             <StatCard label="Avg cart value (at evaluation)" contextLabel="At Evaluation" value={formatCurrency(cp.thirtyDaySummary.avgCartValue, CURRENCY)} />
-            <StatCard label="Total cart value processed (at evaluation)" contextLabel="At Evaluation" value={formatCurrency(cp.cartRevenue, CURRENCY)} />
+            <StatCard label="Total cart value at evaluation" contextLabel="At Evaluation (not revenue)" value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
           </MetricSection>
         </s-section>
 
@@ -391,7 +391,7 @@ export default function AnalyticsPage() {
       <div className={activeTab === "order" ? analyticsStyles.tabPanel : analyticsStyles.tabPanelHidden} role="tabpanel" aria-hidden={activeTab !== "order"}>
         <s-section heading="Order Outcomes (Paid Orders Only)">
           <p className={analyticsStyles.sectionSubtext}>
-            These metrics reflect completed and paid orders.
+            Observational comparison of paid orders with vs without recommendation exposure. Not a revenue guarantee.
           </p>
           <FeatureGate locked={lockRevenue} ctaLabel="Activate plan" ctaTo="/app/upgrade">
             {!hasOrderImpact ? (
@@ -406,7 +406,7 @@ export default function AnalyticsPage() {
                 <MetricSection>
                   {showLift && (
                     <StatCard
-                      label="Observed AOV difference"
+                      label="Order outcome comparison (AOV)"
                       contextLabel="Paid Orders Only"
                       value={`${orderImpact!.liftPercent! >= 0 ? "+" : ""}${orderImpact!.liftPercent!.toFixed(1)}%`}
                       tone={orderImpact!.liftPercent! >= 0 ? "success" : "default"}

@@ -144,6 +144,8 @@ export interface ShippingState {
 /** Hydrated recommendations from snapshot (title, imageUrl, price, handle). Used by UI for full product cards. */
 export interface SnapshotRecommendationItem {
   variantId: number;
+  /** Shopify product ID for Order Impact attribution (recommendation:click). Optional if backend does not provide it. */
+  productId?: string;
   title: string;
   imageUrl?: string | null;
   price?: {

@@ -117,7 +117,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const runtimeVersion: "v1" | "v2" | "v3" =
     configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
       ? configV3.runtimeVersion
-      : "v2";
+      : "v3";
 
   return {
     metrics,
@@ -287,7 +287,7 @@ export default function DashboardIndex() {
 
       {showAovDiffBanner && retention && orderImpact?.stage === "full" && orderImpact.liftPercent != null && (
         <AchievementBanner
-          message={`Observed AOV lift (last 7 days): ${orderImpact.liftPercent >= 0 ? "+" : ""}${orderImpact.liftPercent.toFixed(1)}% (paid orders only).`}
+          message={`Order outcome comparison (last 7 days): ${orderImpact.liftPercent >= 0 ? "+" : ""}${orderImpact.liftPercent.toFixed(1)}% AOV difference (observational, paid orders only).`}
         />
       )}
       {firstMilestone === "100_decisions" && (
@@ -298,7 +298,7 @@ export default function DashboardIndex() {
       )}
       {firstMilestone === "10k_revenue" && (
         <AchievementBanner
-          message={`Milestone: ${formatCurrency(1_000_000, currency)} in observed revenue difference (30-day window with sufficient data).`}
+          message="Milestone: $10,000 in cart value at evaluation with recommendations (30-day window, sufficient data)."
           tone="info"
         />
       )}
@@ -329,7 +329,7 @@ export default function DashboardIndex() {
                 <s-text tone="auto">📦 Order Outcomes (Paid Orders Only)</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                These metrics reflect completed and paid orders.
+                Observational comparison of paid orders with vs without recommendation exposure. Not a revenue guarantee.
               </p>
               <FeatureGate locked={!isBillingActive} ctaLabel="Activate plan" ctaTo="/app/upgrade">
                 {!hasOrderImpact ? (
@@ -344,7 +344,7 @@ export default function DashboardIndex() {
                     <MetricSection>
                       {showLift && (
                         <StatCard
-                          label="Observed AOV difference"
+                          label="Order outcome comparison (AOV)"
                           contextLabel="Paid Orders Only"
                           value={`${orderImpact!.liftPercent! >= 0 ? "+" : ""}${orderImpact!.liftPercent!.toFixed(1)}%`}
                           tone={orderImpact!.liftPercent! >= 0 ? "success" : "default"}
@@ -381,7 +381,7 @@ export default function DashboardIndex() {
                 <s-text tone="auto">🛒 Cart Metrics (At Evaluation)</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                These metrics reflect cart state at the moment the engine evaluated the cart. They are not revenue figures.
+                Cart state at the moment the engine evaluated the cart. These are not revenue figures.
               </p>
               <MetricSection>
                 <StatCard label="Unique carts evaluated" value={uniqueCartsEvaluated7d} contextLabel="At Evaluation" />
@@ -403,9 +403,9 @@ export default function DashboardIndex() {
                   value={avgCartFormatted}
                 />
                 <StatCard
-                  label="Total cart value processed (at evaluation)"
-                  contextLabel="At Evaluation"
-                  value={formatCurrency(cp.cartRevenue, currency)}
+                  label="Total cart value at evaluation"
+                  contextLabel="At Evaluation (not revenue)"
+                  value={formatCurrency(cp.cartValueAtEvaluation, currency)}
                 />
               </MetricSection>
             </div>
@@ -423,7 +423,7 @@ export default function DashboardIndex() {
                   />
                   {showLift ? (
                     <StatCard
-                      label="Observed AOV lift (this week)"
+                      label="Order outcome comparison (this week)"
                       value={`${orderImpact!.liftPercent! >= 0 ? "+" : ""}${orderImpact!.liftPercent!.toFixed(1)}%`}
                       tone={orderImpact!.liftPercent! >= 0 ? "success" : "default"}
                     />

@@ -23,6 +23,10 @@ function cartChangeUrl(): string {
   return getCartBaseUrl() + 'cart/change.js';
 }
 
+function cartUpdateUrl(): string {
+  return getCartBaseUrl() + 'cart/update.js';
+}
+
 const FETCH_OPTIONS: RequestInit = {
   credentials: 'same-origin',
   headers: {
@@ -86,4 +90,21 @@ export async function changeCart(lineKey: string, quantity: number): Promise<any
  */
 export async function removeItem(lineKey: string): Promise<any> {
   return changeCart(lineKey, 0);
+}
+
+/**
+ * POST /cart/update.js — set cart-level attributes (e.g. revpro_session_id for order attribution).
+ * Attributes are sent to checkout and appear in order note_attributes.
+ */
+export async function updateCartAttributes(attributes: Record<string, string>): Promise<any> {
+  const res = await fetch(cartUpdateUrl(), {
+    ...FETCH_OPTIONS,
+    method: 'POST',
+    body: JSON.stringify({ attributes }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error((data as { description?: string }).description ?? `Cart update failed: ${res.status}`);
+  }
+  return data;
 }

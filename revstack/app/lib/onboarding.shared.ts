@@ -14,7 +14,7 @@ export type OnboardingBlockReason =
 
 /** Human-readable labels for block reasons. */
 export const ONBOARDING_BLOCK_LABELS: Record<NonNullable<OnboardingBlockReason>, string> = {
-  activate_extension: "Activate the cart extension in Theme Editor",
+  activate_extension: "Enable the Cart Pro V3 app embed in Theme Editor (App embeds)",
   confirm_live: "Verify cart is live with at least one request",
   set_threshold: "Set your free shipping threshold in Settings",
   choose_strategy: "Choose a recommendation strategy in Settings",

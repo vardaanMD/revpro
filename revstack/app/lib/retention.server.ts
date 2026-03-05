@@ -18,7 +18,8 @@ export type RetentionContext = {
   lastActiveAt: Date | null;
   daysActive: number;
   totalDecisionsAllTime: number;
-  revenueInfluenced30d: number;
+  /** Cart value at evaluation (with recommendations) used for 10k milestone. Not revenue. */
+  cartValueMilestone30d: number;
   milestoneFlags: Record<MilestoneKey, boolean>;
   firstTimeAchieved: MilestoneKey[];
   healthStatus: HealthStatus;
@@ -28,6 +29,7 @@ export type RetentionContext = {
   upliftThisWeek: number;
 };
 
+/** 10k milestone: cart value at evaluation with recommendations (30d), not revenue. */
 const MILESTONE_10K_CENTS = 1_000_000;
 
 function startOfDayUtc(daysAgo: number): Date {
@@ -168,7 +170,7 @@ function zeroedRetentionContext(): RetentionContext {
     lastActiveAt: null,
     daysActive: 0,
     totalDecisionsAllTime: 0,
-    revenueInfluenced30d: 0,
+    cartValueMilestone30d: 0,
     milestoneFlags: { "100_decisions": false, "10k_revenue": false, "30_days_active": false },
     firstTimeAchieved: [],
     healthStatus: "needs_attention",
@@ -261,9 +263,9 @@ export async function getRetentionContext(
     : 0;
 
   const upliftPerCart = avgWith != null && avgWithout != null ? avgWith - avgWithout : 0;
-  const MIN_SAMPLES_FOR_REVENUE = 30;
-  const revenue30d =
-    countWith >= MIN_SAMPLES_FOR_REVENUE && countWithout >= MIN_SAMPLES_FOR_REVENUE
+  const MIN_SAMPLES_FOR_MILESTONE = 30;
+  const cartValueMilestone30d =
+    countWith >= MIN_SAMPLES_FOR_MILESTONE && countWithout >= MIN_SAMPLES_FOR_MILESTONE
       ? Math.round(upliftPerCart * countWith)
       : 0;
   const upliftThisWeek =
@@ -274,7 +276,7 @@ export async function getRetentionContext(
 
   const newMilestones: Record<MilestoneKey, boolean> = { ...milestoneFlags };
   if (totalDecisionsAllTime >= 100) newMilestones["100_decisions"] = true;
-  if (revenue30d >= MILESTONE_10K_CENTS) newMilestones["10k_revenue"] = true;
+  if (cartValueMilestone30d >= MILESTONE_10K_CENTS) newMilestones["10k_revenue"] = true;
   if (daysActive >= 30) newMilestones["30_days_active"] = true;
 
   const firstTimeAchieved: MilestoneKey[] = [];
@@ -313,7 +315,7 @@ export async function getRetentionContext(
     lastActiveAt,
     daysActive,
     totalDecisionsAllTime,
-    revenueInfluenced30d: revenue30d,
+    cartValueMilestone30d,
     milestoneFlags: newMilestones,
     firstTimeAchieved,
     healthStatus,

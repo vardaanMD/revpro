@@ -42,9 +42,9 @@ const PLANS = [
     benefits: [
       "Up to 8 recommendations per session",
       "Comparison metrics",
-      "Estimated revenue difference (observed)",
+      "Order outcome comparison (observational)",
     ],
-    roi: "Comparison metrics. Estimated revenue difference (observed).",
+    roi: "Comparison metrics. Order outcome comparison (observational).",
     mostPopular: true,
   },
 ];

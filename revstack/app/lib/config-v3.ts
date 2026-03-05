@@ -72,7 +72,7 @@ export type RuntimeVersion = "v1" | "v2" | "v3";
 
 export interface CartProConfigV3 {
   version: string;
-  /** Which runtime to load on storefront: v1, v2, or v3. Default "v2". */
+  /** Which runtime to load on storefront: v1, v2, or v3. Default "v3" for new installs. */
   runtimeVersion?: RuntimeVersion;
   appearance: CartProConfigV3Appearance;
   featureFlags: CartProConfigV3FeatureFlags;
@@ -90,7 +90,7 @@ export interface CartProConfigV3 {
 /** Safe defaults consistent with current V3 runtime behavior; do not mutate. */
 export const DEFAULT_CONFIG_V3 = Object.freeze({
   version: "3.0.0",
-  runtimeVersion: "v2" as RuntimeVersion,
+  runtimeVersion: "v3" as RuntimeVersion,
   appearance: {
     primaryColor: "#111111",
     accentColor: "#16a34a",

@@ -94,7 +94,7 @@ function buildConfigV3FromForm(
   }
   base.upsell.collections = collections;
 
-  // Runtime version for dynamic embed (v1/v2/v3). Default "v2".
+  // Runtime version for dynamic embed (v1/v2/v3). Default "v3".
   if (
     formData.runtimeVersion === "v1" ||
     formData.runtimeVersion === "v2" ||
@@ -165,7 +165,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const runtimeVersion =
     configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
       ? configV3.runtimeVersion
-      : "v2";
+      : "v3";
 
   /** Feature flags as applied on storefront (from billing). Shown so merchants see plan state. */
   const planFeatureFlags = featureFlagsFromCapabilities(billing.capabilities);
@@ -376,7 +376,7 @@ export default function SettingsPage() {
   const [strategy, setStrategy] = useState(config.recommendationStrategy);
   const [engineVersion, setEngineVersion] = useState(config.engineVersion);
   const [runtimeVersion, setRuntimeVersion] = useState(
-    (config as { runtimeVersion?: "v1" | "v2" | "v3" }).runtimeVersion ?? "v2"
+    (config as { runtimeVersion?: "v1" | "v2" | "v3" }).runtimeVersion ?? "v3"
   );
   const initialRows = useMemo(
     () => toMilestoneRows(config.milestones ?? []),
@@ -613,8 +613,8 @@ export default function SettingsPage() {
           </div>
           <div className={settingsStyles.section}>
             <FormSection
-              heading="Core Revenue Controls"
-              description="Thresholds that drive free shipping and upsell timing."
+              heading="Thresholds"
+              description="Free shipping and baseline cart value used for recommendations and free shipping bar."
             >
               <FormField
                 label="Free Shipping Threshold"

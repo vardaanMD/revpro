@@ -648,24 +648,28 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         timings.crossSellWrite = performance.now() - t0;
       }
 
+      // V3 runtime sends cart:evaluated to analytics v3; skip DecisionMetric here to avoid double-count.
+      const isV3Runtime = request.headers.get("X-Cart-Pro-Runtime") === "v3";
       const tMetricStart = performance.now();
-      prisma.decisionMetric
-        .create({
-          data: {
-            shopDomain: shop,
-            hasCrossSell: response.crossSell.length > 0,
-            cartValue: validatedCart.total_price,
-          },
-        })
-        .catch((err) => {
-          logWarn({
-            shop,
-            requestId,
-            route: DECISION_ROUTE,
-            message: "DecisionMetric create failed (fire-and-forget)",
-            meta: { error: err instanceof Error ? err.message : String(err) },
+      if (!isV3Runtime) {
+        prisma.decisionMetric
+          .create({
+            data: {
+              shopDomain: shop,
+              hasCrossSell: response.crossSell.length > 0,
+              cartValue: validatedCart.total_price,
+            },
+          })
+          .catch((err) => {
+            logWarn({
+              shop,
+              requestId,
+              route: DECISION_ROUTE,
+              message: "DecisionMetric create failed (fire-and-forget)",
+              meta: { error: err instanceof Error ? err.message : String(err) },
+            });
           });
-        });
+      }
       timings.decisionMetricWrite = performance.now() - tMetricStart;
     }
     const dbWriteMs = performance.now() - tDbWrite;
