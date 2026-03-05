@@ -184,7 +184,6 @@ export default function AnalyticsPage() {
 
   const isBillingActive = isEntitled;
   const blurAdvanced = !capabilities.allowComparison || !isBillingActive;
-  const lockRevenue = !capabilities.allowRevenueDifference || !isBillingActive;
 
   const current7Decisions = cp.sevenDayTrend.reduce(
     (s, p) => s + p.decisions,
@@ -220,12 +219,7 @@ export default function AnalyticsPage() {
     cp.thirtyDaySummary.addRate > 1
       ? cp.thirtyDaySummary.addRate.toFixed(2)
       : `${(cp.thirtyDaySummary.addRate * 100).toFixed(1)}%`;
-  const orderImpact = metrics.orderImpact;
-  const hasOrderImpact = orderImpact != null;
-  const showLift = hasOrderImpact && orderImpact.stage === "full" && orderImpact.liftPercent != null;
-  const showImpactAnalysisMessage = hasOrderImpact && orderImpact.stage === "early";
-
-  const [activeTab, setActiveTab] = useState<"cart" | "order">("cart");
+  const engagement = metrics.engagement;
 
   const runtimeLabel = runtimeVersion === "v3" ? "V3" : runtimeVersion === "v1" ? "V1" : "V2";
 
@@ -277,25 +271,8 @@ export default function AnalyticsPage() {
         </s-banner>
       )}
 
-      <nav className={analyticsStyles.tabBar} aria-label="Analytics views">
-        <button
-          type="button"
-          className={activeTab === "cart" ? `${analyticsStyles.tab} ${analyticsStyles.tabActive}` : analyticsStyles.tab}
-          onClick={() => setActiveTab("cart")}
-        >
-          Cart View
-        </button>
-        <button
-          type="button"
-          className={activeTab === "order" ? `${analyticsStyles.tab} ${analyticsStyles.tabActive}` : analyticsStyles.tab}
-          onClick={() => setActiveTab("order")}
-        >
-          Order View
-        </button>
-      </nav>
-
-      {/* Tab 1 — Cart View */}
-      <div className={activeTab === "cart" ? analyticsStyles.tabPanel : analyticsStyles.tabPanelHidden} role="tabpanel" aria-hidden={activeTab !== "cart"}>
+      {/* Cart metrics */}
+      <div>
         <s-section heading="Cart Metrics (At Evaluation)">
           <p className={analyticsStyles.sectionSubtext}>
             Cart state at the moment the engine evaluated the cart. These are not revenue figures.
@@ -385,52 +362,20 @@ export default function AnalyticsPage() {
             </DataPanel>
           </FeatureGate>
         </s-section>
-      </div>
 
-      {/* Tab 2 — Order View */}
-      <div className={activeTab === "order" ? analyticsStyles.tabPanel : analyticsStyles.tabPanelHidden} role="tabpanel" aria-hidden={activeTab !== "order"}>
-        <s-section heading="Order Outcomes (Paid Orders Only)">
+        <s-section heading="Recommendation engagement (30 days)">
           <p className={analyticsStyles.sectionSubtext}>
-            Observational comparison of paid orders with vs without recommendation exposure. Not a revenue guarantee.
+            Impressions and clicks on recommended products. CTR = clicks ÷ impressions.
           </p>
-          <FeatureGate locked={lockRevenue} ctaLabel="Activate plan" ctaTo="/app/upgrade">
-            {!hasOrderImpact ? (
-              <s-text tone="neutral">Order outcomes will appear once you have paid orders with and without recommendation exposure.</s-text>
-            ) : (
-              <>
-                {showImpactAnalysisMessage && (
-                  <span className={analyticsStyles.disclaimer}>
-                    <s-text tone="neutral">Impact analysis begins after 30 paid orders.</s-text>
-                  </span>
-                )}
-                <MetricSection>
-                  {showLift && (
-                    <StatCard
-                      label="Order outcome comparison (AOV)"
-                      contextLabel="Paid Orders Only"
-                      value={`${orderImpact!.liftPercent! >= 0 ? "+" : ""}${orderImpact!.liftPercent!.toFixed(1)}%`}
-                      tone={orderImpact!.liftPercent! >= 0 ? "success" : "default"}
-                    />
-                  )}
-                  <StatCard
-                    label="AOV (paid orders with exposure)"
-                    contextLabel="Paid Orders Only"
-                    value={formatCurrency(orderImpact!.avgWith, CURRENCY)}
-                  />
-                  <StatCard
-                    label="AOV (paid orders without exposure)"
-                    contextLabel="Paid Orders Only"
-                    value={formatCurrency(orderImpact!.avgWithout, CURRENCY)}
-                  />
-                  <StatCard
-                    label="Orders with recommendation exposure"
-                    contextLabel="Paid Orders Only"
-                    value={orderImpact!.influencedOrders}
-                  />
-                </MetricSection>
-              </>
-            )}
-          </FeatureGate>
+          <MetricSection>
+            <StatCard label="Impressions" value={engagement.impressions30d} contextLabel="30 days" />
+            <StatCard label="Clicks" value={engagement.clicks30d} contextLabel="30 days" />
+            <StatCard
+              label="Click-through rate (CTR)"
+              value={engagement.impressions30d > 0 ? `${(engagement.ctr30d * 100).toFixed(2)}%` : "—"}
+              contextLabel="30 days"
+            />
+          </MetricSection>
         </s-section>
       </div>
         </div>

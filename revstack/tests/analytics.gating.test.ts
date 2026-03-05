@@ -1,6 +1,6 @@
 /**
- * Response shape tests by plan. Asserts cartPerformance always present; orderImpact only when capability + threshold.
- * BASIC: no orderImpact. ADVANCED: comparison in cartPerformance, no orderImpact. GROWTH: orderImpact when threshold met.
+ * Response shape by plan: cartPerformance and engagement always present.
+ * Order Impact removed.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getDashboardMetrics } from "~/lib/dashboard-metrics.server";
@@ -31,8 +31,8 @@ function emptyDashboardAggRow() {
   ];
 }
 
-function orderInfluence7dValid() {
-  return [{ avg_with: 120, count_with: 30n, avg_without: 100, count_without: 30n }];
+function emptyEngagement() {
+  return [{ impressions: 0n, clicks: 0n }];
 }
 
 function emptyDayRow() {
@@ -52,47 +52,31 @@ function emptyThirtyBase() {
   ];
 }
 
-function orderInfluence7dValidAnalytics() {
-  return [{ avg_with: 120, count_with: 30n, avg_without: 100, count_without: 30n }];
-}
-
 describe("analytics gating (response shape by plan)", () => {
   beforeEach(() => {
     vi.mocked(prisma.$queryRaw).mockReset();
     vi.mocked(prisma.decisionMetric.count).mockResolvedValue(1);
   });
 
-  function mockDashboardCalls(includeOrderImpact: boolean) {
-    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([]);
-    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce(emptyDashboardAggRow());
-    if (includeOrderImpact) {
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce(orderInfluence7dValid());
-    }
+  function mockDashboardCalls() {
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(emptyDashboardAggRow())
+      .mockResolvedValueOnce(emptyEngagement());
   }
 
   function mockAnalyticsBasic() {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
-      .mockResolvedValueOnce(emptyThirtyBase());
+      .mockResolvedValueOnce(emptyThirtyBase())
+      .mockResolvedValueOnce(emptyEngagement());
   }
 
   function mockAnalyticsAdvanced() {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce(emptyDayRow())
       .mockResolvedValueOnce(emptyThirtyBase())
-      .mockResolvedValueOnce([{ ...emptyThirtyBase()[0], total: 0n, shown: 0n, added: 0n }])
-      .mockResolvedValueOnce([{ total: 0n, shown: 0n, added: 0n }]);
-  }
-
-  function mockAnalyticsGrowth(withOrderImpact: boolean) {
-    vi.mocked(prisma.$queryRaw)
-      .mockResolvedValueOnce(emptyDayRow())
-      .mockResolvedValueOnce(emptyThirtyBase())
-      .mockResolvedValueOnce(
-        withOrderImpact
-          ? orderInfluence7dValidAnalytics()
-          : [{ avg_with: 120, count_with: 10n, avg_without: 100, count_without: 10n }]
-      )
+      .mockResolvedValueOnce(emptyEngagement())
       .mockResolvedValueOnce([{ ...emptyThirtyBase()[0], total: 0n, shown: 0n, added: 0n }])
       .mockResolvedValueOnce([{ total: 0n, shown: 0n, added: 0n }]);
   }
@@ -100,17 +84,19 @@ describe("analytics gating (response shape by plan)", () => {
   describe("BASIC plan", () => {
     const capabilities = resolveCapabilities("basic" as Plan);
 
-    it("dashboard has cartPerformance, no orderImpact", async () => {
-      mockDashboardCalls(false);
+    it("dashboard has cartPerformance and engagement", async () => {
+      mockDashboardCalls();
       const data = await getDashboardMetrics(TEST_SHOP, capabilities);
 
       expect(data.cartPerformance).toBeDefined();
       expect(data.cartPerformance.todayDecisions).toBeDefined();
       expect(data.cartPerformance.last7DaysTrend).toBeDefined();
-      expect(data.orderImpact).toBeUndefined();
+      expect(data.engagement).toBeDefined();
+      expect(data.engagement.impressions7d).toBe(0);
+      expect(data.engagement.clicks7d).toBe(0);
     });
 
-    it("analytics has cartPerformance only, no comparison or orderImpact", async () => {
+    it("analytics has cartPerformance and engagement, no comparison", async () => {
       mockAnalyticsBasic();
       const data = await getAnalyticsMetrics(TEST_SHOP, capabilities);
 
@@ -119,54 +105,48 @@ describe("analytics gating (response shape by plan)", () => {
       expect(data.cartPerformance.thirtyDaySummary).toBeDefined();
       expect(data.cartPerformance.previousSevenDaySummary).toBeUndefined();
       expect(data.cartPerformance.previousThirtyDaySummary).toBeUndefined();
-      expect(data.orderImpact).toBeUndefined();
+      expect(data.engagement).toBeDefined();
     });
   });
 
   describe("ADVANCED plan", () => {
     const capabilities = resolveCapabilities("advanced" as Plan);
 
-    it("dashboard has cartPerformance, no orderImpact", async () => {
-      mockDashboardCalls(false);
+    it("dashboard has cartPerformance and engagement", async () => {
+      mockDashboardCalls();
       const data = await getDashboardMetrics(TEST_SHOP, capabilities);
 
       expect(data.cartPerformance).toBeDefined();
-      expect(data.orderImpact).toBeUndefined();
+      expect(data.engagement).toBeDefined();
     });
 
-    it("analytics has cartPerformance with comparison, no orderImpact", async () => {
+    it("analytics has cartPerformance with comparison and engagement", async () => {
       mockAnalyticsAdvanced();
       const data = await getAnalyticsMetrics(TEST_SHOP, capabilities);
 
       expect(data.cartPerformance.previousSevenDaySummary).toBeDefined();
       expect(data.cartPerformance.previousThirtyDaySummary).toBeDefined();
-      expect(data.orderImpact).toBeUndefined();
+      expect(data.engagement).toBeDefined();
     });
   });
 
   describe("GROWTH plan", () => {
     const capabilities = resolveCapabilities("growth" as Plan);
 
-    it("dashboard has orderImpact stage full when both >= 30", async () => {
-      mockDashboardCalls(true);
+    it("dashboard has cartPerformance and engagement", async () => {
+      mockDashboardCalls();
       const data = await getDashboardMetrics(TEST_SHOP, capabilities);
 
       expect(data.cartPerformance).toBeDefined();
-      expect(data.orderImpact).toBeDefined();
-      expect(data.orderImpact!.stage).toBe("full");
-      expect(data.orderImpact!.liftPercent).toBeDefined();
-      expect(data.orderImpact!.influencedOrders).toBe(30);
+      expect(data.engagement).toBeDefined();
     });
 
-    it("analytics has orderImpact stage full when both >= 30", async () => {
-      mockAnalyticsGrowth(true);
+    it("analytics has cartPerformance and engagement", async () => {
+      mockAnalyticsAdvanced();
       const data = await getAnalyticsMetrics(TEST_SHOP, capabilities);
 
-      expect(data.cartPerformance.previousSevenDaySummary).toBeDefined();
-      expect(data.orderImpact).toBeDefined();
-      expect(data.orderImpact!.stage).toBe("full");
-      expect(data.orderImpact!.liftPercent).toBe(20);
-      expect(data.orderImpact!.influencedOrders).toBe(30);
+      expect(data.cartPerformance).toBeDefined();
+      expect(data.engagement).toBeDefined();
     });
   });
 });

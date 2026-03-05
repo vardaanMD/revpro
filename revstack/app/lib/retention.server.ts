@@ -268,11 +268,7 @@ export async function getRetentionContext(
     countWith >= MIN_SAMPLES_FOR_MILESTONE && countWithout >= MIN_SAMPLES_FOR_MILESTONE
       ? Math.round(upliftPerCart * countWith)
       : 0;
-  const upliftThisWeek =
-    capabilities.allowRevenueDifference &&
-    dashboardMetrics.orderImpact != null
-      ? dashboardMetrics.orderImpact.avgWith - dashboardMetrics.orderImpact.avgWithout
-      : 0;
+  const upliftThisWeek = 0;
 
   const newMilestones: Record<MilestoneKey, boolean> = { ...milestoneFlags };
   if (totalDecisionsAllTime >= 100) newMilestones["100_decisions"] = true;
@@ -293,14 +289,10 @@ export async function getRetentionContext(
     });
   }
 
-  const observedAovForHealth =
-    capabilities.allowRevenueDifference && dashboardMetrics.orderImpact != null
-      ? dashboardMetrics.orderImpact.avgWith - dashboardMetrics.orderImpact.avgWithout
-      : 0;
   const healthStatus = getHealthStatus(billingStatus === "active", {
     todayDecisions: dashboardMetrics.cartPerformance.todayDecisions,
     last7DaysTrend: dashboardMetrics.cartPerformance.last7DaysTrend,
-    observedAovDifference: observedAovForHealth,
+    observedAovDifference: 0,
   });
 
   let daysSinceLastActive: number | null = null;

@@ -163,7 +163,7 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  // Order Impact: record recommendation click for RevproClickSession (session linking).
+  // Engagement: record recommendation clicks to CrossSellEvent (for CTR) and RevproClickSession (session linking).
   const recommendationClicks = validEvents.filter(
     (e) =>
       e.name === "recommendation:click" &&
@@ -175,6 +175,24 @@ export async function action({ request }: ActionFunctionArgs) {
     const p = e.payload as Record<string, unknown>;
     const productId = String(p.productId);
     const recommendedProductIds = (p.recommendedProductIds as string[]).filter((id): id is string => typeof id === "string");
+    const cartValue = Math.round(Number(e.cartSnapshot?.subtotal ?? 0));
+    // CrossSellEvent click for engagement metrics (impressions, clicks, CTR).
+    prisma.crossSellEvent
+      .create({
+        data: {
+          shopDomain: shop,
+          productId,
+          eventType: "click",
+          cartValue,
+        },
+      })
+      .catch((err) => {
+        logWarn({
+          shop,
+          message: "analytics-v3 CrossSellEvent click create failed",
+          meta: { error: err instanceof Error ? err.message : String(err) },
+        });
+      });
     const revproSessionId = e.sessionId?.trim();
     if (!revproSessionId) continue;
     try {

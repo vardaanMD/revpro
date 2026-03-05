@@ -154,8 +154,6 @@ const PLAN_LABELS: Record<Plan, string> = {
   growth: "Growth",
 };
 
-const UPLIFT_CELEBRATION_THRESHOLD_CENTS = 1;
-
 export default function DashboardIndex() {
   const navigation = useNavigation();
   const isLoading = navigation.state === "loading";
@@ -194,17 +192,8 @@ export default function DashboardIndex() {
   const isEmpty = cp.todayDecisions === 0;
   const isBillingActive = isEntitled;
   const isHighestPlan = capabilities.allowRevenueDifference;
-  const hasOrderImpact = metrics.orderImpact != null;
-  const orderImpact = metrics.orderImpact;
-  const showLift = hasOrderImpact && orderImpact?.stage === "full" && orderImpact?.liftPercent != null;
-  const showImpactAnalysisMessage = hasOrderImpact && orderImpact?.stage === "early";
   const uniqueCartsEvaluated7d = cp.last7DaysTrend.reduce((s, d) => s + d.decisions, 0);
-
-  const showAovDiffBanner =
-    isBillingActive &&
-    !isEmpty &&
-    retention &&
-    retention.upliftThisWeek >= UPLIFT_CELEBRATION_THRESHOLD_CENTS;
+  const engagement = metrics.engagement;
   const firstMilestone = retention?.firstTimeAchieved?.[0];
 
   return (
@@ -285,11 +274,6 @@ export default function DashboardIndex() {
         </s-banner>
       )}
 
-      {showAovDiffBanner && retention && orderImpact?.stage === "full" && orderImpact.liftPercent != null && (
-        <AchievementBanner
-          message={`Order outcome comparison (last 7 days): ${orderImpact.liftPercent >= 0 ? "+" : ""}${orderImpact.liftPercent.toFixed(1)}% AOV difference (observational, paid orders only).`}
-        />
-      )}
       {firstMilestone === "100_decisions" && (
         <AchievementBanner
           message="Milestone: 100 cart decisions recorded."
@@ -322,53 +306,24 @@ export default function DashboardIndex() {
         </s-section>
       ) : (
         <>
-          {/* Section A — Order Outcomes (Primary, at top) */}
+          {/* Section A — Recommendation engagement (7 days) */}
           <s-section>
-            <div className={dashboardStyles.sectionOrderOutcomes}>
+            <div className={dashboardStyles.sectionCartMetrics}>
               <div className={dashboardStyles.sectionHeader}>
-                <s-text tone="auto">📦 Order Outcomes (Paid Orders Only)</s-text>
+                <s-text tone="auto">👆 Recommendation engagement</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                Observational comparison of paid orders with vs without recommendation exposure. Not a revenue guarantee.
+                Impressions and clicks on recommended products (last 7 days). CTR = clicks ÷ impressions.
               </p>
-              <FeatureGate locked={!isBillingActive} ctaLabel="Activate plan" ctaTo="/app/upgrade">
-                {!hasOrderImpact ? (
-                  <s-text tone="neutral">Order outcomes will appear once you have paid orders with and without recommendation exposure.</s-text>
-                ) : (
-                  <>
-                    {showImpactAnalysisMessage && (
-                      <s-text tone="neutral" style={{ display: "block", marginBottom: "var(--app-space-3)" }}>
-                        Impact analysis begins after 30 paid orders.
-                      </s-text>
-                    )}
-                    <MetricSection>
-                      {showLift && (
-                        <StatCard
-                          label="Order outcome comparison (AOV)"
-                          contextLabel="Paid Orders Only"
-                          value={`${orderImpact!.liftPercent! >= 0 ? "+" : ""}${orderImpact!.liftPercent!.toFixed(1)}%`}
-                          tone={orderImpact!.liftPercent! >= 0 ? "success" : "default"}
-                        />
-                      )}
-                      <StatCard
-                        label="AOV (paid orders with exposure)"
-                        contextLabel="Paid Orders Only"
-                        value={formatCurrency(orderImpact!.avgWith, currency)}
-                      />
-                      <StatCard
-                        label="AOV (paid orders without exposure)"
-                        contextLabel="Paid Orders Only"
-                        value={formatCurrency(orderImpact!.avgWithout, currency)}
-                      />
-                      <StatCard
-                        label="Orders with recommendation exposure"
-                        contextLabel="Paid Orders Only"
-                        value={orderImpact!.influencedOrders}
-                      />
-                    </MetricSection>
-                  </>
-                )}
-              </FeatureGate>
+              <MetricSection>
+                <StatCard label="Impressions" value={engagement.impressions7d} contextLabel="7 days" />
+                <StatCard label="Clicks" value={engagement.clicks7d} contextLabel="7 days" />
+                <StatCard
+                  label="Click-through rate (CTR)"
+                  value={engagement.impressions7d > 0 ? `${(engagement.ctr7d * 100).toFixed(2)}%` : "—"}
+                  contextLabel="7 days"
+                />
+              </MetricSection>
             </div>
           </s-section>
 
@@ -421,23 +376,6 @@ export default function DashboardIndex() {
                     subtext="This week"
                     tone={retention.thisWeekDecisions >= (retention.lastWeekDecisions || 0) ? "success" : "default"}
                   />
-                  {showLift ? (
-                    <StatCard
-                      label="Order outcome comparison (this week)"
-                      value={`${orderImpact!.liftPercent! >= 0 ? "+" : ""}${orderImpact!.liftPercent!.toFixed(1)}%`}
-                      tone={orderImpact!.liftPercent! >= 0 ? "success" : "default"}
-                    />
-                  ) : showImpactAnalysisMessage ? (
-                    <StatCard
-                      label="Order impact (this week)"
-                      value="Impact analysis begins after 30 paid orders"
-                    />
-                  ) : (
-                    <StatCard
-                      label="Order impact"
-                      value="Not enough data"
-                    />
-                  )}
                   <StatCard
                     label="Days active"
                     value={retention.daysActive > 0 ? `${retention.daysActive} days` : "Just started"}
@@ -454,11 +392,6 @@ export default function DashboardIndex() {
                         previous={retention.lastWeekDecisions}
                         format="number"
                       />
-                      {retention.upliftThisWeek > 0 && (
-                        <s-text tone="success">
-                          Compare sessions with vs. without recommendations in Analytics for trends.
-                        </s-text>
-                      )}
                     </s-stack>
                   </DataPanel>
                 )}

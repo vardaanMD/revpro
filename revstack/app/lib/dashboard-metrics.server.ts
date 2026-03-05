@@ -3,8 +3,6 @@ import type { Capabilities } from "~/lib/capabilities.server";
 import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import { logWarn, logResilience } from "~/lib/logger.server";
 
-const ORDER_IMPACT_MIN_SAMPLES = 30;
-
 /** Recursively freeze an object so it cannot be mutated (future-proof against cross-request leakage). */
 function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") return obj;
@@ -33,18 +31,16 @@ export type CartPerformance = {
   }[];
 };
 
-/** Order Impact: 7-day only, from OrderInfluenceEvent. Two-stage: early (no lift) when count_without < 30, full (with lift) when both >= 30. */
-export type OrderImpact = {
-  stage: "early" | "full";
-  avgWith: number;
-  avgWithout: number;
-  influencedOrders: number;
-  liftPercent?: number;
+/** Engagement: recommendation impressions, clicks, CTR from CrossSellEvent (7-day). */
+export type EngagementMetrics = {
+  impressions7d: number;
+  clicks7d: number;
+  ctr7d: number;
 };
 
 export type DashboardMetrics = {
   cartPerformance: CartPerformance;
-  orderImpact?: OrderImpact;
+  engagement: EngagementMetrics;
 };
 
 /** Zeroed metrics when DB has no data for shop or on error. */
@@ -72,6 +68,11 @@ function zeroedDashboardMetrics(): DashboardMetrics {
       avgCartValue: 0,
       cartValueAtEvaluation: 0,
       last7DaysTrend,
+    },
+    engagement: {
+      impressions7d: 0,
+      clicks7d: 0,
+      ctr7d: 0,
     },
   });
 }
@@ -150,17 +151,6 @@ type AggRowBase = {
   sum_cart_with: bigint;
 };
 
-type OrderInfluence7dRow = {
-  avg_with: number | null;
-  count_with: bigint;
-  avg_without: number | null;
-  count_without: bigint;
-};
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
 async function getDashboardMetricsUncached(
   shop: string,
   capabilities: Capabilities
@@ -169,8 +159,9 @@ async function getDashboardMetricsUncached(
   const sevenDayStart = startOfDayUtc(6);
 
   type DayRow = { day: Date; total: bigint };
+  type EngagementRow = { impressions: bigint; clicks: bigint };
 
-  const [decisionRows, aggRows, orderInfluence7dRows] = await Promise.all([
+  const [decisionRows, aggRows, engagementRow] = await Promise.all([
     prisma.$queryRaw<DayRow[]>`
       SELECT DATE_TRUNC('day', "createdAt")::date AS day, COUNT(*)::bigint AS total
       FROM "DecisionMetric"
@@ -198,17 +189,13 @@ async function getDashboardMetricsUncached(
       SELECT dm.today_count, dm.total_7d, dm.shown_7d, dm.avg_cart, dm.count_7d, conv.added_7d, dm.sum_cart_with
       FROM dm, conv
     `,
-    capabilities.allowRevenueDifference
-      ? prisma.$queryRaw<OrderInfluence7dRow[]>`
-          SELECT
-            AVG("orderValue") FILTER (WHERE influenced = true) AS avg_with,
-            COUNT(*) FILTER (WHERE influenced = true)::bigint AS count_with,
-            AVG("orderValue") FILTER (WHERE influenced = false) AS avg_without,
-            COUNT(*) FILTER (WHERE influenced = false)::bigint AS count_without
-          FROM "OrderInfluenceEvent"
-          WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
-        `
-      : Promise.resolve([] as OrderInfluence7dRow[]),
+    prisma.$queryRaw<EngagementRow[]>`
+      SELECT
+        COUNT(*) FILTER (WHERE "eventType" = 'impression')::bigint AS impressions,
+        COUNT(*) FILTER (WHERE "eventType" = 'click')::bigint AS clicks
+      FROM "CrossSellEvent"
+      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
+    `,
   ]);
 
   const a = aggRows[0];
@@ -253,37 +240,14 @@ async function getDashboardMetricsUncached(
     last7DaysTrend,
   };
 
-  let orderImpact: OrderImpact | undefined;
-  if (capabilities.allowRevenueDifference) {
-    const oi = orderInfluence7dRows[0];
-    const count_with_7d = oi ? Number(oi.count_with) : 0;
-    const count_without_7d = oi ? Number(oi.count_without) : 0;
-    const avg_with_7d = oi && oi.count_with > 0n && oi.avg_with != null ? oi.avg_with : null;
-    const avg_without_7d = oi && oi.count_without > 0n && oi.avg_without != null ? oi.avg_without : null;
+  const eng = engagementRow[0];
+  const impressions7d = eng ? Number(eng.impressions) : 0;
+  const clicks7d = eng ? Number(eng.clicks) : 0;
+  const engagement: EngagementMetrics = {
+    impressions7d,
+    clicks7d,
+    ctr7d: impressions7d > 0 ? clicks7d / impressions7d : 0,
+  };
 
-    const visible =
-      count_with_7d >= ORDER_IMPACT_MIN_SAMPLES &&
-      count_without_7d >= 1 &&
-      avg_without_7d != null &&
-      avg_without_7d !== 0;
-    if (visible) {
-      const avgWith = avg_with_7d ?? 0;
-      const avgWithout = avg_without_7d;
-      const fullStage = count_without_7d >= ORDER_IMPACT_MIN_SAMPLES;
-      const lift_display = fullStage ? clamp(((avgWith - avgWithout) / avgWithout) * 100, -100, 100) : undefined;
-      orderImpact = {
-        stage: fullStage ? "full" : "early",
-        avgWith: Math.round(avgWith),
-        avgWithout: Math.round(avgWithout),
-        influencedOrders: count_with_7d,
-        ...(lift_display !== undefined && { liftPercent: lift_display }),
-      };
-    }
-  }
-
-  const result: DashboardMetrics = { cartPerformance };
-  if (orderImpact != null) {
-    result.orderImpact = orderImpact;
-  }
-  return result;
+  return { cartPerformance, engagement };
 }

@@ -25,8 +25,6 @@ export type PreviousSevenDaySummary = {
   addRate: number;
 };
 
-const ORDER_IMPACT_MIN_SAMPLES = 30;
-
 /** Recursively freeze an object so it cannot be mutated (future-proof against cross-request leakage). */
 function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") return obj;
@@ -51,18 +49,16 @@ export type CartPerformanceAnalytics = {
   previousThirtyDaySummary?: PeriodSummary;
 };
 
-/** Order Impact: 7-day only, from OrderInfluenceEvent. Two-stage: early (no lift) when count_without < 30, full (with lift) when both >= 30. */
-export type OrderImpact = {
-  stage: "early" | "full";
-  avgWith: number;
-  avgWithout: number;
-  influencedOrders: number;
-  liftPercent?: number;
+/** Engagement: recommendation impressions, clicks, CTR from CrossSellEvent (30-day). */
+export type EngagementAnalytics = {
+  impressions30d: number;
+  clicks30d: number;
+  ctr30d: number; // 0–1, or 0 when no impressions
 };
 
 export type AnalyticsMetrics = {
   cartPerformance: CartPerformanceAnalytics;
-  orderImpact?: OrderImpact;
+  engagement: EngagementAnalytics;
 };
 
 /** Zeroed metrics when DB has no data for shop or on error. No analytics served from stale memory. */
@@ -96,6 +92,11 @@ function zeroedAnalyticsMetrics(): AnalyticsMetrics {
       },
       cartValueAtEvaluation: 0,
     },
+    engagement: {
+      impressions30d: 0,
+      clicks30d: 0,
+      ctr30d: 0,
+    },
   });
 }
 
@@ -110,9 +111,8 @@ function startOfDayUtc(daysAgo: number): Date {
 }
 
 /**
- * Analytics: cartPerformance (7d trend, 30d summary, optional previous period, cart revenue) and optional orderImpact (7d, OrderInfluenceEvent only).
- * Reads from same source V3 runtime writes to: DecisionMetric + CrossSellConversion (cart.analytics.v3.ts). V2 writes via cart.decision + cart.analytics.event.
- * Single pipeline for all runtime versions; use configV3.runtimeVersion in the route only for UI (e.g. badge). No in-memory cache. DB truth gate: if DecisionMetric count for shop is zero, return zeroed metrics. Fail-safe: on Prisma/Redis error return zeroed metrics.
+ * Analytics: cartPerformance (7d trend, 30d summary, optional previous period, cart value at evaluation) and engagement (impressions, clicks, CTR from CrossSellEvent).
+ * Reads from DecisionMetric + CrossSellConversion + CrossSellEvent. No in-memory cache. Fail-safe: on error return zeroed metrics.
  */
 export async function getAnalyticsMetrics(
   shop: string,
@@ -190,14 +190,9 @@ async function getAnalyticsMetricsUncached(
 
   type DayRow = { day: Date; total: bigint; shown: bigint; sum_cart: bigint; adds: bigint };
 
-  type OrderInfluence7dRow = {
-    avg_with: number | null;
-    count_with: bigint;
-    avg_without: number | null;
-    count_without: bigint;
-  };
+  type EngagementRow = { impressions: bigint; clicks: bigint };
 
-  const [sevenDayRowsWithAdds, thirtyDayRow, orderInfluence7dRows] = await Promise.all([
+  const [sevenDayRowsWithAdds, thirtyDayRow, engagementRow] = await Promise.all([
     prisma.$queryRaw<DayRow[]>`
       WITH dm AS (
         SELECT
@@ -240,17 +235,13 @@ async function getAnalyticsMetricsUncached(
       )
       SELECT dm.total, dm.shown, dm.avg_cart, dm.count_all, conv.added, dm.sum_cart_with FROM dm, conv
     `,
-    capabilities.allowRevenueDifference
-      ? prisma.$queryRaw<OrderInfluence7dRow[]>`
-          SELECT
-            AVG("orderValue") FILTER (WHERE influenced = true) AS avg_with,
-            COUNT(*) FILTER (WHERE influenced = true)::bigint AS count_with,
-            AVG("orderValue") FILTER (WHERE influenced = false) AS avg_without,
-            COUNT(*) FILTER (WHERE influenced = false)::bigint AS count_without
-          FROM "OrderInfluenceEvent"
-          WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
-        `
-      : Promise.resolve([] as OrderInfluence7dRow[]),
+    prisma.$queryRaw<EngagementRow[]>`
+      SELECT
+        COUNT(*) FILTER (WHERE "eventType" = 'impression')::bigint AS impressions,
+        COUNT(*) FILTER (WHERE "eventType" = 'click')::bigint AS clicks
+      FROM "CrossSellEvent"
+      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${thirtyDayStart}
+    `,
   ]);
 
   const s30 = thirtyDayRow[0];
@@ -295,33 +286,14 @@ async function getAnalyticsMetricsUncached(
     cartValueAtEvaluation,
   };
 
-  let orderImpact: OrderImpact | undefined;
-  if (capabilities.allowRevenueDifference) {
-    const oi = orderInfluence7dRows[0];
-    const count_with_7d = oi ? Number(oi.count_with) : 0;
-    const count_without_7d = oi ? Number(oi.count_without) : 0;
-    const avg_with_7d = oi && oi.count_with > 0n && oi.avg_with != null ? oi.avg_with : null;
-    const avg_without_7d = oi && oi.count_without > 0n && oi.avg_without != null ? oi.avg_without : null;
-
-    const visible =
-      count_with_7d >= ORDER_IMPACT_MIN_SAMPLES &&
-      count_without_7d >= 1 &&
-      avg_without_7d != null &&
-      avg_without_7d !== 0;
-    if (visible) {
-      const avgWith = avg_with_7d ?? 0;
-      const avgWithout = avg_without_7d;
-      const fullStage = count_without_7d >= ORDER_IMPACT_MIN_SAMPLES;
-      const lift_display = fullStage ? Math.min(100, Math.max(-100, ((avgWith - avgWithout) / avgWithout) * 100)) : undefined;
-      orderImpact = {
-        stage: fullStage ? "full" : "early",
-        avgWith: Math.round(avgWith),
-        avgWithout: Math.round(avgWithout),
-        influencedOrders: count_with_7d,
-        ...(lift_display !== undefined && { liftPercent: lift_display }),
-      };
-    }
-  }
+  const eng = engagementRow[0];
+  const impressions30d = eng ? Number(eng.impressions) : 0;
+  const clicks30d = eng ? Number(eng.clicks) : 0;
+  const engagement: EngagementAnalytics = {
+    impressions30d,
+    clicks30d,
+    ctr30d: impressions30d > 0 ? clicks30d / impressions30d : 0,
+  };
 
   if (capabilities.allowComparison) {
     const previousThirtyStart = startOfDayUtc(59);
@@ -384,11 +356,7 @@ async function getAnalyticsMetricsUncached(
     };
   }
 
-  const result: AnalyticsMetrics = { cartPerformance };
-  if (orderImpact != null) {
-    result.orderImpact = orderImpact;
-  }
-  return result;
+  return { cartPerformance, engagement };
 }
 
 // --- Phase 5.6 aggregation types (per-shop analytics from DecisionMetric + conversions) ---
