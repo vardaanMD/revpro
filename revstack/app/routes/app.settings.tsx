@@ -661,7 +661,7 @@ export default function SettingsPage() {
                 label="Enable Cross-Sell"
                 defaultChecked={config.enableCrossSell}
                 value="on"
-                onChange={(e: { currentTarget: { checked: boolean } }) => setPreviewEnableCrossSell(e.currentTarget.checked)}
+                onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableCrossSell((e.currentTarget as HTMLInputElement).checked)}
               />
               {capabilities.allowStrategySelection ? (
                 <>
@@ -728,7 +728,7 @@ export default function SettingsPage() {
                 label="Enable Milestones"
                 defaultChecked={config.enableMilestones}
                 value="on"
-                onChange={(e: { currentTarget: { checked: boolean } }) => setPreviewEnableMilestones(e.currentTarget.checked)}
+                onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableMilestones((e.currentTarget as HTMLInputElement).checked)}
               />
               <div className={settingsStyles.milestoneEditor}>
                 <s-text tone="neutral">Spend threshold (dollars) → Reward label</s-text>
@@ -782,7 +782,7 @@ export default function SettingsPage() {
                   label="Enable Coupon Tease"
                   defaultChecked={config.enableCouponTease}
                   value="on"
-                  onChange={(e: { currentTarget: { checked: boolean } }) => setPreviewEnableCouponTease(e.currentTarget.checked)}
+                  onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableCouponTease((e.currentTarget as HTMLInputElement).checked)}
                 />
               ) : (
                 <div className={settingsStyles.lockedInline}>
@@ -838,21 +838,21 @@ export default function SettingsPage() {
                   label="Emoji mode"
                   defaultChecked={config.emojiMode}
                   value="on"
-                  onChange={(e: { currentTarget: { checked: boolean } }) => setPreviewEmojiMode(e.currentTarget.checked)}
+                  onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEmojiMode((e.currentTarget as HTMLInputElement).checked)}
                 />
                 <s-checkbox
                   name="showConfetti"
                   label="Confetti"
                   defaultChecked={config.showConfetti}
                   value="on"
-                  onChange={(e: { currentTarget: { checked: boolean } }) => setPreviewShowConfetti(e.currentTarget.checked)}
+                  onChange={(e: React.FormEvent<HTMLElement>) => setPreviewShowConfetti((e.currentTarget as HTMLInputElement).checked)}
                 />
                 <s-checkbox
                   name="countdownEnabled"
                   label="Countdown"
                   defaultChecked={config.countdownEnabled}
                   value="on"
-                  onChange={(e: { currentTarget: { checked: boolean } }) => setPreviewCountdownEnabled(e.currentTarget.checked)}
+                  onChange={(e: React.FormEvent<HTMLElement>) => setPreviewCountdownEnabled((e.currentTarget as HTMLInputElement).checked)}
                 />
               </FormSection>
             ) : (

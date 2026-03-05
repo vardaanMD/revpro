@@ -67,7 +67,7 @@ export async function postRecommendations(cartRaw: any): Promise<AIRecommendatio
         const n = typeof id === 'number' ? id : Number(id);
         return Number.isInteger(n) && n > 0 ? { variantId: n } : null;
       })
-      .filter((x): x is AIRecommendationItem => x != null && !cartVariantIds.has(x.variantId));
+      .filter((x: AIRecommendationItem | null): x is AIRecommendationItem => x != null && !cartVariantIds.has(x.variantId));
   } catch {
     return [];
   }

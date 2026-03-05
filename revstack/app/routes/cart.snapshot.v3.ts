@@ -16,7 +16,7 @@ import {
 import { warmCatalogForShop } from "~/lib/catalog-warm.server";
 import { prisma } from "~/lib/prisma.server";
 import {
-  getHydratedRecommendationsForShop,
+  buildCollectionAwareRecommendations,
   buildV3SnapshotPayload,
 } from "~/lib/upsell-engine-v2/buildSnapshot";
 
@@ -64,12 +64,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
     },
   };
 
-  let recommendations: Awaited<ReturnType<typeof getHydratedRecommendationsForShop>> = [];
+  let collectionAware: Awaited<ReturnType<typeof buildCollectionAwareRecommendations>> = {
+    recommendationsByCollection: { default: [] },
+    productToCollections: {},
+  };
   try {
-    recommendations = await getHydratedRecommendationsForShop(shop);
+    collectionAware = await buildCollectionAwareRecommendations(shop);
   } catch (err) {
-    console.log("[CartPro Snapshot V3] recommendations build failed", err);
+    console.log("[CartPro Snapshot V3] collection-aware recommendations build failed", err);
   }
+
+  // Backward compat: clients that only read 'recommendations' get the same default list as before.
+  const recommendations = collectionAware.recommendationsByCollection["default"] ?? [];
 
   console.log("[CartPro Snapshot] freeShipping threshold:", configV3.freeShipping?.thresholdCents);
   console.log("[CartPro Snapshot] teaseMessage:", configV3.discounts?.teaseMessage);
@@ -79,6 +85,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const snapshotPayload = {
     ...buildV3SnapshotPayload(configV3),
+    recommendationsByCollection: collectionAware.recommendationsByCollection,
+    productToCollections: collectionAware.productToCollections,
     recommendations,
     runtimeVersion,
   };

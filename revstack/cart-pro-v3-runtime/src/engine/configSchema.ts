@@ -81,6 +81,15 @@ export interface CartProConfigV3FreeShipping {
   thresholdCents?: number;
 }
 
+/** Snapshot recommendation item shape (variantId, title, imageUrl, price, handle). */
+export interface SnapshotRecommendationItemRaw {
+  variantId: number;
+  title: string;
+  imageUrl?: string | null;
+  price?: { amount?: number; compare_at_amount?: number | null };
+  handle?: string;
+}
+
 /** Canonical config (snapshot/API). Must match app/lib/config-v3.ts exactly. */
 export interface CartProConfigV3 {
   version: string;
@@ -93,6 +102,12 @@ export interface CartProConfigV3 {
   checkout: CartProConfigV3Checkout;
   analytics: CartProConfigV3Analytics;
   freeShipping?: CartProConfigV3FreeShipping;
+  /** Collection-aware recommendations: collectionId -> list. Present when snapshot uses buildCollectionAwareRecommendations. */
+  recommendationsByCollection?: Record<string, SnapshotRecommendationItemRaw[]>;
+  /** Product ID (string) -> collection IDs. Used with recommendationsByCollection to derive primary collection from cart. */
+  productToCollections?: Record<string, string[]>;
+  /** Legacy flat list; set to recommendationsByCollection["default"] when keyed data is present. */
+  recommendations?: SnapshotRecommendationItemRaw[];
 }
 
 /** Input from snapshot or partial override. */

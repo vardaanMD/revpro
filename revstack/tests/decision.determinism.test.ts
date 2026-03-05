@@ -25,7 +25,6 @@ function buildStoreMetrics(currency = "USD"): StoreMetrics {
 
 function product(overrides: Partial<Product> & { id: string }): Product {
   return {
-    id: overrides.id,
     variantId: `v-${overrides.id}`,
     title: "Product",
     price: createMoney(100, "USD"),

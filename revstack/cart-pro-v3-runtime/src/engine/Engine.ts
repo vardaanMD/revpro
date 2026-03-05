@@ -35,14 +35,17 @@ import {
   debouncedPostRecommendations,
   type AIRecommendationItem,
 } from './recommendationsApi';
+import { fetchDecisionCrossSell } from './decisionApi';
 import { buildStubRecommendations } from './recommendationsStub';
-import type { AppliedDiscount, OneClickOfferState } from './state';
+import type { AppliedDiscount, OneClickOfferState, SnapshotRecommendationItem } from './state';
 import { normalizeConfig } from './normalizeConfig';
 import type { NormalizedEngineConfig, RawCartProConfig } from './configSchema';
 import { defaultConfig } from './defaultConfig';
 import { createCountdown, type CountdownApi } from './countdown';
 
 const REVALIDATION_DEBOUNCE_MS = 800;
+/** Debounce for background decision call when cart changes (Phase 5). */
+const DECISION_DEBOUNCE_MS = 500;
 
 /** Bundle-level default so getConfig() never returns null before snapshot loads. */
 const DEFAULT_RUNTIME_CONFIG = Object.freeze(normalizeConfig(defaultConfig)) as NormalizedEngineConfig;
@@ -56,6 +59,23 @@ const isDev =
   (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV === true;
 const EFFECT_QUEUE_CAP_WARN = 50;
 const ANALYTICS_QUEUE_SOFT_CAP_WARN = 100;
+
+/** Preload images for the first N recommendation items (non-blocking). Phase 6: reduces layout shift and improves perceived performance. */
+const RECOMMENDATION_PRELOAD_LIMIT = 12;
+
+function preloadRecommendationImages(items: SnapshotRecommendationItem[]): void {
+  if (!Array.isArray(items) || items.length === 0) return;
+  const toPreload = items.slice(0, RECOMMENDATION_PRELOAD_LIMIT);
+  setTimeout(() => {
+    for (const item of toPreload) {
+      const url = item?.imageUrl;
+      if (typeof url === 'string' && url.trim()) {
+        const img = new Image();
+        img.src = url;
+      }
+    }
+  }, 0);
+}
 
 /** Valid checkout state transitions: fromState -> Set of allowed toStates. */
 const CHECKOUT_TRANSITIONS: Record<CheckoutStateValue, Set<CheckoutStateValue>> = {
@@ -87,12 +107,70 @@ function getCodesFromCartRaw(raw: any): string[] {
   return [...new Set(codes)];
 }
 
+/**
+ * Normalize product ID from cart (may be number, string, or Shopify GID) to a string key
+ * that matches productToCollections keys from the snapshot (catalog uses string IDs).
+ */
+function normalizeProductId(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string' && value.trim()) {
+    const s = value.trim();
+    // Shopify GID: gid://shopify/Product/123456 -> use "123456" for lookup
+    if (s.startsWith('gid://')) {
+      const last = s.split('/').pop();
+      return last ?? null;
+    }
+    return s;
+  }
+  return null;
+}
+
+/**
+ * Derive primary collection key from cart items: collect product IDs, look up in productToCollections,
+ * then pick the most frequent collection that has a bucket in recommendationsByCollection; else "default".
+ * Fallback: if productToCollections is missing or empty, returns "default" so legacy snapshots still work.
+ */
+function getPrimaryCollectionKey(
+  cartRaw: any,
+  recommendationsByCollection: Record<string, { variantId: number }[]>,
+  productToCollections: Record<string, string[]>
+): string {
+  if (!productToCollections || typeof productToCollections !== 'object' || Object.keys(productToCollections).length === 0) {
+    return 'default';
+  }
+  const items = Array.isArray(cartRaw?.items) ? cartRaw.items : [];
+  const collectionCount: Record<string, number> = {};
+  for (const item of items) {
+    const pid = normalizeProductId(item?.product_id);
+    if (!pid) continue;
+    const collections = productToCollections[pid];
+    if (!Array.isArray(collections)) continue;
+    for (const cid of collections) {
+      if (typeof cid === 'string' && cid && recommendationsByCollection[cid]) {
+        collectionCount[cid] = (collectionCount[cid] ?? 0) + 1;
+      }
+    }
+  }
+  let bestKey = 'default';
+  let bestCount = 0;
+  for (const [key, count] of Object.entries(collectionCount)) {
+    if (count > bestCount) {
+      bestCount = count;
+      bestKey = key;
+    }
+  }
+  return bestKey;
+}
+
 export class Engine {
   readonly stateStore: Writable<EngineState>;
   private readonly eventBus: EventBus;
   private readonly effectQueue: EffectQueue;
   private internalMutationInProgress = false;
   private revalidationTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Debounced background decision call: cleared on cart change, set to 500ms (Phase 5). */
+  private decisionDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   /** AI recommendations cache by cart signature. */
   private aiRecommendationsCache = new Map<string, AIRecommendationItem[]>();
   /** Analytics: flush timer and retry backoff. */
@@ -180,6 +258,10 @@ export class Engine {
       clearTimeout(this.revalidationTimer);
       this.revalidationTimer = null;
     }
+    if (this.decisionDebounceTimer) {
+      clearTimeout(this.decisionDebounceTimer);
+      this.decisionDebounceTimer = null;
+    }
     if (this.analyticsFlushTimer) {
       clearTimeout(this.analyticsFlushTimer);
       this.analyticsFlushTimer = null;
@@ -245,16 +327,45 @@ export class Engine {
       });
       this.syncCart();
 
-      if (Array.isArray((rawConfig as any).recommendations)) {
+      // Collection-aware snapshot: store keyed buckets + productToCollections; set initial list from "default" or legacy recommendations.
+      // Fallback: if recommendationsByCollection (or productToCollections) is missing, use rawConfig.recommendations and do not run primary-collection logic.
+      const keyed = rawConfig.recommendationsByCollection;
+      const productToCollections = rawConfig.productToCollections;
+      if (keyed && typeof keyed === 'object' && productToCollections && typeof productToCollections === 'object') {
+        const byCollection: Record<string, Array<{ variantId: number; title: string; imageUrl?: string | null; price?: { amount?: number }; handle?: string }>> = {};
+        for (const [k, list] of Object.entries(keyed)) {
+          if (Array.isArray(list)) {
+            byCollection[k] = list.map((r: any) => ({
+              variantId: Number(r.variantId),
+              title: r.title ?? '',
+              imageUrl: r.imageUrl ?? null,
+              price: r.price ?? { amount: 0 },
+              handle: r.handle ?? '',
+            }));
+          }
+        }
+        const defaultList = byCollection['default'] ?? [];
         this.setState({
-          snapshotRecommendations: (rawConfig as any).recommendations.map((r: any) => ({
-            variantId: Number(r.variantId),
-            title: r.title ?? '',
-            imageUrl: r.imageUrl ?? null,
-            price: r.price ?? { amount: 0 },
-            handle: r.handle ?? '',
-          })),
+          recommendationsByCollection: byCollection,
+          productToCollections: { ...productToCollections },
+          snapshotRecommendations: defaultList,
+          recommendationListVersion: Date.now(),
         });
+        preloadRecommendationImages(defaultList);
+      } else if (Array.isArray(rawConfig.recommendations)) {
+        // Legacy/fallback: no keyed data; set snapshotRecommendations from flat recommendations array.
+        const legacyList = rawConfig.recommendations.map((r: any) => ({
+          variantId: Number(r.variantId),
+          title: r.title ?? '',
+          imageUrl: r.imageUrl ?? null,
+          price: r.price ?? { amount: 0 },
+          handle: r.handle ?? '',
+        }));
+        this.setState({
+          snapshotRecommendations: legacyList,
+          recommendationListVersion: Date.now(),
+        });
+        preloadRecommendationImages(legacyList);
       }
       console.log('[CartPro V3] Hydrated snapshot recommendations:', this.stateStore);
     } catch (err) {
@@ -706,6 +817,49 @@ export class Engine {
     this.reconcileCartDiscountState(raw);
     this.emit('cart:updated', { raw });
 
+    // Collection-aware recommendations: only update from bucket when keyed data is present; otherwise leave snapshotRecommendations as set from loadConfig.
+    const stateAfterCart = getStateFromStore(this.stateStore);
+    const byCollection = stateAfterCart.recommendationsByCollection;
+    const productToCollections = stateAfterCart.productToCollections;
+    if (
+      byCollection &&
+      Object.keys(byCollection).length > 0 &&
+      productToCollections &&
+      Object.keys(productToCollections).length > 0
+    ) {
+      const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
+      const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
+      const list = Array.isArray(bucket) ? bucket : [];
+      this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
+      preloadRecommendationImages(list);
+    }
+
+    // Phase 4/5: debounced background decision call (500ms); cart signature used to ignore stale responses.
+    if (this.decisionDebounceTimer) {
+      clearTimeout(this.decisionDebounceTimer);
+      this.decisionDebounceTimer = null;
+    }
+    const rawItemCount = raw?.items?.length ?? 0;
+    if (rawItemCount > 0) {
+      this.decisionDebounceTimer = setTimeout(() => {
+        this.decisionDebounceTimer = null;
+        if (this.destroyed) return;
+        const state = getStateFromStore(this.stateStore);
+        const currentRaw = state.cart.raw;
+        if ((currentRaw?.items?.length ?? 0) === 0) return;
+        const decisionCartSignature = this.getCartSignature(currentRaw);
+        fetchDecisionCrossSell(currentRaw).then((result) => {
+          if (this.destroyed || !result.ok) return;
+          const current = getStateFromStore(this.stateStore).cart.raw;
+          if (!current || this.getCartSignature(current) !== decisionCartSignature) return;
+          if (result.items.length > 0) {
+            this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now() });
+            preloadRecommendationImages(result.items);
+          }
+        });
+      }, DECISION_DEBOUNCE_MS);
+    }
+
       // V2 lever: trace config-derived lever state (do not clear these in syncCart).
       console.log('[CartPro V3] Lever state:', {
         countdownEnabled: this.config?.appearance?.countdownEnabled === true,
@@ -753,11 +907,11 @@ export class Engine {
 
       // Rewards: compute unlocked tier (only when feature enabled).
       console.log("[CartPro V3] syncCart → rewards START", performance.now());
-      const stateAfterCart = getStateFromStore(this.stateStore);
-      const { rewards } = stateAfterCart;
+      const stateForRewards = getStateFromStore(this.stateStore);
+      const { rewards } = stateForRewards;
       const runRewards = !this.config || this.config.featureFlags.enableRewards;
       if (runRewards) {
-        const subtotalCents = stateAfterCart.cart.subtotal ?? 0;
+        const subtotalCents = stateForRewards.cart.subtotal ?? 0;
         const newUnlockedIndex = computeUnlockedTier(subtotalCents, rewards.tiers);
         const lastUnlocked = rewards.lastUnlockedTierIndex;
         const isNewTierUnlock =

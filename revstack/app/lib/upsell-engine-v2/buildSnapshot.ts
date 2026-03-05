@@ -341,6 +341,12 @@ export type HydratedRecommendation = {
   handle: string;
 };
 
+/** Collection-aware snapshot shape: keyed recommendations + product → collections map. */
+export type CollectionAwareRecommendations = {
+  recommendationsByCollection: Record<string, HydratedRecommendation[]>;
+  productToCollections: Record<string, string[]>;
+};
+
 /**
  * Returns hydrated recommendations from ShopProduct for a shop.
  * Uses same DB + strategy/limit logic as V2 but returns only the product list.
@@ -410,4 +416,80 @@ export async function getHydratedRecommendationsForShop(
       handle: p.handle ?? "",
     };
   });
+}
+
+const COLLECTION_RECOS_PER_BUCKET = 8;
+const MAX_COLLECTIONS_IN_SNAPSHOT = 20;
+
+function productLiteToHydratedRecommendation(
+  lite: ProductLite,
+  _currency: string
+): HydratedRecommendation {
+  const variantId = Number(lite.variantId);
+  return {
+    id: lite.id,
+    variantId: Number.isFinite(variantId) ? variantId : 0,
+    title: lite.title,
+    imageUrl: lite.imageUrl ?? null,
+    price: { amount: lite.priceCents, compare_at_amount: null },
+    handle: lite.handle ?? "",
+  };
+}
+
+/**
+ * Builds collection-aware recommendations: keyed buckets per collection plus product→collections map.
+ * Uses ensureCatalogReady + ShopProduct + buildCatalogIndexFromDbRows. "default" bucket uses the same
+ * logic as getHydratedRecommendationsForShop (strategy, limit, capabilities, EMPTY_CART).
+ */
+export async function buildCollectionAwareRecommendations(
+  shop: string
+): Promise<CollectionAwareRecommendations> {
+  await ensureCatalogReady(shop);
+  const rows = await prisma.shopProduct.findMany({ where: { shopDomain: shop } });
+  if (rows.length === 0) {
+    return {
+      recommendationsByCollection: { default: [] },
+      productToCollections: {},
+    };
+  }
+
+  const index = buildCatalogIndexFromDbRows(rows);
+  const { productsById, collectionMap } = index;
+
+  const productToCollections: Record<string, string[]> = {};
+  for (const [productId, lite] of Object.entries(productsById)) {
+    productToCollections[productId] = Array.isArray(lite.collections) ? lite.collections : [];
+  }
+
+  const recommendationsByCollection: Record<string, HydratedRecommendation[]> = {};
+
+  const collectionIdsByProductCount = Object.entries(collectionMap)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, MAX_COLLECTIONS_IN_SNAPSHOT)
+    .map(([cid]) => cid);
+
+  for (const collectionId of collectionIdsByProductCount) {
+    const productIds = collectionMap[collectionId] ?? [];
+    const hydrated: HydratedRecommendation[] = [];
+    for (const pid of productIds) {
+      if (hydrated.length >= COLLECTION_RECOS_PER_BUCKET) break;
+      const lite = productsById[pid];
+      if (!lite || !lite.inStock) continue;
+      if (!lite.title?.trim() || !lite.handle?.trim()) continue;
+      const variantId = Number(lite.variantId);
+      if (!Number.isFinite(variantId) || variantId <= 0) continue;
+      hydrated.push(productLiteToHydratedRecommendation(lite, index.currency));
+    }
+    if (hydrated.length > 0) {
+      recommendationsByCollection[collectionId] = hydrated;
+    }
+  }
+
+  const defaultRecs = await getHydratedRecommendationsForShop(shop);
+  recommendationsByCollection["default"] = defaultRecs;
+
+  return {
+    recommendationsByCollection,
+    productToCollections,
+  };
 }

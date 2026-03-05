@@ -153,6 +153,12 @@ export interface SnapshotRecommendationItem {
   handle?: string;
 }
 
+/** Collection-aware snapshot data: keyed recommendation buckets and product→collections map. */
+export interface SnapshotRecommendationsByCollection {
+  recommendationsByCollection: Record<string, SnapshotRecommendationItem[]>;
+  productToCollections: Record<string, string[]>;
+}
+
 export interface EngineState {
   app: AppState;
   ui: UIState;
@@ -167,6 +173,11 @@ export interface EngineState {
   shipping: ShippingState;
   /** Hydrated recommendations from backend snapshot; primary source for recommendations UI. */
   snapshotRecommendations: SnapshotRecommendationItem[];
+  /** Incremented when snapshotRecommendations is replaced (bucket swap or decision refinement); used for list fade transition. */
+  recommendationListVersion: number;
+  /** Keyed buckets per collection + product→collections map; used to derive which bucket to show from cart. */
+  recommendationsByCollection: Record<string, SnapshotRecommendationItem[]>;
+  productToCollections: Record<string, string[]>;
 }
 
 /** Deep partial for state updates: each top-level key is optional and can be a partial of that slice. */
@@ -183,6 +194,9 @@ export type PartialEngineState = {
   analytics?: Partial<AnalyticsState>;
   shipping?: Partial<ShippingState>;
   snapshotRecommendations?: SnapshotRecommendationItem[];
+  recommendationListVersion?: number;
+  recommendationsByCollection?: Record<string, SnapshotRecommendationItem[]>;
+  productToCollections?: Record<string, string[]>;
 };
 
 export function createInitialState(): EngineState {
@@ -264,6 +278,9 @@ export function createInitialState(): EngineState {
       loading: true,
     },
     snapshotRecommendations: [],
+    recommendationListVersion: 0,
+    recommendationsByCollection: {},
+    productToCollections: {},
   };
 }
 
@@ -304,6 +321,9 @@ export function setState(
     if (partial.analytics != null) next.analytics = { ...s.analytics, ...partial.analytics };
     if (partial.shipping != null) next.shipping = { ...s.shipping, ...partial.shipping };
     if (partial.snapshotRecommendations != null) next.snapshotRecommendations = partial.snapshotRecommendations;
+    if (partial.recommendationListVersion != null) next.recommendationListVersion = partial.recommendationListVersion;
+    if (partial.recommendationsByCollection != null) next.recommendationsByCollection = partial.recommendationsByCollection;
+    if (partial.productToCollections != null) next.productToCollections = partial.productToCollections;
     return next;
   });
 }
@@ -333,6 +353,9 @@ export function updateState(
     if (partial.analytics != null) next.analytics = { ...s.analytics, ...partial.analytics };
     if (partial.shipping != null) next.shipping = { ...s.shipping, ...partial.shipping };
     if (partial.snapshotRecommendations != null) next.snapshotRecommendations = partial.snapshotRecommendations;
+    if (partial.recommendationListVersion != null) next.recommendationListVersion = partial.recommendationListVersion;
+    if (partial.recommendationsByCollection != null) next.recommendationsByCollection = partial.recommendationsByCollection;
+    if (partial.productToCollections != null) next.productToCollections = partial.productToCollections;
     return next;
   });
 }

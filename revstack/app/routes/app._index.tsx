@@ -196,8 +196,8 @@ export default function DashboardIndex() {
   const isHighestPlan = capabilities.allowRevenueDifference;
   const hasOrderImpact = metrics.orderImpact != null;
   const orderImpact = metrics.orderImpact;
-  const showLift = hasOrderImpact && orderImpact.stage === "full" && orderImpact.liftPercent != null;
-  const showImpactAnalysisMessage = hasOrderImpact && orderImpact.stage === "early";
+  const showLift = hasOrderImpact && orderImpact?.stage === "full" && orderImpact?.liftPercent != null;
+  const showImpactAnalysisMessage = hasOrderImpact && orderImpact?.stage === "early";
   const uniqueCartsEvaluated7d = cp.last7DaysTrend.reduce((s, d) => s + d.decisions, 0);
 
   const showAovDiffBanner =

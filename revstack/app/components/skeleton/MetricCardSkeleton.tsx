@@ -6,7 +6,7 @@ import styles from "~/styles/skeleton.module.css";
  */
 export function MetricCardSkeleton() {
   return (
-    <div className={skeletonStyles.card}>
+    <div className={styles.card}>
       <div
         className={styles.shimmer}
         style={{
