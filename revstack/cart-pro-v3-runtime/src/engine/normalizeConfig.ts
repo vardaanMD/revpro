@@ -124,10 +124,17 @@ function normalizeUpsell(raw: RawCartProConfig): ConfigUpsell {
   };
 }
 
+/** Snapshot sends thresholdCents; persisted config from settings may send amount (cents). Accept both. */
 function normalizeRewardsTier(t: unknown): ConfigRewardsTier | null {
   if (!t || typeof t !== 'object') return null;
   const o = t as Record<string, unknown>;
-  const thresholdCents = sanitizeNonNegativeNumber(o.thresholdCents, 0);
+  const fromThreshold = typeof o.thresholdCents === 'number' && Number.isFinite(o.thresholdCents);
+  const fromAmount = typeof o.amount === 'number' && Number.isFinite(o.amount);
+  const thresholdCents = fromThreshold
+    ? sanitizeNonNegativeNumber(o.thresholdCents, 0)
+    : fromAmount
+      ? sanitizeNonNegativeNumber(o.amount, 0)
+      : 0;
   const label = typeof o.label === 'string' ? (o.label as string).trim() : '';
   return { thresholdCents, label: label || `Tier ${thresholdCents}` };
 }

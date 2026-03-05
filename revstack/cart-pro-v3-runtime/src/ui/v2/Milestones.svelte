@@ -19,6 +19,7 @@
   $: emojiConfig = { emojiMode: appearance.emojiMode !== false };
 
   /** Build combined milestones: free shipping (🚚) + reward tiers (🏷 🎁 ✨). Sorted by threshold. */
+  /** Engine config.rewards.tiers have thresholdCents (normalized from snapshot amount or thresholdCents). */
   $: combinedMilestones = (() => {
     const list = [];
     if (typeof freeShippingThreshold === 'number' && freeShippingThreshold > 0) {
@@ -26,10 +27,11 @@
     }
     const tiers = Array.isArray(rewardsTiers) ? rewardsTiers : [];
     tiers.forEach((t, i) => {
-      if (t && typeof t.thresholdCents === 'number' && t.thresholdCents >= 0) {
+      const th = t && typeof t === 'object' ? (t.thresholdCents ?? t.amount) : null;
+      if (typeof th === 'number' && th >= 0) {
         const emojis = ['🏷', '🎁', '✨'];
         list.push({
-          thresholdCents: t.thresholdCents,
+          thresholdCents: th,
           label: typeof t.label === 'string' ? t.label : `Reward ${i + 1}`,
           emoji: emojis[i] ?? '🎁',
         });
@@ -40,19 +42,32 @@
   })();
 
   $: lastThreshold = combinedMilestones.length > 0 ? combinedMilestones[combinedMilestones.length - 1].thresholdCents : 0;
-  /** Positions from actual thresholds so fill aligns with order value (e.g. $50 of $100 = 50% = second emoji). */
+  /** Positions from thresholds; nudge duplicates so multiple emojis don't stack on top of each other. */
   $: displayPoints = (() => {
     const points = [];
     const n = Math.min(combinedMilestones.length, 3);
     for (let i = 0; i < n; i++) {
       const m = combinedMilestones[i];
-      const leftPct = lastThreshold > 0 ? (m.thresholdCents / lastThreshold) * 100 : (100 / 3) * (i + 1);
+      let leftPct = lastThreshold > 0 ? (m.thresholdCents / lastThreshold) * 100 : (100 / 3) * (i + 1);
+      leftPct = Math.max(0, Math.min(100, leftPct));
       points.push({
         leftPct,
         thresholdCents: m.thresholdCents,
         label: m.label,
         emoji: m.emoji,
       });
+    }
+    // If two points are within 3% (overlapping), spread them so both emojis are visible.
+    const MIN_SEP = 3;
+    const NUDGE = 6;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1].leftPct;
+      const curr = points[i].leftPct;
+      if (curr - prev < MIN_SEP) {
+        const mid = (prev + curr) / 2;
+        points[i - 1].leftPct = Math.max(0, mid - NUDGE);
+        points[i].leftPct = Math.min(100, mid + NUDGE);
+      }
     }
     return points;
   })();

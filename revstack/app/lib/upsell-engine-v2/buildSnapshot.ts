@@ -26,13 +26,16 @@ export type V3SnapshotMilestone = {
  * Transforms rewards.tiers into rewards.milestones for V3 runtime.
  * Includes id, type, thresholdCents, emoji, icon, label, rewardType.
  */
+/** Backend/settings save tiers as { amount: number (cents), label }. Snapshot must output thresholdCents for runtime. */
 export function transformTiersToMilestones(tiers: unknown[]): V3SnapshotMilestone[] {
   return tiers.map((t, index) => {
     const o = t && typeof t === "object" ? (t as Record<string, unknown>) : {};
     const thresholdCents =
       typeof o.thresholdCents === "number" && Number.isFinite(o.thresholdCents)
         ? Math.max(0, Math.floor(o.thresholdCents))
-        : 0;
+        : typeof o.amount === "number" && Number.isFinite(o.amount)
+          ? Math.max(0, Math.floor(o.amount))
+          : 0;
     const rewardType = typeof o.rewardType === "string" ? o.rewardType : undefined;
     return {
       id: `ms_${index}`,

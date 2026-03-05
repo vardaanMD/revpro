@@ -541,12 +541,14 @@
     pointer-events: none;
   }
 
-  /* Points sit above the fill with solid background so emojis are never washed */
+  /* Points sit above the fill; solid background + stacking context so emojis are never washed by bar colour */
   .cp-milestone-point {
     position: absolute;
     top: 50%;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
     background: #fff;
     border: 2px solid #ccc;
     border-radius: 50%;
@@ -555,8 +557,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 2;
+    z-index: 3;
     box-sizing: border-box;
+    isolation: isolate;
   }
 
   .cp-milestone-point.cp-milestone-bounce {
