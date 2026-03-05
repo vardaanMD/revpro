@@ -878,7 +878,7 @@ export class Engine {
     Promise.resolve().then(() => {
       if (this.destroyed) return;
 
-      // Collection-aware recommendations
+      // Collection-aware recommendations — only setState if list actually changed
       const s = getStateFromStore(this.stateStore);
       const byCollection = s.recommendationsByCollection;
       const productToCollections = s.productToCollections;
@@ -886,8 +886,12 @@ export class Engine {
         const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
         const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
         const list = Array.isArray(bucket) ? bucket : [];
-        this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
-        preloadRecommendationImages(list);
+        const prevIds = (s.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
+        const nextIds = list.map((r: any) => r.variantId).join(',');
+        if (prevIds !== nextIds) {
+          this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
+          preloadRecommendationImages(list);
+        }
       }
 
       // Debounced decision call
@@ -947,7 +951,7 @@ export class Engine {
     this.reconcileCartDiscountState(raw);
     this.emit('cart:updated', { raw });
 
-    // Collection-aware recommendations: only update from bucket when keyed data is present; otherwise leave snapshotRecommendations as set from loadConfig.
+    // Collection-aware recommendations: only update from bucket when keyed data is present and list actually changed.
     const stateAfterCart = getStateFromStore(this.stateStore);
     const byCollection = stateAfterCart.recommendationsByCollection;
     const productToCollections = stateAfterCart.productToCollections;
@@ -960,8 +964,12 @@ export class Engine {
       const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
       const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
       const list = Array.isArray(bucket) ? bucket : [];
-      this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
-      preloadRecommendationImages(list);
+      const prevIds = (stateAfterCart.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
+      const nextIds = list.map((r: any) => r.variantId).join(',');
+      if (prevIds !== nextIds) {
+        this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
+        preloadRecommendationImages(list);
+      }
     }
 
     // Phase 4/5: debounced background decision call (500ms); cart signature used to ignore stale responses.
@@ -1596,7 +1604,8 @@ export class Engine {
       } else {
         await this.syncCart();
       }
-      this.emitEvent('cart:change', { lineKey, quantity });
+      // Defer analytics event to avoid an immediate extra re-render after batched apply
+      setTimeout(() => this.emitEvent('cart:change', { lineKey, quantity }), 0);
     } catch (_err) {
       this.setState({ cart: cartSnapshot });
       throw _err;
@@ -1632,7 +1641,7 @@ export class Engine {
       } else {
         await this.syncCart();
       }
-      this.emitEvent('cart:remove', { lineKey });
+      setTimeout(() => this.emitEvent('cart:remove', { lineKey }), 0);
     } catch (_err) {
       this.setState({ cart: cartSnapshot });
       throw _err;

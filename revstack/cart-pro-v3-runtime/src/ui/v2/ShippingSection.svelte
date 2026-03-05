@@ -56,11 +56,12 @@
     : '';
   $: showSavings = !!savingsMsg;
 
-  /** V2: add cp-msg-visible in rAF after text is set so opacity 0→1 transition matches. */
+  /** V2: add cp-msg-visible after text is set. Only fade-in on first appearance; stay visible on updates. */
   $: if (shippingMsg && !shipping.loading) {
-    msgVisible = false;
-    const raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : (f) => setTimeout(f, 0);
-    raf(() => { msgVisible = true; });
+    if (!msgVisible) {
+      const raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : (f) => setTimeout(f, 0);
+      raf(() => { msgVisible = true; });
+    }
   } else if (!shippingMsg) {
     msgVisible = false;
   }
