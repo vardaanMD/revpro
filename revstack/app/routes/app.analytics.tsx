@@ -20,9 +20,9 @@ import {
   type AnalyticsRangePreset,
 } from "~/lib/analytics.server";
 import { formatCurrency } from "~/lib/format";
-import { generateSparkline } from "~/lib/sparkline.server";
 import type { Plan } from "~/lib/capabilities.server";
 import { StatCard } from "~/components/ui/StatCard";
+import { LineChart } from "~/components/ui/LineChart";
 import { MetricSection } from "~/components/ui/MetricSection";
 import analyticsStyles from "~/styles/analyticsPage.module.css";
 import dashboardStyles from "~/styles/dashboardIndex.module.css";
@@ -90,20 +90,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ? configV3.runtimeVersion
       : "v3";
 
-  const sparklineDecisions = generateSparkline(
-    metrics.cartPerformance.trend.map((p) => p.decisions)
-  );
-  const sparklineAddRate = generateSparkline(
-    metrics.cartPerformance.trend.map((p) => p.addRate * 100)
-  );
   return {
     metrics,
     plan: billing.plan,
     capabilities: billing.capabilities,
     billingStatus: billing.billingStatus,
     isEntitled: billing.isEntitled,
-    sparklineDecisions,
-    sparklineAddRate,
     configV3: configV3 ?? null,
     runtimeVersion,
   };
@@ -115,8 +107,6 @@ type LoaderData = {
   capabilities: import("~/lib/capabilities.server").Capabilities;
   billingStatus: string;
   isEntitled: boolean;
-  sparklineDecisions: string;
-  sparklineAddRate: string;
   configV3: { runtimeVersion?: "v1" | "v2" | "v3" } | null;
   runtimeVersion: "v1" | "v2" | "v3";
 };
@@ -130,7 +120,7 @@ const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
 export default function AnalyticsPage() {
   const navigation = useNavigation();
   const isLoading = navigation.state === "loading";
-  const { metrics, plan, capabilities, billingStatus, isEntitled, sparklineDecisions, sparklineAddRate, runtimeVersion } =
+  const { metrics, plan, capabilities, billingStatus, isEntitled, runtimeVersion } =
     useLoaderData<LoaderData>();
 
   const cp = metrics.cartPerformance;
@@ -236,54 +226,27 @@ export default function AnalyticsPage() {
         </s-section>
 
         <s-section heading="Drawer opens (daily trend)">
+          <p className={analyticsStyles.sectionSubtext}>
+            Date-wise view for {rangeLabel}. Chart only — no table.
+          </p>
           <MetricSection>
+            <StatCard label="Drawer opens (total)" value={totalDecisions} contextLabel={rangeLabel} />
             <StatCard
-              label="Drawer opens"
-              value={
-                <>
-                  <div
-                    dangerouslySetInnerHTML={{ __html: sparklineDecisions }}
-                    className={analyticsStyles.sparkline}
-                  />
-                  <s-text>{totalDecisions} total</s-text>
-                </>
-              }
-            />
-            <StatCard
-              label="Add-to-carts from recommendations"
-              value={
-                <>
-                  <div
-                    dangerouslySetInnerHTML={{ __html: sparklineAddRate }}
-                    className={analyticsStyles.sparkline}
-                  />
-                  <s-text>
-                    {cp.summary.addRate > 1 ? cp.summary.addRate.toFixed(2) : `${(cp.summary.addRate * 100).toFixed(1)}%`} rate
-                  </s-text>
-                </>
-              }
+              label="Add rate"
+              value={cp.summary.addRate > 1 ? cp.summary.addRate.toFixed(2) : `${(cp.summary.addRate * 100).toFixed(1)}%`}
+              contextLabel="adds ÷ sessions with recs shown"
             />
           </MetricSection>
-          {cp.trend.length > 0 && cp.trend.length <= 90 && (
-            <div className={analyticsStyles.tableWrapper}>
-              <table className={analyticsStyles.table}>
-                <thead>
-                  <tr>
-                    <th><s-text tone="neutral">Date</s-text></th>
-                    <th><s-text tone="neutral">Drawer opens</s-text></th>
-                    <th><s-text tone="neutral">Add rate</s-text></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cp.trend.map((p) => (
-                    <tr key={p.date}>
-                      <td><s-text tone="auto">{p.date}</s-text></td>
-                      <td><s-text tone="auto">{p.decisions}</s-text></td>
-                      <td><s-text tone="auto">{p.addRate > 0 ? `${(p.addRate * 100).toFixed(1)}%` : "—"}</s-text></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {cp.trend.length > 0 && (
+            <div className={analyticsStyles.chartBlock}>
+              <LineChart
+                data={cp.trend.map((p) => ({ date: p.date, value: p.decisions }))}
+                width={520}
+                height={220}
+                label="Drawer opens by date"
+                maxXLabels={8}
+                className={analyticsStyles.trendChart}
+              />
             </div>
           )}
         </s-section>
