@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { createEventDispatcher } from 'svelte';
+  import { releaseBodyScroll } from '../../overflowScroll';
   import CartItems from './CartItems.svelte';
   import Recommendations from './Recommendations.svelte';
   import Milestones from './Milestones.svelte';
@@ -8,10 +9,21 @@
   import ShippingSection from './ShippingSection.svelte';
   import CheckoutSection from './CheckoutSection.svelte';
 
+  const HOST_ID = 'cart-pro-root';
+
   export let engine;
   export let contentReady = false;
   const stateStore = engine.stateStore;
   const dispatch = createEventDispatcher();
+
+  function setHostPointerEvents(value) {
+    const host = typeof document !== 'undefined' ? document.getElementById(HOST_ID) : null;
+    if (host) host.style.pointerEvents = value;
+  }
+
+  function removeThemeDrawerClass() {
+    if (typeof document !== 'undefined' && document.body) document.body.classList.remove('js-drawer-open');
+  }
 
   $: cart = $stateStore?.cart ?? { syncing: false, raw: null, itemCount: 0, subtotal: 0, total: 0 };
   $: discount = $stateStore?.discount ?? { applied: [], validating: false, lastError: null };
@@ -47,13 +59,22 @@
   $: enableUpsell = engine?.getConfig?.()?.featureFlags?.enableUpsell ?? true;
   $: enableDiscounts = engine?.getConfig?.()?.featureFlags?.enableDiscounts ?? true;
   $: if (drawerOpen) {
-    document.body.style.overflow = 'hidden';
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    setHostPointerEvents('auto');
+    removeThemeDrawerClass();
   } else {
-    document.body.style.overflow = '';
+    releaseBodyScroll();
+    setHostPointerEvents('none');
+    removeThemeDrawerClass();
   }
 
   onDestroy(() => {
-    document.body.style.overflow = '';
+    releaseBodyScroll();
+    setHostPointerEvents('none');
+    removeThemeDrawerClass();
     if (confettiTimeoutId != null) clearTimeout(confettiTimeoutId);
     const root = confettiLayerEl || document.getElementById('cart-pro-confetti-layer');
     if (root) root.querySelectorAll('.rewards-confetti-container').forEach((el) => el.remove());
@@ -61,7 +82,9 @@
   });
 
   function handleClose() {
-    document.body.style.overflow = '';
+    releaseBodyScroll();
+    setHostPointerEvents('none');
+    removeThemeDrawerClass();
     dispatch('close');
   }
 

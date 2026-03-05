@@ -5,6 +5,37 @@
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+/* Drawer header — "Your Cart" + close button (v2-style) */
+#cart-pro-drawer > #cart-pro-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+#cart-pro-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+#cart-pro-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: #333;
+  opacity: 0.85;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+#cart-pro-close:hover {
+  opacity: 1;
+  color: var(--cp-primary, #111111);
+}
+
 .drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -270,4 +301,68 @@
   to { transform: translateX(0); }
 }
 
-/* Shipping bar uses .cp-milestone-* classes from cart-pro-v2.css (same track, fill, icon, colour). */
+/* Milestone/shipping bar — v3 overrides; emojis centered on bar, no color wash. */
+.cp-milestone-bar-container {
+  position: relative;
+  width: 100%;
+  height: 28px;
+}
+.cp-milestone-track-wrap {
+  position: absolute;
+  inset: 0;
+}
+.cp-milestone-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  z-index: 0;
+}
+.cp-milestone-fill {
+  height: 100%;
+  background: var(--cp-accent, #555555);
+  border-radius: 4px;
+  transition: width 0.5s ease-in-out;
+}
+.cp-milestone-steps-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.cp-milestone-step {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.cp-milestone-icon-wrap {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.cp-milestone-icon-wrap.cp-milestone-unlocked {
+  border-color: var(--cp-accent);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cp-accent) 25%, transparent);
+}
+.cp-milestone-step .cp-milestone-emoji {
+  font-size: 14px;
+}

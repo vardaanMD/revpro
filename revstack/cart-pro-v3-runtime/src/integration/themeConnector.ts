@@ -76,6 +76,8 @@ export function createThemeConnector(
   }
 
   function hideElement(el: HTMLElement): void {
+    // Never apply hide to body or html — avoids locking the page when theme also uses body class.
+    if (el === document.body || el === document.documentElement || el.nodeName === 'BODY' || el.nodeName === 'HTML') return;
     if (!el.style) return;
     hiddenElements.push({
       element: el,

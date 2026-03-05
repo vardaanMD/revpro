@@ -1,6 +1,7 @@
 import App from './ui/App.svelte';
 import { Engine } from './engine/Engine';
 import { createThemeConnector, type ThemeConnector } from './integration/themeConnector';
+import { saveBodyOverflowOnce } from './overflowScroll';
 import type { RawCartProConfig } from './engine/configSchema';
 
 /** Canonical host element id. Used by both the Liquid embed block and the runtime fallback. */
@@ -80,6 +81,7 @@ function bootstrapConfig(engine: Engine, host: HTMLElement): boolean {
       console.log('[CartPro] Bootstrapping config authority');
       applyAppearanceVariables(host, config);
       engine.loadConfig(config);
+      saveBodyOverflowOnce();
       console.log('[CartPro] Config loaded into engine', (engine as { getConfig?: () => unknown }).getConfig?.());
       return true;
     }
@@ -128,19 +130,42 @@ function ensureBodyHost(): HTMLElement {
   return host;
 }
 
+/** Element selectors for theme cart/overlay we hide globally. Each gets :not(html):not(body) so we never affect body/html. */
+const HIDE_OTHER_CARTS_SELECTORS = [
+  'cart-drawer',
+  '#CartDrawer',
+  '#cart-drawer',
+  '.cart-drawer',
+  '#monster-upsell-cart',
+  '#shopify-section-cart-drawer',
+  '.halo-cart-sidebar',
+  '#site-cart-sidebar',
+  '.mm-ajaxcart-overlay',
+  '.background-overlay',
+];
+
 function injectHideOtherCartsStyle(): void {
   if (document.getElementById('cart-pro-v3-hide-style')) return;
 
+  const elementSelectors = HIDE_OTHER_CARTS_SELECTORS.map((s) => `${s}:not(html):not(body)`).join(',\n    ');
   const style = document.createElement('style');
   style.id = 'cart-pro-v3-hide-style';
   style.textContent = `
-    cart-drawer,
-    #CartDrawer,
-    .js-drawer-open::after {
+    ${elementSelectors} {
       display: none !important;
       opacity: 0 !important;
       visibility: hidden !important;
       pointer-events: none !important;
+    }
+    .js-drawer-open:not(html):not(body)::after {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    .main-content::after {
+      content: none !important;
+      display: none !important;
     }
   `;
 
@@ -204,6 +229,7 @@ export function mountCartProV3(componentCss: string): void {
         console.log('[CartPro] Late config detected');
         applyAppearanceVariables(host, snapshot);
         engine.loadConfig(snapshot);
+        saveBodyOverflowOnce();
         console.log('[CartPro] Config loaded into engine', (engine as { getConfig?: () => unknown }).getConfig?.());
         return;
       }

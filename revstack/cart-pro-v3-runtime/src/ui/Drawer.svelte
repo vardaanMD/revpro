@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { createEventDispatcher } from 'svelte';
+  import { releaseBodyScroll } from '../overflowScroll';
   import CartItems from './v2/CartItems.svelte';
   import Recommendations from './v2/Recommendations.svelte';
   import Milestones from './v2/Milestones.svelte';
@@ -8,9 +9,20 @@
   import ShippingSection from './v2/ShippingSection.svelte';
   import CheckoutSection from './v2/CheckoutSection.svelte';
 
+  const HOST_ID = 'cart-pro-root';
+
   export let engine;
   const stateStore = engine.stateStore;
   const dispatch = createEventDispatcher();
+
+  function setHostPointerEvents(value) {
+    const host = typeof document !== 'undefined' ? document.getElementById(HOST_ID) : null;
+    if (host) host.style.pointerEvents = value;
+  }
+
+  function removeThemeDrawerClass() {
+    if (typeof document !== 'undefined' && document.body) document.body.classList.remove('js-drawer-open');
+  }
 
   $: cart = $stateStore?.cart ?? { syncing: false, raw: null, itemCount: 0, subtotal: 0, total: 0 };
   $: discount = $stateStore?.discount ?? { applied: [], validating: false, lastError: null };
@@ -37,19 +49,30 @@
 
   $: drawerOpen = $stateStore?.ui?.drawerOpen ?? false;
   $: if (drawerOpen) {
-    document.body.style.overflow = 'hidden';
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    setHostPointerEvents('auto');
+    removeThemeDrawerClass();
   } else {
-    document.body.style.overflow = '';
+    releaseBodyScroll();
+    setHostPointerEvents('none');
+    removeThemeDrawerClass();
   }
 
   onDestroy(() => {
-    document.body.style.overflow = '';
+    releaseBodyScroll();
+    setHostPointerEvents('none');
+    removeThemeDrawerClass();
     if (confettiTimeoutId != null) clearTimeout(confettiTimeoutId);
     document.querySelectorAll('.rewards-confetti-container').forEach((el) => el.remove());
   });
 
   function handleClose() {
-    document.body.style.overflow = '';
+    releaseBodyScroll();
+    setHostPointerEvents('none');
+    removeThemeDrawerClass();
     dispatch('close');
   }
 

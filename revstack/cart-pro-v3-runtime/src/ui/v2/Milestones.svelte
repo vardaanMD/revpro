@@ -42,57 +42,20 @@
   })();
 
   $: lastThreshold = combinedMilestones.length > 0 ? combinedMilestones[combinedMilestones.length - 1].thresholdCents : 0;
-  /** Positions from thresholds; nudge duplicates so multiple emojis don't stack on top of each other. */
+  /** Visual positions: evenly spaced at fixed 33% intervals regardless of threshold values.
+   *  Thresholds from admin settings still drive fill %, unlock logic, and messaging — only icon placement is fixed. */
   $: displayPoints = (() => {
-    const points = [];
     const n = Math.min(combinedMilestones.length, 3);
-    for (let i = 0; i < n; i++) {
-      const m = combinedMilestones[i];
-      let leftPct = lastThreshold > 0 ? (m.thresholdCents / lastThreshold) * 100 : (100 / 3) * (i + 1);
-      leftPct = Math.max(0, Math.min(100, leftPct));
-      points.push({
-        leftPct,
-        thresholdCents: m.thresholdCents,
-        label: m.label,
-        emoji: m.emoji,
-      });
-    }
-    // If two points are within 3% (overlapping), spread them so both emojis are visible.
-    const MIN_SEP = 3;
-    const NUDGE = 6;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1].leftPct;
-      const curr = points[i].leftPct;
-      if (curr - prev < MIN_SEP) {
-        const mid = (prev + curr) / 2;
-        points[i - 1].leftPct = Math.max(0, mid - NUDGE);
-        points[i].leftPct = Math.min(100, mid + NUDGE);
-      }
-    }
-    return points;
+    return combinedMilestones.slice(0, n).map((m, i) => ({
+      leftPct: ((i + 1) / (n + 1)) * 100,
+      thresholdCents: m.thresholdCents,
+      label: m.label,
+      emoji: m.emoji,
+    }));
   })();
 
-  /** Bar fill grows with cart value. Segmented so colour stops before each emoji and resumes after (no washing). */
+  /** Single fill width (like cart.txt): bar grows with cart value; icons sit above the rail so no wash. */
   $: fillPct = lastThreshold > 0 ? Math.min(100, (subtotalCents / lastThreshold) * 100) : 0;
-
-  /** Gap each side of an emoji (percent of bar) so the colour bar breaks and emoji sits on neutral track. */
-  const EMOJI_GAP_PCT = 4;
-  $: fillSegments = (() => {
-    if (displayPoints.length === 0) return [];
-    const segments = [];
-    const positions = displayPoints.map((p) => p.leftPct);
-    for (let i = 0; i < positions.length; i++) {
-      const segmentStart = i === 0 ? 0 : positions[i - 1] + EMOJI_GAP_PCT;
-      const segmentEnd = i === positions.length - 1 ? 100 : positions[i] - EMOJI_GAP_PCT;
-      if (segmentEnd <= segmentStart) continue;
-      const fillEnd = Math.min(segmentEnd, Math.max(segmentStart, fillPct));
-      const widthPct = Math.max(0, fillEnd - segmentStart);
-      if (widthPct > 0) {
-        segments.push({ leftPct: segmentStart, widthPct });
-      }
-    }
-    return segments;
-  })();
   $: hasMilestones = combinedMilestones.length > 0 && !shipping?.loading;
 
   $: messageText = (() => {
@@ -126,17 +89,27 @@
     {#if hasMilestones}
       <div class="cp-milestone-wrapper cp-fade-in">
         <div class="cp-milestone-header">{combinedMilestones.length > 1 ? 'Unlock Rewards' : 'Free Shipping'}</div>
-        <div class="cp-milestone-track">
-          <div class="cp-milestone-fills" aria-hidden="true">
-            {#each fillSegments as seg}
-              <div class="cp-milestone-fill-segment" style="left: {seg.leftPct}%; width: {seg.widthPct}%;"></div>
-            {/each}
+        <!-- Rail + fill centered vertically; emoji icons sit on the bar in a separate overlay layer. -->
+        <div class="cp-milestone-bar-container">
+          <div class="cp-milestone-track-wrap">
+            <div class="cp-milestone-rail" aria-hidden="true">
+              <div
+                class="cp-milestone-fill"
+                style="width: {fillPct}%;"
+                aria-hidden="true"
+              ></div>
+            </div>
           </div>
-          <div class="cp-milestone-points">
+          <div class="cp-milestone-steps-overlay">
             {#each displayPoints as pt}
               {@const unlocked = subtotalCents >= pt.thresholdCents || (pt.emoji === '🚚' && !!shipping?.unlocked)}
-              <div class="cp-milestone-point" class:cp-milestone-unlocked={unlocked} style="left: {pt.leftPct}%;">
-                <span class="cp-milestone-emoji" aria-hidden="true">{pt.emoji}</span>
+              <div class="cp-milestone-step" style="left: {pt.leftPct}%;">
+                <div
+                  class="cp-milestone-icon-wrap"
+                  class:cp-milestone-unlocked={unlocked}
+                >
+                  <span class="cp-milestone-emoji" aria-hidden="true">{pt.emoji}</span>
+                </div>
               </div>
             {/each}
           </div>
