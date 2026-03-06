@@ -220,6 +220,8 @@ export class Engine {
   private lastMutationAppliedAt = 0;
   /** True once we have set revpro_session_id on the cart this session (Order Impact attribution). */
   private revproSessionIdSet = false;
+  /** Skip showConfetti on first rewards apply (initial sync / page load); only show on real new tier unlock after that. */
+  private rewardsInitialized = false;
 
   /** Grace period (ms) after applying our own mutation during which we skip any sync and ignore cart:external-update (v1-style: mutation response is source of truth). */
   private static readonly MUTATION_GRACE_MS = 600;
@@ -1075,12 +1077,15 @@ export class Engine {
         const isNewTierUnlock =
           newUnlockedIndex !== null &&
           (lastUnlocked === null || newUnlockedIndex > lastUnlocked);
+        // Only show confetti when this is not the initial sync (page load); first add-to-cart or later unlocks get confetti
+        const isFirstRewardsApply = !this.rewardsInitialized;
+        if (isFirstRewardsApply) this.rewardsInitialized = true;
         this.setState({
           rewards: {
             ...rewards,
             unlockedTierIndex: newUnlockedIndex,
             lastUnlockedTierIndex: isNewTierUnlock ? newUnlockedIndex : rewards.lastUnlockedTierIndex,
-            showConfetti: isNewTierUnlock,
+            showConfetti: isNewTierUnlock && !isFirstRewardsApply,
           },
         });
       }

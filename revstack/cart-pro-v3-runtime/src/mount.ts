@@ -248,7 +248,8 @@ export function mountCartProV3(componentCss: string): void {
 
   const appContainer = document.createElement('div');
   appContainer.id = 'cart-pro-v3-app';
-  appContainer.style.pointerEvents = 'auto';
+  // none so clicks pass through to page when drawer closed; open button uses pointer-events: auto to remain clickable
+  appContainer.style.pointerEvents = 'none';
   shadow.appendChild(appContainer);
 
   console.log('[CartPro] App mounting into shadow root:', shadow);

@@ -92,10 +92,15 @@
     engine?.closeCheckout?.();
   }
 
-  const CONFETTI_DURATION_MS = 2200;
+  const CONFETTI_DURATION_MS = 2500;
   let confettiTimeoutId = null;
   let confettiLayerEl = null;
 
+  /**
+   * Run confetti from the drawer area (like cart drawer v2): origin at drawer center-top,
+   * paced stream (staggered delays), contained horizontal spread so it stays over the drawer.
+   * Container is appended to the confetti layer inside shadow DOM so it stacks above the cart.
+   */
   function runConfetti(onDone) {
     const target = confettiLayerEl || document.getElementById('cart-pro-confetti-layer');
     if (!target) return;
@@ -104,12 +109,15 @@
     container.className = 'rewards-confetti-container';
     container.style.zIndex = '2147483649';
     const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
-    const count = 50;
+    // Paced stream: fewer pieces, spread over ~1.2s like v2 (4 particles/frame for 2.5s)
+    const count = 40;
     for (let i = 0; i < count; i++) {
       const el = document.createElement('div');
       el.className = 'rewards-confetti-piece';
-      el.style.setProperty('--delay', `${Math.random() * 0.3}s`);
-      el.style.setProperty('--x', `${(Math.random() - 0.5) * 100}vw`);
+      // Stagger delays 0–1.2s so confetti falls in a stream, not all at once
+      el.style.setProperty('--delay', `${Math.random() * 1.2}s`);
+      // Origin near drawer: spread ±15vw from center so it stays over the drawer (right side)
+      el.style.setProperty('--x', `${(Math.random() - 0.5) * 30}vw`);
       el.style.background = colors[i % colors.length];
       container.appendChild(el);
     }
@@ -126,7 +134,7 @@
   });
 </script>
 
-<div id="cart-pro" class:open={$stateStore.ui.drawerOpen} role="presentation">
+<div id="cart-pro" class:open={$stateStore?.ui?.drawerOpen} role="presentation">
   <div id="cart-pro-overlay" role="button" tabindex="-1" aria-label="Close cart overlay" on:click={handleClose} on:keydown={(e) => e.key === 'Escape' && handleClose()}></div>
   <div id="cart-pro-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-pro-title" tabindex="-1">
     <div id="cart-pro-header">
@@ -215,8 +223,8 @@
   }
   :global(.rewards-confetti-piece) {
     position: absolute;
-    left: 50%;
-    top: 50%;
+    left: 85%;
+    top: 25%;
     width: 10px;
     height: 10px;
     margin-left: -5px;

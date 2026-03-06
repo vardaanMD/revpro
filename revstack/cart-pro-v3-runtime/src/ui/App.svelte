@@ -26,6 +26,13 @@
 </script>
 
 {#if contentReady}
-  <button type="button" on:click={openDrawer}>Open V3 Drawer</button>
+  <button type="button" class="cart-pro-open-trigger" on:click={openDrawer}>Open V3 Drawer</button>
 {/if}
 <DrawerV2 {engine} {contentReady} on:close={closeDrawer} />
+
+<style>
+  /* When host has pointer-events: none, only this trigger is clickable so drawer can open */
+  .cart-pro-open-trigger {
+    pointer-events: auto;
+  }
+</style>
