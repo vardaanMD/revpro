@@ -132,15 +132,15 @@ export function createThemeConnector(
   function attachCartIconListeners(): void {
     if (typeof document === 'undefined') return;
 
-    // Remove previous listeners
+    // Remove previous listeners (capture: true must match addEventListener)
     for (const { element, handler } of cartIconBindings) {
-      element.removeEventListener('click', handler);
+      element.removeEventListener('click', handler, true);
     }
     cartIconBindings.length = 0;
 
     const handler = (e: Event): void => {
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       engine.setState({ ui: { drawerOpen: true } });
       engine.onDrawerOpened?.();
     };
@@ -152,7 +152,7 @@ export function createThemeConnector(
         for (const el of nodes) {
           if (seen.has(el)) continue;
           seen.add(el);
-          el.addEventListener('click', handler);
+          el.addEventListener('click', handler, true);
           cartIconBindings.push({ element: el, handler });
         }
       } catch {
@@ -212,7 +212,7 @@ export function createThemeConnector(
       destroyed = true;
 
       for (const { element, handler } of cartIconBindings) {
-        element.removeEventListener('click', handler);
+        element.removeEventListener('click', handler, true);
       }
       cartIconBindings.length = 0;
 
