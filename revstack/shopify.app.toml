@@ -2,7 +2,7 @@
 
 client_id = "e628e4d55fee98b8b638d71462f718d0"
 name = "revstack"
-application_url = "https://revpr0-dev-staging.up.railway.app"
+application_url = "https://revpro-production.up.railway.app"
 embedded = true
 
 [build]
@@ -32,10 +32,10 @@ api_version = "2024-10"
 scopes = "write_products write_app_proxy"
 
 [auth]
-redirect_urls = [ "https://revpr0-dev-staging.up.railway.app/auth/callback" ]
+redirect_urls = [ "https://revpro-production.up.railway.app/auth/callback" ]
 
 [app_proxy]
-url = "https://revpr0-dev-staging.up.railway.app/cart"
+url = "https://revpro-production.up.railway.app/cart"
 subpath = "cart-pro"
 prefix = "apps"
 

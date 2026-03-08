@@ -136,6 +136,22 @@ When you reach the step for [setting up environment variables](https://shopify.d
 
 **Railway Postgres:** Set `DATABASE_URL` from your Railway project. Railway provides connection pooling by default. See `app/db.server.ts` and `SCALING.md` for details.
 
+### Deploying to Railway and syncing Shopify app config
+
+1. **Railway:** Ensure the revstack service has a public URL and these variables set: `DATABASE_URL`, `REDIS_URL`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL` (e.g. `https://your-app.up.railway.app`). Deploy the backend (e.g. connect repo and deploy, or push to trigger deploy).
+
+2. **Code:** `shopify.app.toml` must have the same app URL in `application_url`, `[auth] redirect_urls`, and `[app_proxy] url`. That is the URL Shopify will use for OAuth, callbacks, and the storefront proxy.
+
+3. **Sync config and deploy extension:** From the `revstack` directory run:
+   ```bash
+   npm run deploy
+   ```
+   This runs `shopify app deploy`, which (a) pushes your theme extension to Shopify and (b) syncs app configuration from `shopify.app.toml` to the Partner Dashboard (App URL, redirect URLs, app proxy). No need to create a “new app version” manually—this deploy step updates the app with the new URLs.
+
+4. **Partner Dashboard (optional check):** In your app’s Configuration, confirm App URL and redirect URLs match the URL in `shopify.app.toml`. If you ran `npm run deploy`, they should already be in sync.
+
+5. **Database:** For a new Railway project, run migrations once against the new `DATABASE_URL` (e.g. `npx prisma migrate deploy` locally with `DATABASE_URL` set, or run it in Railway’s shell if available).
+
 ## Gotchas / Troubleshooting
 
 ### Database tables don't exist

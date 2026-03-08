@@ -31,6 +31,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // App URL is set by Shopify CLI on `shopify app dev` (changes each run). Never require in .env for dev.
+// TEMPORARY: Startup validation removed — app can start without SHOPIFY_APP_URL (may be empty in prod).
 const appUrlRaw =
   (process.env.SHOPIFY_APP_URL ?? process.env.HOST ?? "").trim();
 const devFallback =
@@ -43,5 +44,5 @@ export const ENV = {
   REDIS_URL: process.env.REDIS_URL,
   SHOPIFY_API_KEY: requireEnv("SHOPIFY_API_KEY"),
   SHOPIFY_API_SECRET: requireEnv("SHOPIFY_API_SECRET"),
-  SHOPIFY_APP_URL: appUrlRaw || devFallback || requireEnv("SHOPIFY_APP_URL"),
+  SHOPIFY_APP_URL: appUrlRaw || devFallback || "",
 };
