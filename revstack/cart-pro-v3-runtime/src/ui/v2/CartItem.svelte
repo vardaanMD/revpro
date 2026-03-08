@@ -1,4 +1,7 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
+
   /** @type { import('../../engine/Engine').default } */
   export let engine;
   /** @type { { key: string; quantity: number; title?: string; product_title?: string; line_price?: number; final_line_price?: number; image?: string } } */
@@ -7,6 +10,22 @@
   export let index;
   /** @type { string } */
   export let currency = 'USD';
+
+  let cartState = {};
+  let unsubCart = null;
+
+  onMount(() => {
+    const store = engine?.stateStore;
+    if (store && typeof store.subscribe === 'function') {
+      cartState = get(store)?.cart ?? {};
+      unsubCart = store.subscribe((s) => {
+        cartState = s?.cart ?? {};
+      });
+    }
+  });
+  onDestroy(() => {
+    if (unsubCart) unsubCart();
+  });
 
   function formatMoney(cents) {
     if (cents == null) return '0.00';
@@ -27,7 +46,6 @@
   $: title = item?.title ?? item?.product_title ?? 'Item';
   $: linePrice = item?.final_line_price ?? item?.line_price ?? 0;
   $: imgSrc = safeImageUrl(item?.image ?? '');
-  $: cartState = $engine?.stateStore?.cart;
   $: changeInFlight = (cartState?.changeInFlightLineKeys ?? []).includes(item?.key);
 
   function onIncrease() {

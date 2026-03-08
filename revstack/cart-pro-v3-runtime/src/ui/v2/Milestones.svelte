@@ -1,4 +1,5 @@
 <script>
+  import { writable } from 'svelte/store';
   import { getUIText } from '../../lib/uiText';
 
   /** Multi-tier rewards bar (free shipping + reward tiers). V2-style: one emoji per tier on the track. */
@@ -7,7 +8,12 @@
   /** @type { string } */
   export let currency = 'USD';
 
-  const stateStore = engine?.stateStore;
+  const _defaultState = {
+    shipping: { remaining: null, unlocked: false, loading: true },
+    cart: { subtotal: 0, raw: null },
+  };
+  const defaultStore = writable(_defaultState);
+  $: stateStore = engine?.stateStore && typeof engine.stateStore.subscribe === 'function' ? engine.stateStore : defaultStore;
   const config = engine?.getConfig?.();
 
   $: freeShippingThreshold = config?.freeShipping?.thresholdCents;

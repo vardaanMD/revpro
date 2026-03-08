@@ -53,9 +53,14 @@
       if (parsed && typeof parsed.runtimeVersion !== 'undefined') {
         useConfigAndLoad(parsed);
         fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
-          .then(function(r) { return r.json(); })
+          .then(function(r) {
+            if (!r.ok) throw new Error('Snapshot response ' + r.status);
+            var ct = r.headers.get('Content-Type') || '';
+            if (ct.indexOf('application/json') === -1) throw new Error('Snapshot response is not JSON');
+            return r.json();
+          })
           .then(function(config) {
-            applySnapshot(config);
+            if (config) applySnapshot(config);
           })
           .catch(function() {});
         return;
@@ -64,9 +69,15 @@
   } catch (e) {}
 
   fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('Snapshot response ' + r.status);
+      var ct = r.headers.get('Content-Type') || '';
+      if (ct.indexOf('application/json') === -1) throw new Error('Snapshot response is not JSON');
+      return r.json();
+    })
     .then(function(config) {
-      useConfigAndLoad(config);
+      if (config) useConfigAndLoad(config);
+      else loadRuntime('v3');
     })
     .catch(function(err) {
       console.error('[CartPro] Snapshot load failed', err);

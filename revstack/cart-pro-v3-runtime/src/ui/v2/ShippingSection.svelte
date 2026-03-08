@@ -1,4 +1,5 @@
 <script>
+  import { writable } from 'svelte/store';
   import { getUIText } from '../../lib/uiText';
 
   /** @type { import('../../engine/Engine').default } */
@@ -6,7 +7,12 @@
   /** @type { string } */
   export let currency = 'USD';
 
-  const stateStore = engine?.stateStore;
+  const _defaultState = {
+    shipping: { remaining: null, unlocked: false, loading: true },
+    cart: { subtotal: 0, raw: null, itemCount: 0 },
+  };
+  const defaultStore = writable(_defaultState);
+  $: stateStore = engine?.stateStore && typeof engine.stateStore.subscribe === 'function' ? engine.stateStore : defaultStore;
 
   /** V2: savings amount shown when free shipping unlocked (cents). */
   const FREE_SHIPPING_SAVINGS_CENTS = 499;
