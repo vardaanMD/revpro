@@ -33,16 +33,27 @@ if (process.env.NODE_ENV === "production") {
 // App URL is set by Shopify CLI on `shopify app dev` (changes each run). Never require in .env for dev.
 // TEMPORARY: Startup validation removed — app can start without SHOPIFY_APP_URL (may be empty in prod).
 const appUrlRaw =
-  (process.env.SHOPIFY_APP_URL ?? process.env.HOST ?? "").trim();
+  (process.env.SHOPIFY_APP_URL ?? process.env.HOST ?? process.env.RAILWAY_PUBLIC_DOMAIN ?? "").trim();
 const devFallback =
   process.env.NODE_ENV === "development"
     ? `http://localhost:${process.env.PORT || 3000}`
     : "";
+
+/** Ensure value is a valid URL; if it's a bare hostname (e.g. from Railway), add https:// so Shopify SDK accepts it. */
+function normalizeAppUrl(value: string): string {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const scheme = process.env.NODE_ENV === "development" ? "http" : "https";
+  return `${scheme}://${trimmed}`;
+}
+
+const appUrlResolved = appUrlRaw || devFallback || "";
 
 export const ENV = {
   DATABASE_URL: requireEnv("DATABASE_URL"),
   REDIS_URL: process.env.REDIS_URL,
   SHOPIFY_API_KEY: requireEnv("SHOPIFY_API_KEY"),
   SHOPIFY_API_SECRET: requireEnv("SHOPIFY_API_SECRET"),
-  SHOPIFY_APP_URL: appUrlRaw || devFallback || "",
+  SHOPIFY_APP_URL: normalizeAppUrl(appUrlResolved),
 };
