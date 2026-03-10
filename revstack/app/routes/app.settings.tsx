@@ -326,6 +326,7 @@ function toMilestoneRows(milestones: { amount: number; label: string }[]): Miles
 const MOCK_CART_TOTAL_CENTS = 1999;
 
 /** Build PreviewRenderState for live preview from initial server state + local form state. No API, no persist. */
+/** Includes V3 appearance: backgroundColor, bannerBackgroundColor, cartHeaderMessages. */
 function mergePreviewRenderState(
   initial: PreviewRenderState | null,
   state: {
@@ -340,6 +341,9 @@ function mergePreviewRenderState(
     enableMilestones: boolean;
     enableCouponTease: boolean;
     milestoneAmounts: { amount: number; label: string }[];
+    backgroundColor?: string;
+    bannerBackgroundColor?: string;
+    cartHeaderMessages?: string[];
   },
   capabilities: { allowMilestones: boolean }
 ): PreviewRenderState {
@@ -366,6 +370,11 @@ function mergePreviewRenderState(
       showConfetti: state.showConfetti,
       countdownEnabled: state.countdownEnabled,
       emojiMode: state.emojiMode,
+      backgroundColor: state.backgroundColor ?? initial?.ui?.backgroundColor ?? "#ffffff",
+      bannerBackgroundColor: state.bannerBackgroundColor ?? initial?.ui?.bannerBackgroundColor ?? "#16a34a",
+      cartHeaderMessages: state.cartHeaderMessages && state.cartHeaderMessages.length > 0
+        ? state.cartHeaderMessages
+        : (initial?.ui?.cartHeaderMessages ?? []),
     },
     decision: {
       ...baseDecision,
@@ -400,6 +409,7 @@ export default function SettingsPage() {
   const [previewPrimaryColor, setPreviewPrimaryColor] = useState(config.primaryColor || "#111111");
   const [previewAccentColor, setPreviewAccentColor] = useState(config.accentColor || "#16a34a");
   const [previewBackgroundColor, setPreviewBackgroundColor] = useState(config.backgroundColor || "#ffffff");
+  const [previewBannerBackgroundColor, setPreviewBannerBackgroundColor] = useState(config.bannerBackgroundColor || "#16a34a");
   const [previewBorderRadius, setPreviewBorderRadius] = useState(config.borderRadius);
   const [previewThresholdCents, setPreviewThresholdCents] = useState(config.freeShippingThresholdCents);
   const [previewEmojiMode, setPreviewEmojiMode] = useState(config.emojiMode);
@@ -467,6 +477,11 @@ export default function SettingsPage() {
           enableMilestones: previewEnableMilestones,
           enableCouponTease: previewEnableCouponTease,
           milestoneAmounts: previewMilestoneAmounts,
+          backgroundColor: previewBackgroundColor,
+          bannerBackgroundColor: previewBannerBackgroundColor,
+          cartHeaderMessages: [config.cartHeaderMessage1 ?? "", config.cartHeaderMessage2 ?? "", config.cartHeaderMessage3 ?? ""]
+            .map((m) => (typeof m === "string" ? m.trim() : ""))
+            .filter((m) => m.length > 0),
         },
         capabilities
       ),
@@ -483,6 +498,11 @@ export default function SettingsPage() {
       previewEnableMilestones,
       previewEnableCouponTease,
       previewMilestoneAmounts,
+      previewBackgroundColor,
+      previewBannerBackgroundColor,
+      config.cartHeaderMessage1,
+      config.cartHeaderMessage2,
+      config.cartHeaderMessage3,
       capabilities,
     ]
   );
@@ -836,6 +856,7 @@ export default function SettingsPage() {
                     defaultValue={config.bannerBackgroundColor || "#16a34a"}
                     className={settingsStyles.colorInput}
                     aria-label="Message banner background color"
+                    onChange={(e) => setPreviewBannerBackgroundColor(e.target.value)}
                   />
                 </FormField>
                 <FormField label="Border radius" id="borderRadius" helperText="0–32">

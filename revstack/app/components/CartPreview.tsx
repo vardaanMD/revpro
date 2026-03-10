@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PreviewUI } from "~/lib/preview-simulator.server";
 import type { DecisionResponse } from "~/lib/decision-response.server";
 import type { Capabilities } from "~/lib/capabilities.server";
@@ -121,11 +121,18 @@ interface CartPreviewProps {
   enableCrossSellOverride?: boolean;
 }
 
+const ROTATE_INTERVAL_MS = 4000;
+
 export function CartPreview({ ui, decision, capabilities, enableCrossSellOverride }: CartPreviewProps) {
   const { crossSell, freeShippingRemaining, milestones, enableCouponTease } = decision;
   const showConfetti = ui.showConfetti !== false;
   const containerRef = useRef<HTMLDivElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const headerMessages = ui.cartHeaderMessages ?? [];
+  const hasHeaderMessages = headerMessages.length > 0;
+  const [headerMessageIndex, setHeaderMessageIndex] = useState(0);
+  const currentHeaderMessage = hasHeaderMessages ? headerMessages[headerMessageIndex % headerMessages.length] : "";
+
   useEffect(() => {
     if (!showConfetti) return;
     const container = containerRef.current;
@@ -137,6 +144,15 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
       previewCanvasRef.current = null;
     };
   }, [showConfetti]);
+
+  useEffect(() => {
+    if (!hasHeaderMessages || headerMessages.length <= 1) return;
+    const id = setInterval(() => {
+      setHeaderMessageIndex((i) => (i + 1) % headerMessages.length);
+    }, ROTATE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [hasHeaderMessages, headerMessages.length]);
+
   const milestoneList = (milestones as MilestoneItem[]).filter(
     (m): m is MilestoneItem => m && typeof m.amount === "number" && typeof m.label === "string"
   );
@@ -155,11 +171,15 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
   const primary = ui.primaryColor ?? "#111111";
   const accent = ui.accentColor ?? "#16a34a";
   const radius = typeof ui.borderRadius === "number" ? ui.borderRadius : 12;
+  const drawerBg = ui.backgroundColor ?? "#ffffff";
+  const bannerBg = ui.bannerBackgroundColor ?? "#16a34a";
 
   const cssVars = {
     "--cp-primary": primary,
     "--cp-accent": accent,
     "--cp-radius": `${radius}px`,
+    "--cp-drawer-bg": drawerBg,
+    "--cp-banner-bg": bannerBg,
   } as React.CSSProperties;
 
   const freeShippingUnlocked = freeShippingRemaining <= 0 && freeShippingRemaining !== undefined;
@@ -201,29 +221,38 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
           </button>
         </div>
 
+        {hasHeaderMessages && currentHeaderMessage && (
+          <div className={styles.messageBanner} aria-live="polite">
+            <p className={styles.messageBannerText}>{currentHeaderMessage}</p>
+          </div>
+        )}
+
         {showMilestones && (
           <div className={styles.milestones}>
-            <div className={styles.milestoneHeader}>Unlock Rewards</div>
-            <div
-              className={styles.milestoneTrack}
-              style={{
-                background: `linear-gradient(to right, var(--cp-accent) 0%, var(--cp-accent) ${progressPct}%, #eee ${progressPct}%)`,
-              }}
-            >
-              <div className={styles.milestonePoints}>
-                {effectiveMilestones.map((m, i) => {
+            <div className={styles.milestoneHeader}>
+              {effectiveMilestones.length > 1 ? "Unlock Rewards" : "Free Shipping"}
+            </div>
+            <div className={styles.milestoneBarContainer}>
+              <div className={styles.milestoneTrackWrap}>
+                <div className={styles.milestoneRail}>
+                  <div
+                    className={styles.milestoneFill}
+                    style={{ width: `${progressPct}%` }}
+                    aria-hidden
+                  />
+                </div>
+              </div>
+              <div className={styles.milestoneStepsOverlay}>
+                {effectiveMilestones.slice(0, 3).map((m, i) => {
                   const unlocked = MOCK_CART_TOTAL_CENTS >= m.amount;
-                  const pct = (m.amount / lastMilestoneAmount) * 100;
+                  const emojis = ["🚚", "🏷", "🎁", "✨"];
                   return (
-                    <div
-                      key={i}
-                      className={`${styles.milestonePoint} ${unlocked ? styles.milestonePointUnlocked : ""}`}
-                      style={{ left: `${pct}%` }}
-                      aria-hidden
-                    >
-                      <span className={styles.milestoneEmoji}>
-                        {["🏷", "🎁", "✨"][i] ?? "🎁"}
-                      </span>
+                    <div key={i} className={styles.milestoneStep}>
+                      <div
+                        className={`${styles.milestoneIconWrap} ${unlocked ? styles.milestoneIconUnlocked : ""}`}
+                      >
+                        <span className={styles.milestoneEmojiV3}>{emojis[i] ?? "🎁"}</span>
+                      </div>
                     </div>
                   );
                 })}
