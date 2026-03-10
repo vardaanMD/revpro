@@ -23,6 +23,8 @@ export interface CartProConfigV3Appearance {
   /** CSS selector for the merchant theme's native cart drawer. When set, this selector
    *  is used exclusively (instead of the built-in default list) to hide other cart UIs. */
   merchantCartDrawerSelector?: string;
+  /** Up to 3 custom messages shown below "Your Cart" that rotate. */
+  cartHeaderMessages?: string[];
 }
 
 export interface CartProConfigV3FeatureFlags {
@@ -209,6 +211,7 @@ export interface ConfigAppearance {
   borderColor?: string;
   shadowColor?: string;
   merchantCartDrawerSelector?: string;
+  cartHeaderMessages?: string[];
 }
 
 /**

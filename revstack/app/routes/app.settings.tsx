@@ -60,6 +60,20 @@ function buildConfigV3FromForm(
   base.appearance.showConfetti = formData.showConfetti;
   base.appearance.countdownEnabled = formData.countdownEnabled;
   base.appearance.emojiMode = formData.emojiMode;
+  if (formData.backgroundColor !== undefined && formData.backgroundColor !== "") {
+    base.appearance.backgroundColor = formData.backgroundColor;
+  }
+  const headerMessages = [
+    formData.cartHeaderMessage1 ?? "",
+    formData.cartHeaderMessage2 ?? "",
+    formData.cartHeaderMessage3 ?? "",
+  ]
+    .map((m) => (typeof m === "string" ? m.trim() : ""))
+    .filter((m) => m.length > 0)
+    .slice(0, 3);
+  if (headerMessages.length > 0) {
+    base.appearance.cartHeaderMessages = headerMessages;
+  }
 
   // Feature flags: flat → featureFlags.*
   base.featureFlags.enableUpsell = formData.enableCrossSell;
@@ -166,6 +180,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
       ? configV3.runtimeVersion
       : "v3";
+  const appearanceV3 = (configV3?.appearance as { backgroundColor?: string; cartHeaderMessages?: string[] } | undefined) ?? {};
+  const cartHeaderMessages = Array.isArray(appearanceV3.cartHeaderMessages)
+    ? appearanceV3.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3)
+    : [];
 
   /** Feature flags as applied on storefront (from billing). Shown so merchants see plan state. */
   const planFeatureFlags = featureFlagsFromCapabilities(billing.capabilities);
@@ -187,12 +205,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       manualCollectionIds,
       primaryColor: config.primaryColor ?? "",
       accentColor: config.accentColor ?? "",
+      backgroundColor: appearanceV3.backgroundColor ?? "#ffffff",
       borderRadius: config.borderRadius ?? 12,
       showConfetti: config.showConfetti ?? true,
       countdownEnabled: config.countdownEnabled ?? true,
       emojiMode: config.emojiMode ?? true,
       engineVersion: config.engineVersion ?? "v1",
       runtimeVersion,
+      cartHeaderMessage1: cartHeaderMessages[0] ?? "",
+      cartHeaderMessage2: cartHeaderMessages[1] ?? "",
+      cartHeaderMessage3: cartHeaderMessages[2] ?? "",
     },
     capabilities: billing.capabilities,
     initialPreviewRenderState,
@@ -389,6 +411,7 @@ export default function SettingsPage() {
   /* Reactive preview state: derived from form, not persisted until submit */
   const [previewPrimaryColor, setPreviewPrimaryColor] = useState(config.primaryColor || "#111111");
   const [previewAccentColor, setPreviewAccentColor] = useState(config.accentColor || "#16a34a");
+  const [previewBackgroundColor, setPreviewBackgroundColor] = useState(config.backgroundColor || "#ffffff");
   const [previewBorderRadius, setPreviewBorderRadius] = useState(config.borderRadius);
   const [previewThresholdCents, setPreviewThresholdCents] = useState(config.freeShippingThresholdCents);
   const [previewEmojiMode, setPreviewEmojiMode] = useState(config.emojiMode);
@@ -821,6 +844,17 @@ export default function SettingsPage() {
                     onChange={(e) => setPreviewAccentColor(e.target.value)}
                   />
                 </FormField>
+                <FormField label="Drawer background" id="backgroundColor" helperText="Cart drawer background color">
+                  <input
+                    id="backgroundColor"
+                    type="color"
+                    name="backgroundColor"
+                    defaultValue={config.backgroundColor || "#ffffff"}
+                    className={settingsStyles.colorInput}
+                    aria-label="Drawer background color"
+                    onChange={(e) => setPreviewBackgroundColor(e.target.value)}
+                  />
+                </FormField>
                 <FormField label="Border radius" id="borderRadius" helperText="0–32">
                   <input
                     id="borderRadius"
@@ -854,6 +888,38 @@ export default function SettingsPage() {
                   value="on"
                   onChange={(e: React.FormEvent<HTMLElement>) => setPreviewCountdownEnabled((e.currentTarget as HTMLInputElement).checked)}
                 />
+                <FormField
+                  label="Header messages"
+                  id="cartHeaderMessages"
+                  helperText="Up to 3 short messages shown under “Your cart”. They rotate automatically."
+                >
+                  <div className={settingsStyles.stackVertical}>
+                    <input
+                      id="cartHeaderMessage1"
+                      type="text"
+                      name="cartHeaderMessage1"
+                      defaultValue={config.cartHeaderMessage1 || ""}
+                      className={settingsStyles.textInput}
+                      placeholder="e.g. Free shipping over $50"
+                    />
+                    <input
+                      id="cartHeaderMessage2"
+                      type="text"
+                      name="cartHeaderMessage2"
+                      defaultValue={config.cartHeaderMessage2 || ""}
+                      className={settingsStyles.textInput}
+                      placeholder="Optional second message"
+                    />
+                    <input
+                      id="cartHeaderMessage3"
+                      type="text"
+                      name="cartHeaderMessage3"
+                      defaultValue={config.cartHeaderMessage3 || ""}
+                      className={settingsStyles.textInput}
+                      placeholder="Optional third message"
+                    />
+                  </div>
+                </FormField>
               </FormSection>
             ) : (
               <FormSection heading="Visual Customization">
@@ -867,10 +933,14 @@ export default function SettingsPage() {
                 </div>
                 <input type="hidden" name="primaryColor" value={config.primaryColor} />
                 <input type="hidden" name="accentColor" value={config.accentColor} />
+                <input type="hidden" name="backgroundColor" value={config.backgroundColor || "#ffffff"} />
                 <input type="hidden" name="borderRadius" value={String(config.borderRadius)} />
                 <input type="hidden" name="showConfetti" value={config.showConfetti ? "on" : ""} />
                 <input type="hidden" name="countdownEnabled" value={config.countdownEnabled ? "on" : ""} />
                 <input type="hidden" name="emojiMode" value={config.emojiMode ? "on" : ""} />
+                <input type="hidden" name="cartHeaderMessage1" value={config.cartHeaderMessage1 || ""} />
+                <input type="hidden" name="cartHeaderMessage2" value={config.cartHeaderMessage2 || ""} />
+                <input type="hidden" name="cartHeaderMessage3" value={config.cartHeaderMessage3 || ""} />
               </FormSection>
             )}
           </div>

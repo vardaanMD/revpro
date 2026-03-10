@@ -195,6 +195,7 @@ function normalizeFreeShipping(raw: RawCartProConfig): ConfigFreeShipping {
 const DEFAULT_PRIMARY = '#333';
 const DEFAULT_ACCENT = '#16a34a';
 const DEFAULT_BORDER_RADIUS = 12;
+const DEFAULT_BACKGROUND = '#ffffff';
 
 function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
   const a = raw.appearance;
@@ -208,6 +209,7 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
       countdownEnabled: true,
       emojiMode: true,
       countdownDurationMs: defaultCountdownDurationMs,
+      backgroundColor: DEFAULT_BACKGROUND,
     };
   }
   const primaryColor = typeof a.primaryColor === 'string' && a.primaryColor.trim() ? a.primaryColor.trim() : DEFAULT_PRIMARY;
@@ -223,6 +225,13 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     typeof a.merchantCartDrawerSelector === 'string' && a.merchantCartDrawerSelector.trim()
       ? a.merchantCartDrawerSelector.trim()
       : undefined;
+  const backgroundColor =
+    typeof a.backgroundColor === 'string' && a.backgroundColor.trim()
+      ? a.backgroundColor.trim()
+      : DEFAULT_BACKGROUND;
+  const cartHeaderMessages = Array.isArray(a.cartHeaderMessages)
+    ? a.cartHeaderMessages.filter((m): m is string => typeof m === 'string' && m.trim() !== '').slice(0, 3).map((m) => m.trim())
+    : undefined;
   return {
     primaryColor,
     accentColor,
@@ -232,6 +241,8 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     emojiMode: typeof a.emojiMode === 'boolean' ? a.emojiMode : true,
     countdownDurationMs,
     merchantCartDrawerSelector,
+    cartHeaderMessages: (cartHeaderMessages?.length ?? 0) > 0 ? cartHeaderMessages : undefined,
+    backgroundColor,
   };
 }
 

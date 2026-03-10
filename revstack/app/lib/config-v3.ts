@@ -13,6 +13,10 @@ export interface CartProConfigV3Appearance {
   emojiMode: boolean;
   /** Urgency countdown duration in milliseconds. Source of truth for countdown length. */
   countdownDurationMs?: number;
+  /** Up to 3 custom messages shown below "Your Cart" that rotate. */
+  cartHeaderMessages?: [string?, string?, string?] | string[];
+  /** Drawer background color (behind cart content). */
+  backgroundColor?: string;
 }
 
 export interface CartProConfigV3FeatureFlags {
@@ -99,6 +103,7 @@ export const DEFAULT_CONFIG_V3 = Object.freeze({
     countdownEnabled: true,
     emojiMode: true,
     countdownDurationMs: 600000,
+    backgroundColor: "#ffffff",
   },
   featureFlags: {
     enableUpsell: false,
@@ -176,6 +181,15 @@ export function mergeWithDefaultV3(
     if (typeof a.emojiMode === "boolean") base.appearance.emojiMode = a.emojiMode;
     if (typeof a.countdownDurationMs === "number" && Number.isFinite(a.countdownDurationMs) && a.countdownDurationMs > 0) {
       base.appearance.countdownDurationMs = Math.floor(a.countdownDurationMs);
+    }
+    if (Array.isArray(a.cartHeaderMessages)) {
+      base.appearance.cartHeaderMessages = a.cartHeaderMessages
+        .filter((m): m is string => typeof m === "string" && m.trim() !== "")
+        .slice(0, 3)
+        .map((m) => m.trim());
+    }
+    if (typeof a.backgroundColor === "string" && a.backgroundColor.trim()) {
+      base.appearance.backgroundColor = a.backgroundColor.trim();
     }
   }
 

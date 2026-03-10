@@ -34,6 +34,7 @@ const APPEARANCE_FALLBACKS = {
   showConfetti: true,
   countdownEnabled: true,
   emojiMode: true,
+  backgroundColor: '#ffffff',
 } as const;
 
 /**
@@ -59,10 +60,15 @@ export function applyAppearanceVariables(host: HTMLElement, config: RawCartProCo
     (a.borderRadius as number) >= 0
       ? Math.floor(a.borderRadius as number)
       : APPEARANCE_FALLBACKS.borderRadius;
+  const background =
+    typeof a?.backgroundColor === 'string' && a.backgroundColor.trim()
+      ? a.backgroundColor.trim()
+      : APPEARANCE_FALLBACKS.backgroundColor;
 
   host.style.setProperty('--cp-primary', primary);
   host.style.setProperty('--cp-accent', accent);
   host.style.setProperty('--cp-radius', `${radius}px`);
+  host.style.setProperty('--cp-bg', background);
 
   console.log('[CartPro V3] Appearance variables applied to host:', host?.id);
 }

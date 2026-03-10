@@ -44,20 +44,29 @@
       : (cart?.raw && items?.length ? "You're eligible for free shipping on qualifying orders." : '');
   $: savingsMsg = '';
 
+  $: drawerOpen = $stateStore?.ui?.drawerOpen ?? false;
+
   let confettiAlreadyTriggered = false;
-  $: if (rewards.showConfetti && !confettiAlreadyTriggered) {
+  /* Only fire confetti when the cart drawer is open; don't show when milestone is reached with cart closed. */
+  $: if (rewards.showConfetti && !confettiAlreadyTriggered && drawerOpen) {
     confettiAlreadyTriggered = true;
     runConfetti(() => {
       engine?.clearConfetti?.();
     });
   }
   $: if (!rewards.showConfetti) confettiAlreadyTriggered = false;
-
-  $: drawerOpen = $stateStore?.ui?.drawerOpen ?? false;
   $: countdownVisible = engine?.getConfig?.()?.appearance?.countdownEnabled === true;
   // Feature flags — default true while config not yet loaded so sections don't flash-hide on init.
   $: enableUpsell = engine?.getConfig?.()?.featureFlags?.enableUpsell ?? true;
   $: enableDiscounts = engine?.getConfig?.()?.featureFlags?.enableDiscounts ?? true;
+  /** Up to 3 custom header messages that rotate (from config.appearance.cartHeaderMessages). */
+  $: cartHeaderMessages = engine?.getConfig?.()?.appearance?.cartHeaderMessages ?? [];
+  $: hasHeaderMessages = Array.isArray(cartHeaderMessages) && cartHeaderMessages.length > 0;
+
+  const ROTATE_INTERVAL_MS = 4000;
+  let headerMessageState = { index: 0 };
+  let rotateIntervalId = null;
+  $: currentHeaderMessage = hasHeaderMessages ? cartHeaderMessages[headerMessageState.index % cartHeaderMessages.length] : '';
   $: if (drawerOpen) {
     if (typeof document !== 'undefined') {
       document.body.style.overflow = 'hidden';
@@ -72,13 +81,17 @@
   }
 
   onDestroy(() => {
+    if (rotateIntervalId != null) {
+      clearInterval(rotateIntervalId);
+      rotateIntervalId = null;
+    }
     releaseBodyScroll();
     setHostPointerEvents('none');
     removeThemeDrawerClass();
     if (confettiTimeoutId != null) clearTimeout(confettiTimeoutId);
-    const root = confettiLayerEl || document.getElementById('cart-pro-confetti-layer');
-    if (root) root.querySelectorAll('.rewards-confetti-container').forEach((el) => el.remove());
-    else document.querySelectorAll('.rewards-confetti-container').forEach((el) => el.remove());
+    const layerEl = confettiLayerEl || document.getElementById('cart-pro-confetti-layer');
+    const root = layerEl ? layerEl.getRootNode() : document;
+    if (root && 'querySelectorAll' in root) root.querySelectorAll('.rewards-confetti-container').forEach((el) => el.remove());
   });
 
   function handleClose() {
@@ -97,31 +110,33 @@
   let confettiLayerEl = null;
 
   /**
-   * Run confetti from the drawer area (like cart drawer v2): origin at drawer center-top,
-   * paced stream (staggered delays), contained horizontal spread so it stays over the drawer.
-   * Container is appended to the confetti layer inside shadow DOM so it stacks above the cart.
+   * Run confetti from the top of the viewport. Append container to the shadow root (when in
+   * shadow DOM) so it is a direct sibling of the app container and always paints in front of the cart.
    */
   function runConfetti(onDone) {
-    const target = confettiLayerEl || document.getElementById('cart-pro-confetti-layer');
-    if (!target) return;
+    const layerEl = confettiLayerEl || document.getElementById('cart-pro-confetti-layer');
+    if (!layerEl) return;
+    const root = layerEl.getRootNode();
+    const appendTarget = root instanceof ShadowRoot ? root : layerEl;
     const container = document.createElement('div');
     container.setAttribute('aria-hidden', 'true');
     container.className = 'rewards-confetti-container';
-    container.style.zIndex = '2147483650';
+    container.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483650;overflow:hidden;';
     const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
-    // Paced stream: fewer pieces, spread over ~1.2s like v2 (4 particles/frame for 2.5s)
     const count = 40;
     for (let i = 0; i < count; i++) {
       const el = document.createElement('div');
       el.className = 'rewards-confetti-piece';
-      // Stagger delays 0–1.2s so confetti falls in a stream, not all at once
-      el.style.setProperty('--delay', `${Math.random() * 1.2}s`);
-      // Origin near drawer: spread ±15vw from center so it stays over the drawer (right side)
-      el.style.setProperty('--x', `${(Math.random() - 0.5) * 30}vw`);
+      // Very small random delay (0–0.3s) so confetti starts almost instantly on milestone unlock.
+      el.style.setProperty('--delay', `${Math.random() * 0.3}s`);
+      /* Spread across the right side (drawer width): 72%–100% so it fills the cart. */
+      el.style.setProperty('--left', `${72 + Math.random() * 28}%`);
+      /* Slight horizontal drift as it falls. */
+      el.style.setProperty('--x', `${(Math.random() - 0.5) * 12}vw`);
       el.style.background = colors[i % colors.length];
       container.appendChild(el);
     }
-    target.appendChild(container);
+    appendTarget.appendChild(container);
     confettiTimeoutId = setTimeout(() => {
       confettiTimeoutId = null;
       container.remove();
@@ -131,6 +146,13 @@
 
   onMount(() => {
     console.log('[CartPro V3] DrawerV2 mounted');
+    const messages = engine?.getConfig?.()?.appearance?.cartHeaderMessages ?? [];
+    if (Array.isArray(messages) && messages.length > 1) {
+      const len = messages.length;
+      rotateIntervalId = setInterval(() => {
+        headerMessageState = { index: (headerMessageState.index + 1) % len };
+      }, ROTATE_INTERVAL_MS);
+    }
   });
 </script>
 
@@ -141,12 +163,19 @@
       <span id="cart-pro-title">Your Cart</span>
       <button id="cart-pro-close" type="button" aria-label="Close drawer" on:click={handleClose}>×</button>
     </div>
+    {#if hasHeaderMessages && currentHeaderMessage}
+      <div class="cp-cart-header-messages" aria-live="polite">
+        <p class="cp-cart-header-message">{currentHeaderMessage}</p>
+      </div>
+    {/if}
     {#if contentReady}
       <Milestones {engine} {currency} />
-      <CartItems {engine} items={items} {currency} onClose={handleClose} />
-      {#if enableUpsell}
-        <Recommendations {engine} />
-      {/if}
+      <div id="cart-pro-scroll" class="cp-drawer-scroll">
+        <CartItems {engine} items={items} {currency} onClose={handleClose} />
+        {#if enableUpsell}
+          <Recommendations {engine} />
+        {/if}
+      </div>
       <div id="cart-pro-footer">
         {#if enableDiscounts}
           <CouponSection {engine} applied={discount.applied} validating={discount.validating} lastError={discount.lastError} />
@@ -236,18 +265,19 @@
     overflow: hidden;
     isolation: isolate;
   }
-  /* Confetti pieces: originate at top of viewport, fall downward; spread horizontally over drawer area. */
+  /* Confetti: start above viewport so we only see falling; left from JS (--left) fills the right side. */
   :global(.rewards-confetti-piece) {
     position: absolute;
-    left: 85%;
+    left: var(--left, 85%);
     top: 0;
     width: 10px;
     height: 10px;
     margin-left: -5px;
     margin-top: 0;
     border-radius: var(--cp-radius, 12px);
-    animation: rewards-confetti-fall 2s ease-out var(--delay, 0s) forwards;
-    transform: translate(var(--x, 0), 0) rotate(0deg);
+    /* Slightly faster fall so the effect feels snappy. */
+    animation: rewards-confetti-fall 1.5s ease-out var(--delay, 0s) forwards;
+    transform: translate(var(--x, 0), -20vh) rotate(0deg);
     opacity: 1;
   }
   @keyframes rewards-confetti-fall {

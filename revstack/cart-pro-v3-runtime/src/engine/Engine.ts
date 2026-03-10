@@ -1652,7 +1652,8 @@ export class Engine {
         const optimisticItems = raw.items.map((i: any) => {
           if ((i?.key ?? '') !== lineKey) return i;
           const p = Number(i.price) || 0;
-          return { ...i, quantity, line_price: p * quantity };
+          const lineTotal = p * quantity;
+          return { ...i, quantity, line_price: lineTotal, final_line_price: lineTotal };
         });
         const itemsSubtotal = optimisticItems.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
         this.applyOptimisticCart({ ...raw, items: optimisticItems, item_count: optimisticItems.length, items_subtotal_price: itemsSubtotal, total_price: raw.total_price ?? itemsSubtotal });
@@ -1662,13 +1663,14 @@ export class Engine {
     // Per-line in-flight: merge rapid clicks by updating expected qty + optimistic UI; don't start a second request
     if (this.changeCartInFlightByLine.has(lineKey)) {
       this.expectedQtyByLine.set(lineKey, quantity);
-      // Apply optimistic update immediately so UI reflects the new qty
+      // Apply optimistic update immediately so UI reflects the new qty and amounts (line total, subtotal)
       const currentRaw = getStateFromStore(this.stateStore).cart.raw;
       if (currentRaw?.items) {
         const optimisticItems = currentRaw.items.map((i: any) => {
           if ((i?.key ?? '') !== lineKey) return i;
           const p = Number(i.price) || 0;
-          return { ...i, quantity, line_price: p * quantity };
+          const lineTotal = p * quantity;
+          return { ...i, quantity, line_price: lineTotal, final_line_price: lineTotal };
         });
         const itemsSubtotal = optimisticItems.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
         this.applyOptimisticCart({ ...currentRaw, items: optimisticItems, item_count: optimisticItems.length, items_subtotal_price: itemsSubtotal, total_price: currentRaw.total_price ?? itemsSubtotal });
@@ -1688,7 +1690,8 @@ export class Engine {
         if ((i?.key ?? '') !== lineKey) return i;
         const q = quantity;
         const p = Number(i.price) || 0;
-        return { ...i, quantity: q, line_price: p * q };
+        const lineTotal = p * q;
+        return { ...i, quantity: q, line_price: lineTotal, final_line_price: lineTotal };
       });
       const itemsSubtotal = optimisticItems.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
       const optimisticRaw = { ...current, items: optimisticItems, item_count: optimisticItems.length, items_subtotal_price: itemsSubtotal, total_price: current.total_price ?? itemsSubtotal };

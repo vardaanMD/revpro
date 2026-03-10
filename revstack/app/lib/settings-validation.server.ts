@@ -63,12 +63,16 @@ export const settingsFormSchema = z.object({
   manualCollectionIds: manualCollectionIdsSchema,
   primaryColor: z.string().optional().refine((v) => v === undefined || /^#([0-9A-Fa-f]{6})$/.test(v), { message: "Must be a hex color (e.g. #111111)" }),
   accentColor: z.string().optional().refine((v) => v === undefined || /^#([0-9A-Fa-f]{6})$/.test(v), { message: "Must be a hex color (e.g. #16a34a)" }),
+  backgroundColor: z.string().optional().refine((v) => v === undefined || /^#([0-9A-Fa-f]{6})$/.test(v), { message: "Must be a hex color (e.g. #ffffff)" }),
   borderRadius: z.number().int().min(0).max(32),
   showConfetti: z.boolean(),
   countdownEnabled: z.boolean(),
   emojiMode: z.boolean(),
   engineVersion: engineVersionSchema,
   runtimeVersion: runtimeVersionSchema,
+  cartHeaderMessage1: z.string().optional(),
+  cartHeaderMessage2: z.string().optional(),
+  cartHeaderMessage3: z.string().optional(),
 });
 
 export type SettingsFormData = z.infer<typeof settingsFormSchema>;
@@ -132,6 +136,7 @@ export function validateSettingsForm(formData: FormData): {
 
   const primaryColorRaw = formData.get("primaryColor");
   const accentColorRaw = formData.get("accentColor");
+  const backgroundColorRaw = formData.get("backgroundColor");
   const borderRadiusRaw = formData.get("borderRadius");
   const showConfetti = formData.get("showConfetti") === "on";
   const countdownEnabled = formData.get("countdownEnabled") === "on";
@@ -148,8 +153,16 @@ export function validateSettingsForm(formData: FormData): {
 
   const primaryColor = typeof primaryColorRaw === "string" ? primaryColorRaw.trim() || undefined : undefined;
   const accentColor = typeof accentColorRaw === "string" ? accentColorRaw.trim() || undefined : undefined;
+  const backgroundColor = typeof backgroundColorRaw === "string" ? backgroundColorRaw.trim() || undefined : undefined;
   const borderRadiusNum = typeof borderRadiusRaw === "string" ? parseInt(borderRadiusRaw, 10) : NaN;
   const borderRadius = Number.isInteger(borderRadiusNum) ? borderRadiusNum : 12;
+
+  const cartHeaderMessage1Raw = formData.get("cartHeaderMessage1");
+  const cartHeaderMessage2Raw = formData.get("cartHeaderMessage2");
+  const cartHeaderMessage3Raw = formData.get("cartHeaderMessage3");
+  const cartHeaderMessage1 = typeof cartHeaderMessage1Raw === "string" ? cartHeaderMessage1Raw : "";
+  const cartHeaderMessage2 = typeof cartHeaderMessage2Raw === "string" ? cartHeaderMessage2Raw : "";
+  const cartHeaderMessage3 = typeof cartHeaderMessage3Raw === "string" ? cartHeaderMessage3Raw : "";
 
   const raw = {
     freeShippingThresholdCents,
@@ -163,12 +176,16 @@ export function validateSettingsForm(formData: FormData): {
     manualCollectionIds,
     primaryColor,
     accentColor,
+    backgroundColor,
     borderRadius,
     showConfetti,
     countdownEnabled,
     emojiMode,
     engineVersion,
     runtimeVersion,
+    cartHeaderMessage1,
+    cartHeaderMessage2,
+    cartHeaderMessage3,
   };
 
   const result = settingsFormSchema.safeParse(raw);

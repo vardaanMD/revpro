@@ -17,6 +17,7 @@ export const defaultConfig: RawCartProConfig = {
     countdownEnabled: true,
     emojiMode: true,
     countdownDurationMs: 600_000,
+    cartHeaderMessages: [],
   },
   featureFlags: {
     enableUpsell: true,

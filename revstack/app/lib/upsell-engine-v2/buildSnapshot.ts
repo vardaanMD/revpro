@@ -90,12 +90,16 @@ export function buildV3SnapshotPayload<T extends { rewards?: { tiers?: unknown[]
       ? freeShipping.thresholdCents
       : 5000;
 
+  const cartHeaderMessages = Array.isArray(appearance.cartHeaderMessages)
+    ? appearance.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3).map((m) => m.trim())
+    : undefined;
   return {
     ...config,
     appearance: {
       primaryColor,
       accentColor,
       radius,
+      ...(cartHeaderMessages && cartHeaderMessages.length > 0 ? { cartHeaderMessages } : {}),
     },
     freeShipping: {
       enabled: true,
