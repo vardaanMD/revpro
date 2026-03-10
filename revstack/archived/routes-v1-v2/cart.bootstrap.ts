@@ -1,4 +1,5 @@
 /**
+ * @deprecated This route is no longer active. Archived for reference.
  * App proxy path: /apps/cart-pro/bootstrap
  * Returns static shop UI config + capabilities. Additive; does not replace decision.
  * Uses authenticate.public.appProxy(request). Never throws 500 on config failure.

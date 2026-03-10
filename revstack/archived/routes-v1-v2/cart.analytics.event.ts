@@ -1,5 +1,7 @@
 /**
+ * @deprecated This route is no longer active. Archived for reference.
  * Storefront analytics event (impression/click). Rate-limited; bounded writes (1 event + optional 1 conversion).
+ * Replaced by cart.analytics.v3.ts for V3 storefront.
  * Schema: CrossSellEvent, CrossSellConversion use @@index([shopDomain, createdAt]).
  */
 import crypto from "crypto";

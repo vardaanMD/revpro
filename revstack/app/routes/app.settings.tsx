@@ -197,7 +197,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       showConfetti: config.showConfetti ?? true,
       countdownEnabled: config.countdownEnabled ?? true,
       emojiMode: config.emojiMode ?? true,
-      engineVersion: config.engineVersion ?? "v3",
+      engineVersion: "v3",
       cartHeaderMessage1: cartHeaderMessages[0] ?? "",
       cartHeaderMessage2: cartHeaderMessages[1] ?? "",
       cartHeaderMessage3: cartHeaderMessages[2] ?? "",
@@ -253,7 +253,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         showConfetti: data.showConfetti,
         countdownEnabled: data.countdownEnabled,
         emojiMode: data.emojiMode,
-        engineVersion: data.engineVersion,
+        engineVersion: "v3",
         configV3: newConfigV3 as object,
       },
     });

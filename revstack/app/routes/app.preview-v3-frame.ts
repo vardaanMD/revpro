@@ -60,11 +60,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // use empty list
   }
 
-  const runtimeVersion = configV3.runtimeVersion ?? "v3";
   const snapshotPayload = {
     ...buildV3SnapshotPayload(configV3),
     recommendations,
-    runtimeVersion,
+    runtimeVersion: "v3" as const,
   };
 
   const scriptPath = "/extensions-assets/cart-pro-v3.js";

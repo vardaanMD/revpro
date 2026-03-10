@@ -163,6 +163,40 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
+  // Engagement: record recommendation impressions so admin "Recommendation cards shown" and CTR update.
+  const recommendationImpressions = validEvents.filter(
+    (e) =>
+      e.name === "recommendation:impression" &&
+      e.payload &&
+      Array.isArray((e.payload as Record<string, unknown>).productIds)
+  );
+  for (const e of recommendationImpressions) {
+    const productIds = ((e.payload as Record<string, unknown>).productIds as unknown[]).filter(
+      (id): id is string => typeof id === "string"
+    );
+    const cartValue = Math.round(Number(e.cartSnapshot?.subtotal ?? 0));
+    await Promise.all(
+      productIds.map((productId) =>
+        prisma.crossSellEvent
+          .create({
+            data: {
+              shopDomain: shop,
+              productId,
+              eventType: "impression",
+              cartValue,
+            },
+          })
+          .catch((err) => {
+            logWarn({
+              shop,
+              message: "analytics-v3 CrossSellEvent impression create failed",
+              meta: { error: err instanceof Error ? err.message : String(err) },
+            });
+          })
+      )
+    );
+  }
+
   // Engagement: record recommendation clicks to CrossSellEvent (for CTR) and RevproClickSession (session linking).
   const recommendationClicks = validEvents.filter(
     (e) =>

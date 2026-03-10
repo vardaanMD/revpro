@@ -113,7 +113,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   }
 
-  const configV3 = config.configV3 as { runtimeVersion?: "v1" | "v2" | "v3" } | null | undefined;
+  const configV3 = config.configV3 as { runtimeVersion?: "v3" } | null | undefined;
 
   return {
     metrics,
@@ -139,7 +139,7 @@ type LoaderData = {
   onboardingCompleted: boolean;
   onboardingJustCompleted: boolean;
   retention: RetentionContext | null;
-  configV3: { runtimeVersion?: "v1" | "v2" | "v3" } | null;
+  configV3: { runtimeVersion?: "v3" } | null;
 };
 
 const PLAN_LABELS: Record<Plan, string> = {

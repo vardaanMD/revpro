@@ -373,11 +373,12 @@ export class Engine {
       const keyed = rawConfig.recommendationsByCollection;
       const productToCollections = rawConfig.productToCollections;
       if (keyed && typeof keyed === 'object' && productToCollections && typeof productToCollections === 'object') {
-        const byCollection: Record<string, Array<{ variantId: number; title: string; imageUrl?: string | null; price?: { amount?: number }; handle?: string }>> = {};
+        const byCollection: Record<string, Array<{ variantId: number; productId?: string; title: string; imageUrl?: string | null; price?: { amount?: number }; handle?: string }>> = {};
         for (const [k, list] of Object.entries(keyed)) {
           if (Array.isArray(list)) {
             byCollection[k] = list.map((r: any) => ({
               variantId: Number(r.variantId),
+              productId: r.id != null ? String(r.id) : (r.productId != null ? String(r.productId) : undefined),
               title: r.title ?? '',
               imageUrl: r.imageUrl ?? null,
               price: r.price ?? { amount: 0 },
@@ -397,6 +398,7 @@ export class Engine {
         // Legacy/fallback: no keyed data; set snapshotRecommendations from flat recommendations array.
         const legacyList = rawConfig.recommendations.map((r: any) => ({
           variantId: Number(r.variantId),
+          productId: r.id != null ? String(r.id) : (r.productId != null ? String(r.productId) : undefined),
           title: r.title ?? '',
           imageUrl: r.imageUrl ?? null,
           price: r.price ?? { amount: 0 },
@@ -482,6 +484,17 @@ export class Engine {
         (state.upsell?.aiRecommendations?.length ?? 0) > 0;
       const cartValue = Math.round(Number(state.cart?.subtotal ?? 0));
       this.emitEvent('cart:evaluated', { hasCrossSell, cartValue });
+      // Emit impression per shown recommendation so admin engagement metrics (impressions, CTR) update.
+      if (hasCrossSell) {
+        const ids = [
+          ...(state.snapshotRecommendations ?? []).map((r) => String(r.variantId)),
+          ...(state.upsell?.aiRecommendations ?? []).map((r) => String(r.variantId)),
+        ];
+        const productIds = [...new Set(ids)];
+        if (productIds.length > 0) {
+          this.emitEvent('recommendation:impression', { productIds });
+        }
+      }
     }
     if (!this.config.appearance.countdownEnabled) return;
     const duration = this.config.appearance.countdownDurationMs ?? DEFAULT_COUNTDOWN_MS;
@@ -1622,12 +1635,13 @@ export class Engine {
         (s.snapshotRecommendations?.some((r) => r.variantId === variantId) ?? false);
       if (isUpsell) {
         this.emitEvent('upsell:add', { variantId, quantity });
-        const item = s.snapshotRecommendations?.find((r) => r.variantId === variantId);
-        const productId = item?.productId;
-        const recommendedProductIds = (s.snapshotRecommendations ?? [])
-          .map((r) => r.productId)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0);
-        if (productId && recommendedProductIds.length > 0) {
+        // Emit recommendation:click for CTR: use productId when available, else variantId so clicks are always recorded.
+        const item = s.snapshotRecommendations?.find((r) => r.variantId === variantId) ?? s.upsell?.aiRecommendations?.find((r) => r.variantId === variantId);
+        const productId = item?.productId ?? String(variantId);
+        const fromSnapshot = (s.snapshotRecommendations ?? []).map((r) => r.productId ?? String(r.variantId));
+        const fromAi = (s.upsell?.aiRecommendations ?? []).map((r) => (r as { productId?: string; variantId: number }).productId ?? String(r.variantId));
+        const recommendedProductIds = [...new Set([...fromSnapshot, ...fromAi])].filter((id) => typeof id === 'string' && id.length > 0);
+        if (recommendedProductIds.length > 0) {
           this.emitEvent('recommendation:click', { productId, recommendedProductIds });
         }
       }

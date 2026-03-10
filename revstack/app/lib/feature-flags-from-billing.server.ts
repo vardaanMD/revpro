@@ -14,6 +14,7 @@ export function featureFlagsFromCapabilities(
     enableDiscounts: capabilities.allowCouponTease ?? false,
     enableFreeGifts: false,
     enableCheckoutOverride: false,
-    enableAnalytics: capabilities.analyticsLevel === "advanced",
+    // Analytics (cart:evaluated, impressions, clicks) enabled for all plans so admin UI reflects storefront activity.
+    enableAnalytics: true,
   };
 }

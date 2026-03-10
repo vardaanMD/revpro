@@ -1,7 +1,8 @@
 /**
- * App proxy path: /apps/cart-pro/bootstrap/v2
- * V2 config-first snapshot. No decision route, no cache, no SAFE. Fails fast if catalog missing.
- * ensureCatalogReady runs synchronously once on cold start so DB persists catalog permanently.
+ * @deprecated This route is no longer active. Archived for reference.
+ * App proxy path: /apps/cart-pro/snapshot/v2
+ * Snapshot JSON for Liquid embedding only. No Redis, no SAFE, no locking.
+ * Same shape as bootstrap.v2 (including engineVersion: "v2").
  */
 import { data, type LoaderFunctionArgs } from "react-router";
 import { authenticate } from "~/shopify.server";

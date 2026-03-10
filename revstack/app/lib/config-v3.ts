@@ -74,11 +74,11 @@ export interface CartProConfigV3Analytics {
   flushIntervalMs: number;
 }
 
-export type RuntimeVersion = "v1" | "v2" | "v3";
+export type RuntimeVersion = "v3";
 
 export interface CartProConfigV3 {
   version: string;
-  /** Which runtime to load on storefront: v1, v2, or v3. Default "v3" for new installs. */
+  /** Cart drawer runtime. Always V3. */
   runtimeVersion?: RuntimeVersion;
   appearance: CartProConfigV3Appearance;
   featureFlags: CartProConfigV3FeatureFlags;
@@ -166,13 +166,8 @@ export function mergeWithDefaultV3(
     base.version = persisted.version.trim();
   }
 
-  if (
-    persisted.runtimeVersion === "v1" ||
-    persisted.runtimeVersion === "v2" ||
-    persisted.runtimeVersion === "v3"
-  ) {
-    base.runtimeVersion = persisted.runtimeVersion;
-  }
+  // Runtime is always V3; ignore any persisted v1/v2.
+  base.runtimeVersion = "v3";
 
   if (persisted.appearance && typeof persisted.appearance === "object" && !Array.isArray(persisted.appearance)) {
     const a = persisted.appearance as Partial<CartProConfigV3Appearance>;

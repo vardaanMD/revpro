@@ -78,7 +78,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   }
 
-  const configV3 = config.configV3 as { runtimeVersion?: "v1" | "v2" | "v3" } | null | undefined;
+  const configV3 = config.configV3 as { runtimeVersion?: "v3" } | null | undefined;
 
   return {
     metrics,
@@ -96,7 +96,7 @@ type LoaderData = {
   capabilities: import("~/lib/capabilities.server").Capabilities;
   billingStatus: string;
   isEntitled: boolean;
-  configV3: { runtimeVersion?: "v1" | "v2" | "v3" } | null;
+  configV3: { runtimeVersion?: "v3" } | null;
 };
 
 const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [

@@ -16,8 +16,6 @@ const recommendationStrategySchema = z.enum([
   "NEW_ARRIVALS",
 ]);
 
-const engineVersionSchema = z.enum(["v1", "v2", "v3"]);
-
 const manualCollectionIdsSchema = z.string().refine(
   (s) => {
     try {
@@ -66,7 +64,6 @@ export const settingsFormSchema = z.object({
   showConfetti: z.boolean(),
   countdownEnabled: z.boolean(),
   emojiMode: z.boolean(),
-  engineVersion: engineVersionSchema,
   cartHeaderMessage1: z.string().optional(),
   cartHeaderMessage2: z.string().optional(),
   cartHeaderMessage3: z.string().optional(),
@@ -139,9 +136,6 @@ export function validateSettingsForm(formData: FormData): {
   const showConfetti = formData.get("showConfetti") === "on";
   const countdownEnabled = formData.get("countdownEnabled") === "on";
   const emojiMode = formData.get("emojiMode") === "on";
-  const engineVersionRaw = formData.get("engineVersion");
-  const engineVersion =
-    engineVersionRaw === "v1" || engineVersionRaw === "v2" || engineVersionRaw === "v3" ? engineVersionRaw : "v3";
 
   const primaryColor = typeof primaryColorRaw === "string" ? primaryColorRaw.trim() || undefined : undefined;
   const accentColor = typeof accentColorRaw === "string" ? accentColorRaw.trim() || undefined : undefined;
@@ -175,7 +169,6 @@ export function validateSettingsForm(formData: FormData): {
     showConfetti,
     countdownEnabled,
     emojiMode,
-    engineVersion,
     cartHeaderMessage1,
     cartHeaderMessage2,
     cartHeaderMessage3,
