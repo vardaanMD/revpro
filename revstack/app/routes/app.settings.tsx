@@ -23,6 +23,7 @@ import { generatePreviewDecision, type PreviewRenderState, type PreviewUI } from
 import { FormSection } from "~/components/ui/FormSection";
 import { FormField } from "~/components/ui/FormField";
 import { SelectField } from "~/components/ui/SelectField";
+import { CartPreview } from "~/components/CartPreview";
 import settingsStyles from "~/styles/settingsPage.module.css";
 import previewPanelStyles from "~/styles/previewPanel.module.css";
 
@@ -940,13 +941,14 @@ export default function SettingsPage() {
             Cart drawer preview
           </div>
           <p className={settingsStyles.v3PreviewHint}>
-            Same snapshot as storefront (mergeWithDefaultV3 + featureFlags + recommendations). Save to refresh.
+            Preview updates as you change settings. Uses current config and a simulated cart.
           </p>
           <div className={previewPanelStyles.previewDrawerWrap}>
-            <iframe
-              title="Cart Pro V3 preview"
-              src="/app/preview-v3-frame"
-              className={previewPanelStyles.previewV3Iframe}
+            <CartPreview
+              ui={previewRenderState.ui}
+              decision={previewRenderState.decision}
+              capabilities={capabilities}
+              enableCrossSellOverride={previewEnableCrossSell}
             />
           </div>
         </div>
