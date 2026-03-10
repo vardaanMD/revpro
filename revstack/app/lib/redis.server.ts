@@ -35,6 +35,11 @@ function getRedisClient(): Redis {
     lazyConnect: false,
   });
 
+  // Prevent unhandled 'error' events from crashing the process
+  client.on("error", (err) => {
+    console.error("[Redis] connection error:", err?.message ?? err);
+  });
+
   globalForRedis.redis = client;
 
   // --- TEMPORARY: dev-only connectivity test. Remove after confirmation. ---

@@ -95,6 +95,25 @@ async function main() {
     res.status(200).json({ ok: true });
   });
 
+  // Diagnostic: verify which server received the request (for "app failed to respond" debugging).
+  // Shopify loads the app from the URL in Partner Dashboard → Configuration → App URL.
+  // If that URL points here, requests will hit this endpoint. Use: curl https://<your-app-url>/api/app-ping
+  app.get("/api/app-ping", (req: ExpressRequest, res: ExpressResponse) => {
+    const appUrl = (process.env.SHOPIFY_APP_URL || process.env.HOST || "").trim();
+    let appUrlHost = "";
+    try {
+      if (appUrl) appUrlHost = new URL(appUrl.startsWith("http") ? appUrl : `https://${appUrl}`).hostname;
+    } catch {
+      appUrlHost = "(invalid)";
+    }
+    res.status(200).json({
+      ok: true,
+      receivedAt: new Date().toISOString(),
+      appUrlHost: appUrlHost || "(not set)",
+      note: "If Shopify shows 'application failed to respond', ensure Partner Dashboard App URL matches where this server is reachable (e.g. tunnel URL for local dev).",
+    });
+  });
+
   if (isRSCBuild(buildModule)) {
     console.log("[revstack] build path: RSC (createRequestListener)");
     const originalFetch = buildModule.default.fetch;
@@ -172,7 +191,8 @@ async function main() {
     // REDIS_URL missing or connect failed
   }
 
-  // Prisma: ensure connection is established before listening (retry loop).
+  // Prisma: ensure connection is established before listening (avoids race conditions where
+  // /app/* or auth runs before DB is ready). Then listen.
   let connected = false;
   let attempts = 0;
   while (!connected && attempts < 10) {

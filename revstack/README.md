@@ -33,6 +33,18 @@ The CLI often shows a temporary Cloudflare URL; we keep the app and app proxy on
 
 Press P to open the app (it will load via app.revenity.io if the tunnel is running). Storefront requests to `/apps/cart-pro/decision` proxy to app.revenity.io → your tunnel → localhost:3000.
 
+**If Shopify shows "Application failed to respond" but your server is running:** Shopify loads the app from the **App URL** in Partner Dashboard — that URL is where Shopify sends the request. Your local process only receives the request if that URL points to it (e.g. via a tunnel). Follow this checklist:
+
+1. **See which URL Shopify is using:** In [Partner Dashboard](https://partners.shopify.com) → Your app → **Configuration**, note the **App URL** (e.g. `https://revpro-production.up.railway.app` or `https://app.revenity.io`).
+2. **Confirm that URL reaches your server:** In a terminal run:
+   ```bash
+   curl -s "https://<APP_URL_FROM_STEP_1>/api/app-ping"
+   ```
+   Replace `<APP_URL_FROM_STEP_1>` with the exact App URL (no trailing path). You should get JSON with `"ok": true` and `appUrlHost`. If the request hangs or fails, Shopify cannot reach your app at that URL (e.g. tunnel not running, or dashboard points to Railway while you're running locally).
+3. **For local dev:** Set Partner Dashboard **App URL** to `https://app.revenity.io`. Start your tunnel so `app.revenity.io` → `http://localhost:3000`. Run `npm run dev`. Then `curl -s https://app.revenity.io/api/app-ping` should succeed.
+4. **For production (Railway):** Keep App URL as your Railway URL. Ensure the Railway service is deployed and env has `SHOPIFY_APP_URL` set to that same URL.
+5. **`.env`:** `SHOPIFY_APP_URL` must be your **app backend** URL (where the server is reachable), never the store URL (e.g. not `https://your-store.myshopify.com`).
+
 ### Cart Pro V3 host element
 
 The canonical host element id is **`cart-pro-root`**. The Liquid embed block (`blocks/cart_pro_embed_v3.liquid`) renders `<div id="cart-pro-root">` on the storefront. The V3 runtime mounts its shadow DOM into this element, and creates it at `document.body` if the Liquid embed block is absent.
