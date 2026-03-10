@@ -20,6 +20,7 @@ import {
   buildCollectionAwareRecommendations,
   buildV3SnapshotPayload,
 } from "~/lib/upsell-engine-v2/buildSnapshot";
+import { parseMilestonesForUI } from "~/lib/settings-validation.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
@@ -93,8 +94,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     const runtimeVersion = configV3.runtimeVersion ?? "v3";
 
+    // Backfill rewards.tiers from flat milestonesJson when configV3 has none (e.g. pre-migration or never saved from settings).
+    let configForPayload: CartProConfigV3 = configV3;
+    const tiersFromV3 = configV3.rewards?.tiers;
+    if ((!Array.isArray(tiersFromV3) || tiersFromV3.length === 0) && shopConfig.milestonesJson != null) {
+      const flatTiers = parseMilestonesForUI(shopConfig.milestonesJson);
+      if (flatTiers.length > 0) {
+        configForPayload = {
+          ...configV3,
+          rewards: {
+            ...configV3.rewards,
+            tiers: flatTiers as unknown[],
+          },
+        };
+      }
+    }
+
     const snapshotPayload = {
-      ...buildV3SnapshotPayload(configV3),
+      ...buildV3SnapshotPayload(configForPayload),
       recommendationsByCollection: collectionAware.recommendationsByCollection,
       productToCollections: collectionAware.productToCollections,
       recommendations,

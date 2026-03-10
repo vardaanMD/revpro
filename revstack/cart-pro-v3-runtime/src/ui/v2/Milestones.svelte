@@ -105,7 +105,7 @@
             </div>
           </div>
           <div class="cp-milestone-steps-overlay">
-            {#each displayPoints as pt (pt.thresholdCents)}
+            {#each displayPoints as pt, i (i)}
               {@const unlocked = subtotalCents >= pt.thresholdCents || (pt.emoji === '🚚' && !!shipping?.unlocked)}
               <div class="cp-milestone-step">
                 <div
