@@ -97,6 +97,10 @@ export function buildV3SnapshotPayload<T extends { rewards?: { tiers?: unknown[]
     typeof appearance.backgroundColor === "string" && appearance.backgroundColor.trim()
       ? (appearance.backgroundColor as string).trim()
       : "#ffffff";
+  const bannerBackgroundColor =
+    typeof appearance.bannerBackgroundColor === "string" && appearance.bannerBackgroundColor.trim()
+      ? (appearance.bannerBackgroundColor as string).trim()
+      : "#16a34a";
   return {
     ...config,
     appearance: {
@@ -105,6 +109,7 @@ export function buildV3SnapshotPayload<T extends { rewards?: { tiers?: unknown[]
       radius,
       borderRadius: radius,
       backgroundColor,
+      bannerBackgroundColor,
       ...(cartHeaderMessages && cartHeaderMessages.length > 0 ? { cartHeaderMessages } : {}),
     },
     freeShipping: {
@@ -116,7 +121,7 @@ export function buildV3SnapshotPayload<T extends { rewards?: { tiers?: unknown[]
       tiers: milestones,
     },
   } as T & {
-    appearance: { primaryColor: string; accentColor: string; radius: number; borderRadius: number; backgroundColor: string };
+    appearance: { primaryColor: string; accentColor: string; radius: number; borderRadius: number; backgroundColor: string; bannerBackgroundColor: string };
     freeShipping: { enabled: boolean; thresholdCents?: number | null };
     rewards: { milestones: V3SnapshotMilestone[]; tiers: V3SnapshotMilestone[] };
   };

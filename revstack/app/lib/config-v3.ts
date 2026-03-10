@@ -17,6 +17,8 @@ export interface CartProConfigV3Appearance {
   cartHeaderMessages?: [string?, string?, string?] | string[];
   /** Drawer background color (behind cart content). */
   backgroundColor?: string;
+  /** Background color for the header message banner section (below "Your Cart"). */
+  bannerBackgroundColor?: string;
 }
 
 export interface CartProConfigV3FeatureFlags {
@@ -104,6 +106,7 @@ export const DEFAULT_CONFIG_V3 = Object.freeze({
     emojiMode: true,
     countdownDurationMs: 600000,
     backgroundColor: "#ffffff",
+    bannerBackgroundColor: "#16a34a",
   },
   featureFlags: {
     enableUpsell: false,
@@ -190,6 +193,9 @@ export function mergeWithDefaultV3(
     }
     if (typeof a.backgroundColor === "string" && a.backgroundColor.trim()) {
       base.appearance.backgroundColor = a.backgroundColor.trim();
+    }
+    if (typeof a.bannerBackgroundColor === "string" && a.bannerBackgroundColor.trim()) {
+      base.appearance.bannerBackgroundColor = a.bannerBackgroundColor.trim();
     }
   }
 

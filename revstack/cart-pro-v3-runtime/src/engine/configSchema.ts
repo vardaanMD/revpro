@@ -16,6 +16,8 @@ export interface CartProConfigV3Appearance {
   /** Urgency countdown duration in ms. Primary source; fallback in engine if missing. */
   countdownDurationMs?: number;
   backgroundColor?: string;
+  /** Background color for the header message banner section. */
+  bannerBackgroundColor?: string;
   surfaceColor?: string;
   textColor?: string;
   borderColor?: string;
@@ -206,6 +208,7 @@ export interface ConfigAppearance {
   emojiMode: boolean;
   countdownDurationMs?: number;
   backgroundColor?: string;
+  bannerBackgroundColor?: string;
   surfaceColor?: string;
   textColor?: string;
   borderColor?: string;

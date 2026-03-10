@@ -63,6 +63,9 @@ function buildConfigV3FromForm(
   if (formData.backgroundColor !== undefined && formData.backgroundColor !== "") {
     base.appearance.backgroundColor = formData.backgroundColor;
   }
+  if (formData.bannerBackgroundColor !== undefined && formData.bannerBackgroundColor !== "") {
+    base.appearance.bannerBackgroundColor = formData.bannerBackgroundColor;
+  }
   const headerMessages = [
     formData.cartHeaderMessage1 ?? "",
     formData.cartHeaderMessage2 ?? "",
@@ -178,7 +181,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
       ? configV3.runtimeVersion
       : "v3";
-  const appearanceV3 = (configV3?.appearance as { backgroundColor?: string; cartHeaderMessages?: string[] } | undefined) ?? {};
+  const appearanceV3 = (configV3?.appearance as { backgroundColor?: string; bannerBackgroundColor?: string; cartHeaderMessages?: string[] } | undefined) ?? {};
   const cartHeaderMessages = Array.isArray(appearanceV3.cartHeaderMessages)
     ? appearanceV3.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3)
     : [];
@@ -204,6 +207,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       primaryColor: config.primaryColor ?? "",
       accentColor: config.accentColor ?? "",
       backgroundColor: appearanceV3.backgroundColor ?? "#ffffff",
+      bannerBackgroundColor: appearanceV3.bannerBackgroundColor ?? "#16a34a",
       borderRadius: config.borderRadius ?? 12,
       showConfetti: config.showConfetti ?? true,
       countdownEnabled: config.countdownEnabled ?? true,
@@ -858,6 +862,16 @@ export default function SettingsPage() {
                     onChange={(e) => setPreviewBackgroundColor(e.target.value)}
                   />
                 </FormField>
+                <FormField label="Message banner background" id="bannerBackgroundColor" helperText="Background for the rotating message section below “Your cart”">
+                  <input
+                    id="bannerBackgroundColor"
+                    type="color"
+                    name="bannerBackgroundColor"
+                    defaultValue={config.bannerBackgroundColor || "#16a34a"}
+                    className={settingsStyles.colorInput}
+                    aria-label="Message banner background color"
+                  />
+                </FormField>
                 <FormField label="Border radius" id="borderRadius" helperText="0–32">
                   <input
                     id="borderRadius"
@@ -937,6 +951,7 @@ export default function SettingsPage() {
                 <input type="hidden" name="primaryColor" value={config.primaryColor} />
                 <input type="hidden" name="accentColor" value={config.accentColor} />
                 <input type="hidden" name="backgroundColor" value={config.backgroundColor || "#ffffff"} />
+                <input type="hidden" name="bannerBackgroundColor" value={config.bannerBackgroundColor || "#16a34a"} />
                 <input type="hidden" name="borderRadius" value={String(config.borderRadius)} />
                 <input type="hidden" name="showConfetti" value={config.showConfetti ? "on" : ""} />
                 <input type="hidden" name="countdownEnabled" value={config.countdownEnabled ? "on" : ""} />

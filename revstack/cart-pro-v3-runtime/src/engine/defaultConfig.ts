@@ -18,6 +18,7 @@ export const defaultConfig: RawCartProConfig = {
     emojiMode: true,
     countdownDurationMs: 600_000,
     cartHeaderMessages: [],
+    bannerBackgroundColor: '#16a34a',
   },
   featureFlags: {
     enableUpsell: true,

@@ -64,6 +64,7 @@ export const settingsFormSchema = z.object({
   primaryColor: z.string().optional().refine((v) => v === undefined || /^#([0-9A-Fa-f]{6})$/.test(v), { message: "Must be a hex color (e.g. #111111)" }),
   accentColor: z.string().optional().refine((v) => v === undefined || /^#([0-9A-Fa-f]{6})$/.test(v), { message: "Must be a hex color (e.g. #16a34a)" }),
   backgroundColor: z.string().optional().refine((v) => v === undefined || /^#([0-9A-Fa-f]{6})$/.test(v), { message: "Must be a hex color (e.g. #ffffff)" }),
+  bannerBackgroundColor: z.string().optional().refine((v) => v === undefined || /^#([0-9A-Fa-f]{6})$/.test(v), { message: "Must be a hex color (e.g. #16a34a)" }),
   borderRadius: z.number().int().min(0).max(32),
   showConfetti: z.boolean(),
   countdownEnabled: z.boolean(),
@@ -137,6 +138,7 @@ export function validateSettingsForm(formData: FormData): {
   const primaryColorRaw = formData.get("primaryColor");
   const accentColorRaw = formData.get("accentColor");
   const backgroundColorRaw = formData.get("backgroundColor");
+  const bannerBackgroundColorRaw = formData.get("bannerBackgroundColor");
   const borderRadiusRaw = formData.get("borderRadius");
   const showConfetti = formData.get("showConfetti") === "on";
   const countdownEnabled = formData.get("countdownEnabled") === "on";
@@ -154,6 +156,7 @@ export function validateSettingsForm(formData: FormData): {
   const primaryColor = typeof primaryColorRaw === "string" ? primaryColorRaw.trim() || undefined : undefined;
   const accentColor = typeof accentColorRaw === "string" ? accentColorRaw.trim() || undefined : undefined;
   const backgroundColor = typeof backgroundColorRaw === "string" ? backgroundColorRaw.trim() || undefined : undefined;
+  const bannerBackgroundColor = typeof bannerBackgroundColorRaw === "string" ? bannerBackgroundColorRaw.trim() || undefined : undefined;
   const borderRadiusNum = typeof borderRadiusRaw === "string" ? parseInt(borderRadiusRaw, 10) : NaN;
   const borderRadius = Number.isInteger(borderRadiusNum) ? borderRadiusNum : 12;
 
@@ -177,6 +180,7 @@ export function validateSettingsForm(formData: FormData): {
     primaryColor,
     accentColor,
     backgroundColor,
+    bannerBackgroundColor,
     borderRadius,
     showConfetti,
     countdownEnabled,
