@@ -19,4 +19,4 @@ RUN npm run build
 RUN npm prune --omit=dev
 RUN npm cache clean --force
 
-CMD ["npm", "run", "docker-start"]
+CMD ["sh", "-c", "until npx prisma migrate deploy; do echo '[DOCKER] migrate retry...'; sleep 2; done && npm run start"]

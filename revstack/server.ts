@@ -55,6 +55,7 @@ function toRequest(req: express.Request): Request {
 
 async function main() {
   console.log("SERVER BOOT START", Date.now());
+  console.log("PORT env:", process.env.PORT, "NODE_ENV:", process.env.NODE_ENV);
   let firstRequestHandled = false;
   process.on("unhandledRejection", (reason: unknown) => {
     logResilience({
