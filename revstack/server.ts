@@ -77,6 +77,11 @@ async function main() {
   const port = Number(process.env.PORT ?? 3000);
   const app = express();
   app.disable("x-powered-by");
+  // Top-level request logger — before ANY middleware — to diagnose Railway 502
+  app.use((req: ExpressRequest, _res: ExpressResponse, next: NextFunction) => {
+    console.log("[REQ]", req.method, req.url);
+    next();
+  });
   app.use(compression());
   app.use(
     path.posix.join(publicPath, "assets"),
@@ -221,8 +226,21 @@ async function main() {
     console.log(`[revstack] listening on port ${port}`);
   });
   ["SIGTERM", "SIGINT"].forEach((signal) => {
-    process.once(signal, () => server?.close(console.error));
+    process.once(signal, () => {
+      console.log(`[SERVER] received ${signal}, closing`);
+      server?.close(console.error);
+    });
   });
+
+  process.on("uncaughtException", (err) => {
+    console.error("[FATAL] uncaughtException:", err);
+  });
+
+  // Heartbeat to confirm process stays alive
+  const heartbeat = setInterval(() => {
+    console.log("[HEARTBEAT]", new Date().toISOString());
+  }, 30_000);
+  heartbeat.unref();
 }
 
 main().catch((err) => {
