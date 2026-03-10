@@ -62,10 +62,10 @@
 
   /** Single fill width (like cart.txt): bar grows with cart value; icons sit above the rail so no wash. */
   $: fillPct = lastThreshold > 0 ? Math.min(100, (subtotalCents / lastThreshold) * 100) : 0;
-  $: hasMilestones = combinedMilestones.length > 0 && !shipping?.loading;
+  $: hasMilestones = combinedMilestones.length > 0;
 
   $: messageText = (() => {
-    if (shipping?.loading || combinedMilestones.length === 0) return '';
+    if (combinedMilestones.length === 0) return '';
     const next = combinedMilestones.find((m) => subtotalCents < m.thresholdCents);
     if (!next) return getUIText('🎉 All rewards unlocked!', emojiConfig);
     const remaining = next.thresholdCents - subtotalCents;
@@ -93,7 +93,7 @@
 <div id="cart-pro-milestones" class="cp-milestones-container">
   <div class="cp-milestones-inner" class:cp-milestones-empty={!hasMilestones}>
     {#if hasMilestones}
-      <div class="cp-milestone-wrapper cp-fade-in">
+      <div class="cp-milestone-wrapper">
         <div class="cp-milestone-header">{combinedMilestones.length > 1 ? 'Unlock Rewards' : 'Free Shipping'}</div>
         <!-- Rail + fill centered vertically; emoji icons sit on the bar in a separate overlay layer. -->
         <div class="cp-milestone-bar-container">

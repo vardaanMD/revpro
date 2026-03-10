@@ -839,11 +839,61 @@ export class Engine {
   }
 
   /**
+   * Silent cart apply for changeCart confirmations: updates cart.raw + shipping + rewards
+   * without triggering recommendations, decision calls, or revalidation. Prevents flash
+   * when server response simply confirms the optimistic update.
+   */
+  private applyCartRawSilent(raw: any): void {
+    if (this.destroyed) return;
+    const { itemCount, subtotal, total } = Engine.cartMetricsFromRaw(raw);
+    const itemsSubtotalFromRaw = raw.items_subtotal_price ?? subtotal;
+
+    const partial: any = {
+      cart: { raw, itemCount, subtotal, total, syncing: false, lastSyncedAt: Date.now() },
+    };
+
+    // Shipping
+    const threshold = this.config?.freeShipping?.thresholdCents ?? null;
+    if (threshold != null) {
+      const remaining = threshold - itemsSubtotalFromRaw;
+      partial.shipping = { remaining: Math.max(remaining, 0), unlocked: remaining <= 0, loading: false };
+    } else {
+      partial.shipping = { remaining: null, unlocked: false, loading: false };
+    }
+
+    // Rewards
+    const state = getStateFromStore(this.stateStore);
+    const { rewards } = state;
+    const runRewards = !this.config || this.config.featureFlags.enableRewards;
+    if (runRewards) {
+      const newUnlockedIndex = computeUnlockedTier(subtotal, rewards.tiers);
+      const lastUnlocked = rewards.lastUnlockedTierIndex;
+      const isNewTierUnlock = newUnlockedIndex !== null && (lastUnlocked === null || newUnlockedIndex > lastUnlocked);
+      partial.rewards = {
+        ...rewards,
+        unlockedTierIndex: newUnlockedIndex,
+        lastUnlockedTierIndex: isNewTierUnlock ? newUnlockedIndex : rewards.lastUnlockedTierIndex,
+        showConfetti: isNewTierUnlock,
+      };
+    }
+
+    // Discount reconciliation
+    const codesOnCart = getCodesFromCartRaw(raw);
+    const applied = state.discount.applied.filter((d: any) => codesOnCart.includes(d.code.toLowerCase()));
+    if (applied.length !== state.discount.applied.length) {
+      partial.discount = { ...state.discount, applied };
+    }
+
+    this.setState(partial);
+  }
+
+  /**
    * Lightweight batched cart apply for mutation happy paths (changeCart, removeItem).
    * Applies cart + shipping + rewards in ONE setState to avoid multi-render flash,
    * then defers heavier work (recommendations, upsell, decision) to a microtask.
+   * @param markInitialSyncDone - when true, set initialSyncDone in the same batch (single re-render on first load)
    */
-  private applyCartRawBatched(raw: any): void {
+  private applyCartRawBatched(raw: any, markInitialSyncDone?: boolean): void {
     if (this.destroyed) return;
     const { itemCount, subtotal, total } = Engine.cartMetricsFromRaw(raw);
     const itemsSubtotalFromRaw = raw.items_subtotal_price ?? subtotal;
@@ -892,6 +942,10 @@ export class Engine {
       partial.discount = { ...state.discount, applied };
     }
 
+    if (markInitialSyncDone) {
+      partial.initialSyncDone = true;
+    }
+
     // Single setState — one Svelte re-render
     this.setState(partial);
     this.emit('cart:updated', { raw });
@@ -931,8 +985,13 @@ export class Engine {
             const cur = getStateFromStore(this.stateStore).cart.raw;
             if (!cur || this.getCartSignature(cur) !== sig) return;
             if (result.items.length > 0) {
-              this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now() });
-              preloadRecommendationImages(result.items);
+              const curState = getStateFromStore(this.stateStore);
+              const prevIds = (curState.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
+              const nextIds = result.items.map((r: any) => r.variantId).join(',');
+              if (prevIds !== nextIds) {
+                this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now() });
+                preloadRecommendationImages(result.items);
+              }
             }
           });
         }, DECISION_DEBOUNCE_MS);
@@ -1279,7 +1338,8 @@ export class Engine {
         typeof performance !== 'undefined' && performance.now
           ? performance.now() - syncStart
           : 0;
-      this.applyCartRaw(raw, options);
+      const st = getStateFromStore(this.stateStore);
+      this.applyCartRawBatched(raw, !st.initialSyncDone);
       this.ensureCartHasRevproSessionId(raw);
     } catch (err) {
       this.setState({
@@ -1649,7 +1709,9 @@ export class Engine {
         if (raw?.items != null && typeof raw.item_count === 'number') {
           const serverLine = raw.items.find((i: any) => (i?.key ?? '') === lineKey);
           if (serverLine && expectedQty !== undefined && Number(serverLine.quantity) === expectedQty) {
-            this.applyCartRawBatched(raw);
+            // Server confirmed optimistic qty — do a silent update (no cascading re-renders).
+            // Only update cart.raw and server-authoritative totals; skip recs/decision/revalidation.
+            this.applyCartRawSilent(raw);
           } else {
             await this.syncCart();
           }

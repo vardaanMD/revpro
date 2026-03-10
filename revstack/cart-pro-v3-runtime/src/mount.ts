@@ -220,25 +220,6 @@ export function mountCartProV3(componentCss: string): void {
       };
   }
 
-  if (!configLoaded && typeof window !== 'undefined') {
-    let attempts = 0;
-    const maxAttempts = 40;
-    const waitForConfig = (): void => {
-      const snapshot = getGlobalSnapshot();
-      if (snapshot) {
-        console.log('[CartPro] Late config detected');
-        applyAppearanceVariables(host, snapshot);
-        engine.loadConfig(snapshot);
-        saveBodyOverflowOnce();
-        console.log('[CartPro] Config loaded into engine', (engine as { getConfig?: () => unknown }).getConfig?.());
-        return;
-      }
-      attempts++;
-      if (attempts < maxAttempts) setTimeout(waitForConfig, 50);
-    };
-    waitForConfig();
-  }
-
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
 
   const style = document.createElement('style');
@@ -252,10 +233,45 @@ export function mountCartProV3(componentCss: string): void {
   appContainer.style.pointerEvents = 'none';
   shadow.appendChild(appContainer);
 
-  console.log('[CartPro] App mounting into shadow root:', shadow);
-  new App({ target: appContainer, props: { engine } });
+  const doMount = (): void => {
+    console.log('[CartPro] App mounting into shadow root:', shadow);
+    new App({ target: appContainer, props: { engine } });
+    injectHideOtherCartsStyle();
+  };
 
-  injectHideOtherCartsStyle();
+  if (configLoaded) {
+    // Config already available — mount immediately
+    doMount();
+  } else if (typeof window !== 'undefined') {
+    // Wait for config before mounting so all sections render together (no flash)
+    let attempts = 0;
+    const maxAttempts = 40; // 40 × 50ms = 2s max wait
+    let mounted = false;
+    const waitForConfig = (): void => {
+      const snapshot = getGlobalSnapshot();
+      if (snapshot) {
+        console.log('[CartPro] Late config detected');
+        applyAppearanceVariables(host, snapshot);
+        engine.loadConfig(snapshot);
+        saveBodyOverflowOnce();
+        console.log('[CartPro] Config loaded into engine', (engine as { getConfig?: () => unknown }).getConfig?.());
+        if (!mounted) { mounted = true; doMount(); }
+        return;
+      }
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(waitForConfig, 50);
+      } else if (!mounted) {
+        // Config never arrived after 2s — mount anyway with defaults so cart is still usable
+        console.warn('[CartPro] Config not found after 2s, mounting with defaults');
+        mounted = true;
+        doMount();
+      }
+    };
+    waitForConfig();
+  } else {
+    doMount();
+  }
 }
 
 /**

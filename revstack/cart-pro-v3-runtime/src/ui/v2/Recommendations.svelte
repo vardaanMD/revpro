@@ -1,5 +1,4 @@
 <script>
-  import { fade } from 'svelte/transition';
   import RecommendationCard from './RecommendationCard.svelte';
 
   /** @type { import('../../engine/Engine').default } */
@@ -33,29 +32,24 @@
       ];
   $: hasRecs = recs.length > 0;
 
-  /** When list changes (bucket swap or decision refinement), key block triggers fade. 150ms matches .cp-fade-in. */
-  $: listVersion = state?.recommendationListVersion ?? 0;
-
   $: console.log('[CartPro] Recommendations state:', hasSnapshot ? 'snapshot' : state?.upsell?.standard);
 </script>
 
 <div id="cart-pro-recommendations" class="cp-recommendations-container">
   <div class="cp-recommendations-inner" class:cp-recommendations-loading={loading}>
     {#if loading && !hasRecs}
-      <div class="cp-recommendations-content cp-fade-in cp-rec-container-shimmer"></div>
+      <div class="cp-recommendations-content cp-rec-container-shimmer"></div>
     {:else if hasRecs}
-      {#key listVersion}
-        <div class="cp-recommendations-content cp-rec-container-shimmer" in:fade={{ duration: 150 }} out:fade={{ duration: 120 }}>
-          <h4 style="margin-bottom:10px;">You may also like</h4>
-          <div class="cp-rec-list cp-carousel">
-            {#each recs as rec (rec.variantId)}
-              <RecommendationCard {engine} rec={rec} isPredicted={false} {currency} />
-            {/each}
-          </div>
+      <div class="cp-recommendations-content cp-rec-container-shimmer">
+        <h4 style="margin-bottom:10px;">You may also like</h4>
+        <div class="cp-rec-list cp-carousel">
+          {#each recs as rec (rec.variantId)}
+            <RecommendationCard {engine} rec={rec} isPredicted={false} {currency} />
+          {/each}
         </div>
-      {/key}
+      </div>
     {:else}
-      <div class="cp-recommendations-content cp-fade-in"></div>
+      <div class="cp-recommendations-content"></div>
     {/if}
   </div>
 </div>

@@ -5,8 +5,8 @@
   export let engine;
   const stateStore = engine.stateStore;
 
-  /** True once first syncCart completes (cart.raw populated). Mirrors cart.txt loadSidecart. */
-  $: contentReady = $stateStore?.cart?.raw != null;
+  /** True once first syncCart completes and all state slices are populated (cart, shipping, rewards). */
+  $: contentReady = !!$stateStore?.initialSyncDone;
 
   onMount(() => {
     if ($stateStore?.cart?.raw != null) return;

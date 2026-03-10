@@ -21,6 +21,7 @@
   let msgVisible = false;
 
   $: threshold = engine?.getConfig?.()?.freeShipping?.thresholdCents;
+  $: initialSyncDone = $stateStore?.initialSyncDone ?? false;
   $: shipping = $stateStore?.shipping ?? { remaining: null, unlocked: false, loading: true };
   $: subtotalCents = $stateStore?.cart?.subtotal ?? 0;
   $: displayCurrency = $stateStore?.cart?.raw?.currency ?? currency;
@@ -36,7 +37,6 @@
     : 0;
 
   $: shippingMsg = (() => {
-    if (shipping.loading) return '';
     if (showFallbackOnly) {
       return getUIText("You're eligible for free shipping on qualifying orders.", emojiConfig);
     }
@@ -84,12 +84,12 @@
 
 <!-- Footer only: message + savings (tiered bar is at top via Milestones.svelte). -->
 <div class="cp-shipping-container" id="cart-pro-shipping-container">
-  <div id="cart-pro-shipping-skeleton" class="cp-shipping-skeleton" aria-hidden={shipping.loading ? 'false' : 'true'}>
+  <div id="cart-pro-shipping-skeleton" class="cp-shipping-skeleton" style="display: {!initialSyncDone && shipping.loading ? '' : 'none'};" aria-hidden={!initialSyncDone && shipping.loading ? 'false' : 'true'}>
     <div class="cp-skeleton cp-skeleton-bar"></div>
     <div class="cp-skeleton cp-skeleton-text"></div>
   </div>
-  <div class="cp-shipping-content" id="cart-pro-shipping-content" style="display: {shipping.loading ? 'none' : ''};" class:cp-fade-in={!shipping.loading}>
-    <div id="cart-pro-shipping-msg" class="cp-free-shipping-msg" class:cp-msg-visible={msgVisible} style="display: {!shipping.loading && shippingMsg ? 'block' : 'none'};">
+  <div class="cp-shipping-content" id="cart-pro-shipping-content" style="display: {(initialSyncDone || !shipping.loading) ? '' : 'none'};" class:cp-fade-in={!shipping.loading}>
+    <div id="cart-pro-shipping-msg" class="cp-free-shipping-msg" class:cp-msg-visible={msgVisible} style="display: {(initialSyncDone || !shipping.loading) && shippingMsg ? 'block' : 'none'};">
       {#if shippingMsg}
         {shippingMsg}
       {/if}

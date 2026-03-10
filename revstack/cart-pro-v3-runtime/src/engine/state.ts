@@ -182,6 +182,8 @@ export interface EngineState {
   /** Keyed buckets per collection + product→collections map; used to derive which bucket to show from cart. */
   recommendationsByCollection: Record<string, SnapshotRecommendationItem[]>;
   productToCollections: Record<string, string[]>;
+  /** True after the first syncCart completes and all state slices are populated. UI gates on this to prevent flash. */
+  initialSyncDone: boolean;
 }
 
 /** Deep partial for state updates: each top-level key is optional and can be a partial of that slice. */
@@ -201,6 +203,7 @@ export type PartialEngineState = {
   recommendationListVersion?: number;
   recommendationsByCollection?: Record<string, SnapshotRecommendationItem[]>;
   productToCollections?: Record<string, string[]>;
+  initialSyncDone?: boolean;
 };
 
 export function createInitialState(): EngineState {
@@ -286,6 +289,7 @@ export function createInitialState(): EngineState {
     recommendationListVersion: 0,
     recommendationsByCollection: {},
     productToCollections: {},
+    initialSyncDone: false,
   };
 }
 
@@ -329,6 +333,7 @@ export function setState(
     if (partial.recommendationListVersion != null) next.recommendationListVersion = partial.recommendationListVersion;
     if (partial.recommendationsByCollection != null) next.recommendationsByCollection = partial.recommendationsByCollection;
     if (partial.productToCollections != null) next.productToCollections = partial.productToCollections;
+    if (partial.initialSyncDone != null) next.initialSyncDone = partial.initialSyncDone;
     return next;
   });
 }
@@ -361,6 +366,7 @@ export function updateState(
     if (partial.recommendationListVersion != null) next.recommendationListVersion = partial.recommendationListVersion;
     if (partial.recommendationsByCollection != null) next.recommendationsByCollection = partial.recommendationsByCollection;
     if (partial.productToCollections != null) next.productToCollections = partial.productToCollections;
+    if (partial.initialSyncDone != null) next.initialSyncDone = partial.initialSyncDone;
     return next;
   });
 }
