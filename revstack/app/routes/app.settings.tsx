@@ -15,7 +15,6 @@ import { getBillingContext } from "~/lib/billing-context.server";
 import { validateSettingsForm, parseMilestonesJson, parseManualCollectionIds, parseMilestonesForUI } from "~/lib/settings-validation.server";
 import type { SettingsFormData } from "~/lib/settings-validation.server";
 import { type CartProConfigV3, mergeWithDefaultV3 } from "~/lib/config-v3";
-import { featureFlagsFromCapabilities } from "~/lib/feature-flags-from-billing.server";
 import { logWarn, logResilience } from "~/lib/logger.server";
 import { prisma } from "~/lib/prisma.server";
 import { getCatalogForShop } from "~/lib/catalog.server";
@@ -176,13 +175,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ? appearanceV3.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3)
     : [];
 
-  /** Feature flags as applied on storefront (from billing). Shown so merchants see plan state. */
-  const planFeatureFlags = featureFlagsFromCapabilities(billing.capabilities);
-
   const savedFromRedirect = new URL(request.url).searchParams.get("saved") === "1";
   return {
     savedFromRedirect,
-    planFeatureFlags,
     config: {
       freeShippingThresholdCents: config.freeShippingThresholdCents,
       baselineAovCents: config.baselineAovCents,
@@ -202,7 +197,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       showConfetti: config.showConfetti ?? true,
       countdownEnabled: config.countdownEnabled ?? true,
       emojiMode: config.emojiMode ?? true,
-      engineVersion: config.engineVersion ?? "v1",
+      engineVersion: config.engineVersion ?? "v3",
       cartHeaderMessage1: cartHeaderMessages[0] ?? "",
       cartHeaderMessage2: cartHeaderMessages[1] ?? "",
       cartHeaderMessage3: cartHeaderMessages[2] ?? "",
@@ -387,7 +382,7 @@ function mergePreviewRenderState(
 }
 
 export default function SettingsPage() {
-  const { config, capabilities, planFeatureFlags, initialPreviewRenderState, savedFromRedirect } = useLoaderData<typeof loader>();
+  const { config, capabilities, initialPreviewRenderState, savedFromRedirect } = useLoaderData<typeof loader>();
   const actionData = useActionData() as ActionData | undefined;
   const navigation = useNavigation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -396,7 +391,6 @@ export default function SettingsPage() {
   const isSubmitting = navigation.state === "submitting";
 
   const [strategy, setStrategy] = useState(config.recommendationStrategy);
-  const [engineVersion, setEngineVersion] = useState(config.engineVersion);
   const initialRows = useMemo(
     () => toMilestoneRows(config.milestones ?? []),
     [config.milestones]
@@ -580,53 +574,6 @@ export default function SettingsPage() {
         <input type="hidden" name="milestonesJson" value={milestonesJsonValue} />
         <fieldset disabled={isSubmitting} className={settingsStyles.fieldsetReset}>
         <s-stack direction="block" gap="base">
-          <div className={settingsStyles.section}>
-            <FormSection
-              heading="Storefront state"
-              description="What your storefront is using. Features are gated by your plan."
-            >
-              <div className={settingsStyles.planStateBlock}>
-                <div className={settingsStyles.planStateRow}>
-                  <s-text tone="subdued">Upsell</s-text>
-                  <s-text>{planFeatureFlags.enableUpsell ? "On" : "Off"}</s-text>
-                </div>
-                <div className={settingsStyles.planStateRow}>
-                  <s-text tone="subdued">Rewards</s-text>
-                  <s-text>{planFeatureFlags.enableRewards ? "On" : "Off"}</s-text>
-                </div>
-                <div className={settingsStyles.planStateRow}>
-                  <s-text tone="subdued">Coupon tease</s-text>
-                  <s-text>{planFeatureFlags.enableDiscounts ? "On" : "Off"}</s-text>
-                </div>
-                <div className={settingsStyles.planStateRow}>
-                  <s-text tone="subdued">Analytics</s-text>
-                  <s-text>{planFeatureFlags.enableAnalytics ? "On" : "Off"}</s-text>
-                </div>
-                {(!capabilities.allowStrategySelection || !capabilities.allowUIConfig || !capabilities.allowCouponTease) && (
-                  <p className={settingsStyles.lockHint}>
-                    Some features are limited by your plan. <AppLink to="/app/upgrade">Upgrade</AppLink> for more.
-                  </p>
-                )}
-              </div>
-            </FormSection>
-          </div>
-          <div className={settingsStyles.section}>
-            <FormSection
-              heading="Cart Pro Engine"
-              description="Choose which decision engine version runs on your storefront. Change anytime for instant rollback."
-            >
-              <SelectField
-                label="Engine version"
-                name="engineVersion"
-                value={engineVersion}
-                options={[
-                  { value: "v1", label: "V1 (decision route)" },
-                  { value: "v2", label: "V2 (config-first)" },
-                ]}
-                onChange={setEngineVersion}
-              />
-            </FormSection>
-          </div>
           <div className={settingsStyles.section}>
             <FormSection
               heading="Thresholds"

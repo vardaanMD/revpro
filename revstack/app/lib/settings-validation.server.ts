@@ -16,7 +16,7 @@ const recommendationStrategySchema = z.enum([
   "NEW_ARRIVALS",
 ]);
 
-const engineVersionSchema = z.enum(["v1", "v2"]);
+const engineVersionSchema = z.enum(["v1", "v2", "v3"]);
 
 const manualCollectionIdsSchema = z.string().refine(
   (s) => {
@@ -141,7 +141,7 @@ export function validateSettingsForm(formData: FormData): {
   const emojiMode = formData.get("emojiMode") === "on";
   const engineVersionRaw = formData.get("engineVersion");
   const engineVersion =
-    engineVersionRaw === "v1" || engineVersionRaw === "v2" ? engineVersionRaw : "v1";
+    engineVersionRaw === "v1" || engineVersionRaw === "v2" || engineVersionRaw === "v3" ? engineVersionRaw : "v3";
 
   const primaryColor = typeof primaryColorRaw === "string" ? primaryColorRaw.trim() || undefined : undefined;
   const accentColor = typeof accentColorRaw === "string" ? accentColorRaw.trim() || undefined : undefined;

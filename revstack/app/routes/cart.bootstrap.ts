@@ -133,7 +133,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       });
     }
 
-    return data(safeBootstrapResponse(config.engineVersion ?? "v1", ui, responseCapabilities), {
+    return data(safeBootstrapResponse(config.engineVersion ?? "v3", ui, responseCapabilities), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -145,7 +145,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       meta: { fallbackUsed: true },
     });
     return data(
-      safeBootstrapResponse("v1", SAFE_UI_FALLBACK, minimalCapabilities()),
+      safeBootstrapResponse("v3", SAFE_UI_FALLBACK, minimalCapabilities()),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   }

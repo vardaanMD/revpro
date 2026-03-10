@@ -20,5 +20,5 @@ export const DEFAULT_SHOP_CONFIG = {
   showConfetti: true,
   countdownEnabled: true,
   emojiMode: true,
-  engineVersion: "v1",
+  engineVersion: "v3",
 };
