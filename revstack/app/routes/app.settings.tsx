@@ -908,9 +908,6 @@ export default function SettingsPage() {
           <div className={previewPanelStyles.previewLabel}>
             Cart drawer preview
           </div>
-          <p className={settingsStyles.v3PreviewHint}>
-            Preview updates as you change settings. Uses current config and a simulated cart.
-          </p>
           <div className={previewPanelStyles.previewDrawerWrap}>
             <CartPreview
               ui={previewRenderState.ui}

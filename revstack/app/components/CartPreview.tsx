@@ -212,7 +212,6 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
 
   return (
     <div ref={containerRef} className={styles.drawer} style={cssVars}>
-      {showConfetti && <div className={styles.confettiLabel}>Confetti on</div>}
       <div className={styles.drawerInner}>
         <div className={styles.header}>
           <span>Your Cart</span>

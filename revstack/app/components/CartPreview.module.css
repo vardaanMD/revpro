@@ -432,17 +432,3 @@
   text-align: center;
 }
 
-.confettiLabel {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 10px;
-  color: var(--cp-accent, #16a34a);
-  background: rgba(255, 255, 255, 0.9);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-  z-index: 11;
-  pointer-events: none;
-}
