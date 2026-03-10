@@ -107,7 +107,7 @@
     const container = document.createElement('div');
     container.setAttribute('aria-hidden', 'true');
     container.className = 'rewards-confetti-container';
-    container.style.zIndex = '2147483649';
+    container.style.zIndex = '2147483650';
     const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
     // Paced stream: fewer pieces, spread over ~1.2s like v2 (4 particles/frame for 2.5s)
     const count = 40;
@@ -176,7 +176,7 @@
     </div>
   </div>
 {/if}
-<div id="cart-pro-confetti-layer" bind:this={confettiLayerEl} aria-hidden="true" style="position:fixed;inset:0;pointer-events:none;z-index:2147483649;"></div>
+<div id="cart-pro-confetti-layer" bind:this={confettiLayerEl} aria-hidden="true" class="cart-pro-confetti-layer"></div>
 
 <style>
   .checkout-overlay {
@@ -214,21 +214,37 @@
     height: 100%;
     border: none;
   }
+  /* Confetti layer: fixed to viewport, on top of drawer and overlay. Isolation forces own stacking context above cart. */
+  .cart-pro-confetti-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 2147483650;
+    isolation: isolate;
+  }
   :global(.rewards-confetti-container) {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     pointer-events: none;
-    z-index: 2147483649;
+    z-index: 2147483650;
     overflow: hidden;
+    isolation: isolate;
   }
+  /* Confetti pieces: originate at top of viewport, fall downward; spread horizontally over drawer area. */
   :global(.rewards-confetti-piece) {
     position: absolute;
     left: 85%;
-    top: 25%;
+    top: 0;
     width: 10px;
     height: 10px;
     margin-left: -5px;
-    margin-top: -5px;
+    margin-top: 0;
     border-radius: var(--cp-radius, 12px);
     animation: rewards-confetti-fall 2s ease-out var(--delay, 0s) forwards;
     transform: translate(var(--x, 0), 0) rotate(0deg);
