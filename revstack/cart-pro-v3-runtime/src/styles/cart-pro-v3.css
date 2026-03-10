@@ -334,14 +334,17 @@
   inset: 0;
   z-index: 10;
   pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 13px; /* half of icon size so first/last don't clip */
+  box-sizing: border-box;
 }
 .cp-milestone-step {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
   display: flex;
-  flex-direction: column;
+  flex-shrink: 0;
   align-items: center;
+  justify-content: center;
 }
 .cp-milestone-icon-wrap {
   position: relative;

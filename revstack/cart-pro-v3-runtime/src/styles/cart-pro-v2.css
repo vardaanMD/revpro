@@ -535,21 +535,24 @@
     transition: width 0.5s ease-in-out;
   }
 
-  /* Icons overlay — on top of the rail, centered on the bar. */
+  /* Icons overlay — flex so all emoji steps are visible (no overlap). */
   .cp-milestone-steps-overlay {
     position: absolute;
     inset: 0;
     z-index: 10;
     pointer-events: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 13px;
+    box-sizing: border-box;
   }
 
   .cp-milestone-step {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
     display: flex;
-    flex-direction: column;
+    flex-shrink: 0;
     align-items: center;
+    justify-content: center;
   }
 
   /* Emoji circle — white background, sits on the bar. */

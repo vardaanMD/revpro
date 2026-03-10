@@ -48,12 +48,10 @@
   })();
 
   $: lastThreshold = combinedMilestones.length > 0 ? combinedMilestones[combinedMilestones.length - 1].thresholdCents : 0;
-  /** Visual positions: evenly spaced at fixed 33% intervals regardless of threshold values.
-   *  Thresholds from admin settings still drive fill %, unlock logic, and messaging — only icon placement is fixed. */
+  /** Up to 3 milestone points shown; flexbox (space-between) spaces them so all emojis stay visible. */
   $: displayPoints = (() => {
     const n = Math.min(combinedMilestones.length, 3);
-    return combinedMilestones.slice(0, n).map((m, i) => ({
-      leftPct: ((i + 1) / (n + 1)) * 100,
+    return combinedMilestones.slice(0, n).map((m) => ({
       thresholdCents: m.thresholdCents,
       label: m.label,
       emoji: m.emoji,
@@ -107,9 +105,9 @@
             </div>
           </div>
           <div class="cp-milestone-steps-overlay">
-            {#each displayPoints as pt}
+            {#each displayPoints as pt (pt.thresholdCents)}
               {@const unlocked = subtotalCents >= pt.thresholdCents || (pt.emoji === '🚚' && !!shipping?.unlocked)}
-              <div class="cp-milestone-step" style="left: {pt.leftPct}%;">
+              <div class="cp-milestone-step">
                 <div
                   class="cp-milestone-icon-wrap"
                   class:cp-milestone-unlocked={unlocked}
