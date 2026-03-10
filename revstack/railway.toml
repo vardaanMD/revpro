@@ -1,4 +1,4 @@
-# Railway deployment config for revstack (React Router + Shopify app).
+#Railway deployment config for revstack (React Router + Shopify app).
 # Set Railway service "Root Directory" to: revstack
 
 [build]
