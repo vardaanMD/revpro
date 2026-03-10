@@ -71,9 +71,7 @@ function buildConfigV3FromForm(
     .map((m) => (typeof m === "string" ? m.trim() : ""))
     .filter((m) => m.length > 0)
     .slice(0, 3);
-  if (headerMessages.length > 0) {
-    base.appearance.cartHeaderMessages = headerMessages;
-  }
+  base.appearance.cartHeaderMessages = headerMessages;
 
   // Feature flags: flat → featureFlags.*
   base.featureFlags.enableUpsell = formData.enableCrossSell;
@@ -609,7 +607,7 @@ export default function SettingsPage() {
           <div className={settingsStyles.section}>
             <FormSection
               heading="Cart Pro Engine"
-              description="Choose which engine version runs on your storefront. Change anytime for instant rollback."
+              description="Choose which engine version runs on your storefront. Use V3 for custom header messages and drawer background. Change anytime for instant rollback."
             >
               <SelectField
                 label="Engine version"
@@ -822,6 +820,11 @@ export default function SettingsPage() {
           <div className={settingsStyles.section}>
             {capabilities.allowUIConfig ? (
               <FormSection heading="Visual Customization">
+                {runtimeVersion !== "v3" && (
+                  <p className={settingsStyles.lockHint} style={{ marginBottom: "var(--app-space-4)" }}>
+                    <s-text tone="neutral">Header messages and drawer background apply only when Runtime version (above) is set to <strong>V3</strong>.</s-text>
+                  </p>
+                )}
                 <FormField label="Brand color" id="primaryColor" helperText="Primary brand color">
                   <input
                     id="primaryColor"

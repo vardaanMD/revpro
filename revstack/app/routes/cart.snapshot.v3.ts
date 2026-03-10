@@ -140,6 +140,7 @@ function safeFallbackSnapshot() {
       primaryColor: "#333",
       accentColor: "#16a34a",
       borderRadius: 12,
+      backgroundColor: "#ffffff",
       showConfetti: true,
       countdownEnabled: true,
       emojiMode: true,
