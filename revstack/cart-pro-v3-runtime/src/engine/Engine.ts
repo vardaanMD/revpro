@@ -615,11 +615,12 @@ export class Engine {
       return;
     }
     const now = Date.now();
+    const hasClickEvent = state.analytics.queue.some((ev) => ev.name === 'recommendation:click');
     const shouldFlushByCount = state.analytics.queue.length >= 5;
     const shouldFlushByTime =
       state.analytics.lastFlushAt != null && now - state.analytics.lastFlushAt >= FLUSH_INTERVAL_MS;
     if (this.analyticsFlushTimer) clearTimeout(this.analyticsFlushTimer);
-    if (shouldFlushByCount || shouldFlushByTime) {
+    if (shouldFlushByCount || shouldFlushByTime || hasClickEvent) {
       this.analyticsFlushTimer = setTimeout(() => {
         this.analyticsFlushTimer = null;
         this.flushAnalyticsEvents();
@@ -1635,15 +1636,16 @@ export class Engine {
         (s.snapshotRecommendations?.some((r) => r.variantId === variantId) ?? false);
       if (isUpsell) {
         this.emitEvent('upsell:add', { variantId, quantity });
-        // Emit recommendation:click for CTR: use productId when available, else variantId so clicks are always recorded.
+        // Always emit recommendation:click for CTR (server records one CrossSellEvent click per add).
         const item = s.snapshotRecommendations?.find((r) => r.variantId === variantId) ?? s.upsell?.aiRecommendations?.find((r) => r.variantId === variantId);
         const productId = item?.productId ?? String(variantId);
         const fromSnapshot = (s.snapshotRecommendations ?? []).map((r) => r.productId ?? String(r.variantId));
         const fromAi = (s.upsell?.aiRecommendations ?? []).map((r) => (r as { productId?: string; variantId: number }).productId ?? String(r.variantId));
         const recommendedProductIds = [...new Set([...fromSnapshot, ...fromAi])].filter((id) => typeof id === 'string' && id.length > 0);
-        if (recommendedProductIds.length > 0) {
-          this.emitEvent('recommendation:click', { productId, recommendedProductIds });
-        }
+        this.emitEvent('recommendation:click', {
+          productId,
+          recommendedProductIds: recommendedProductIds.length > 0 ? recommendedProductIds : [productId],
+        });
       }
     } catch (_err) {
       this.setState({ cart: cartSnapshot });

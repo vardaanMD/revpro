@@ -17,7 +17,8 @@ function isValidEvent(raw: unknown): raw is AnalyticsEventV3 {
   if (typeof o.id !== "string" || !o.id) return false;
   if (typeof o.name !== "string" || !o.name) return false;
   if (typeof o.timestamp !== "number") return false;
-  if (typeof o.sessionId !== "string" || !o.sessionId) return false;
+  // sessionId must be string but can be empty (e.g. before config load) so clicks are still recorded
+  if (typeof o.sessionId !== "string") return false;
   const cs = o.cartSnapshot;
   if (!cs || typeof cs !== "object") return false;
   const snap = cs as Record<string, unknown>;
@@ -106,10 +107,14 @@ export async function action({ request }: ActionFunctionArgs) {
     timestamp: new Date(event.timestamp),
   }));
 
-  console.log("[analytics-v3] ingest", {
-    shop,
-    count: validEvents.length,
-  });
+  const clickCount = validEvents.filter((e) => e.name === "recommendation:click").length;
+  if (process.env.NODE_ENV !== "production" || clickCount > 0) {
+    console.log("[analytics-v3] ingest", {
+      shop,
+      count: validEvents.length,
+      recommendationClicks: clickCount,
+    });
+  }
 
   await prisma.cartProEventV3.createMany({
     data,
@@ -202,31 +207,33 @@ export async function action({ request }: ActionFunctionArgs) {
     (e) =>
       e.name === "recommendation:click" &&
       e.payload &&
-      typeof (e.payload as Record<string, unknown>).productId === "string" &&
-      Array.isArray((e.payload as Record<string, unknown>).recommendedProductIds)
+      typeof (e.payload as Record<string, unknown>).productId !== "undefined"
   );
   for (const e of recommendationClicks) {
     const p = e.payload as Record<string, unknown>;
-    const productId = String(p.productId);
-    const recommendedProductIds = (p.recommendedProductIds as string[]).filter((id): id is string => typeof id === "string");
+    const productId = String(p.productId ?? "");
+    if (!productId) continue;
+    const recommendedProductIds = Array.isArray(p.recommendedProductIds)
+      ? (p.recommendedProductIds as unknown[]).map((id) => String(id)).filter(Boolean)
+      : [];
     const cartValue = Math.round(Number(e.cartSnapshot?.subtotal ?? 0));
-    // CrossSellEvent click for engagement metrics (impressions, clicks, CTR).
-    prisma.crossSellEvent
-      .create({
+    // CrossSellEvent click for engagement metrics (impressions, clicks, CTR). Must await so UI sees clicks.
+    try {
+      await prisma.crossSellEvent.create({
         data: {
           shopDomain: shop,
           productId,
           eventType: "click",
           cartValue,
         },
-      })
-      .catch((err) => {
-        logWarn({
-          shop,
-          message: "analytics-v3 CrossSellEvent click create failed",
-          meta: { error: err instanceof Error ? err.message : String(err) },
-        });
       });
+    } catch (err) {
+      logWarn({
+        shop,
+        message: "analytics-v3 CrossSellEvent click create failed",
+        meta: { error: err instanceof Error ? err.message : String(err) },
+      });
+    }
     const revproSessionId = e.sessionId?.trim();
     if (!revproSessionId) continue;
     try {
