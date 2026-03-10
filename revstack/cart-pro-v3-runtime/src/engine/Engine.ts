@@ -1599,9 +1599,20 @@ export class Engine {
       }
       return;
     }
-    // Per-line in-flight: merge rapid clicks by updating expected qty; don't start a second request
+    // Per-line in-flight: merge rapid clicks by updating expected qty + optimistic UI; don't start a second request
     if (this.changeCartInFlightByLine.has(lineKey)) {
       this.expectedQtyByLine.set(lineKey, quantity);
+      // Apply optimistic update immediately so UI reflects the new qty
+      const currentRaw = getStateFromStore(this.stateStore).cart.raw;
+      if (currentRaw?.items) {
+        const optimisticItems = currentRaw.items.map((i: any) => {
+          if ((i?.key ?? '') !== lineKey) return i;
+          const p = Number(i.price) || 0;
+          return { ...i, quantity, line_price: p * quantity };
+        });
+        const itemsSubtotal = optimisticItems.reduce((s: number, i: any) => s + (Number(i.line_price) ?? 0), 0);
+        this.applyOptimisticCart({ ...currentRaw, items: optimisticItems, item_count: optimisticItems.length, items_subtotal_price: itemsSubtotal, total_price: currentRaw.total_price ?? itemsSubtotal });
+      }
       return;
     }
     this.changeCartInFlightByLine.add(lineKey);
@@ -1624,22 +1635,31 @@ export class Engine {
       this.applyOptimisticCart(optimisticRaw);
     }
     try {
-      const raw = await apiChangeCart(lineKey, quantity);
-      this.lastMutationAppliedAt = Date.now();
-      const expectedQty = this.expectedQtyByLine.get(lineKey);
-      if (raw?.items != null && typeof raw.item_count === 'number') {
-        const serverLine = raw.items.find((i: any) => (i?.key ?? '') === lineKey);
-        // Only apply if server qty matches what we currently expect (avoids snap-back from out-of-order responses)
-        if (serverLine && expectedQty !== undefined && Number(serverLine.quantity) === expectedQty) {
-          this.applyCartRawBatched(raw);
+      let sentQty = quantity;
+      // Loop: keep sending API calls until server matches the latest expected qty
+      for (;;) {
+        const raw = await apiChangeCart(lineKey, sentQty);
+        this.lastMutationAppliedAt = Date.now();
+        const expectedQty = this.expectedQtyByLine.get(lineKey);
+        if (expectedQty !== undefined && expectedQty !== sentQty) {
+          // User clicked more while API was in-flight; fire follow-up instead of syncCart
+          sentQty = expectedQty;
+          continue;
+        }
+        if (raw?.items != null && typeof raw.item_count === 'number') {
+          const serverLine = raw.items.find((i: any) => (i?.key ?? '') === lineKey);
+          if (serverLine && expectedQty !== undefined && Number(serverLine.quantity) === expectedQty) {
+            this.applyCartRawBatched(raw);
+          } else {
+            await this.syncCart();
+          }
         } else {
           await this.syncCart();
         }
-      } else {
-        await this.syncCart();
+        break;
       }
       this.expectedQtyByLine.delete(lineKey);
-      setTimeout(() => this.emitEvent('cart:change', { lineKey, quantity }), 0);
+      setTimeout(() => this.emitEvent('cart:change', { lineKey, quantity: this.expectedQtyByLine.get(lineKey) ?? quantity }), 0);
     } catch (_err) {
       this.expectedQtyByLine.delete(lineKey);
       this.setState({ cart: cartSnapshot });
