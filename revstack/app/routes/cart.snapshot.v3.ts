@@ -73,6 +73,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
         mode: "overlay",
         overlay: { enabled: true, checkoutUrl: "/checkout" },
       },
+      // Align analytics.enabled with capabilities (same source as featureFlags.enableAnalytics).
+      analytics: {
+        ...config.analytics,
+        enabled: featureFlagsFromCapabilities(billing.capabilities).enableAnalytics,
+      },
     };
 
     let collectionAware: Awaited<ReturnType<typeof buildCollectionAwareRecommendations>> = {
