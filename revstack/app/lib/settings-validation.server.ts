@@ -18,9 +18,6 @@ const recommendationStrategySchema = z.enum([
 
 const engineVersionSchema = z.enum(["v1", "v2"]);
 
-/** Runtime version for dynamic embed (v1/v2/v3). Stored in configV3. */
-const runtimeVersionSchema = z.enum(["v1", "v2", "v3"]).optional();
-
 const manualCollectionIdsSchema = z.string().refine(
   (s) => {
     try {
@@ -70,7 +67,6 @@ export const settingsFormSchema = z.object({
   countdownEnabled: z.boolean(),
   emojiMode: z.boolean(),
   engineVersion: engineVersionSchema,
-  runtimeVersion: runtimeVersionSchema,
   cartHeaderMessage1: z.string().optional(),
   cartHeaderMessage2: z.string().optional(),
   cartHeaderMessage3: z.string().optional(),
@@ -147,12 +143,6 @@ export function validateSettingsForm(formData: FormData): {
   const engineVersion =
     engineVersionRaw === "v1" || engineVersionRaw === "v2" ? engineVersionRaw : "v1";
 
-  const runtimeVersionRaw = formData.get("runtimeVersion");
-  const runtimeVersion =
-    runtimeVersionRaw === "v1" || runtimeVersionRaw === "v2" || runtimeVersionRaw === "v3"
-      ? runtimeVersionRaw
-      : undefined;
-
   const primaryColor = typeof primaryColorRaw === "string" ? primaryColorRaw.trim() || undefined : undefined;
   const accentColor = typeof accentColorRaw === "string" ? accentColorRaw.trim() || undefined : undefined;
   const backgroundColor = typeof backgroundColorRaw === "string" ? backgroundColorRaw.trim() || undefined : undefined;
@@ -186,7 +176,6 @@ export function validateSettingsForm(formData: FormData): {
     countdownEnabled,
     emojiMode,
     engineVersion,
-    runtimeVersion,
     cartHeaderMessage1,
     cartHeaderMessage2,
     cartHeaderMessage3,

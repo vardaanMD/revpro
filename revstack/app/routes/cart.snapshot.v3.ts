@@ -92,7 +92,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     console.log("[CartPro Snapshot] teaseMessage:", configV3.discounts?.teaseMessage);
     console.log("[CartPro Snapshot] recommendations count:", recommendations.length);
 
-    const runtimeVersion = configV3.runtimeVersion ?? "v3";
+    // Cart drawer is always V3; payload always reports v3 for compatibility.
+    const runtimeVersion = "v3";
 
     // Backfill rewards.tiers from flat milestonesJson when configV3 has none (e.g. pre-migration or never saved from settings).
     let configForPayload: CartProConfigV3 = configV3;

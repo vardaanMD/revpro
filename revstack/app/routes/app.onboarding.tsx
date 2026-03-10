@@ -14,7 +14,7 @@ import { buildConfigV3FromOnboardingStep3 } from "~/lib/onboarding-wizard.server
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
 import onboardingStyles from "~/styles/onboarding.module.css";
 
-/** Onboarding: on completion configV3 (including runtimeVersion) is persisted for snapshot v3. No V2-only flows. */
+/** Onboarding: on completion configV3 is persisted for snapshot v3. Cart drawer is always V3. */
 const WIZARD_STEP_WELCOME = 0;
 const WIZARD_STEP_ACTIVATE_EXTENSION = 1;
 const WIZARD_STEP_VERIFY_CART = 2;

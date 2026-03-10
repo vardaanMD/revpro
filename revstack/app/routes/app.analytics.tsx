@@ -25,7 +25,6 @@ import { StatCard } from "~/components/ui/StatCard";
 import { LineChart } from "~/components/ui/LineChart";
 import { MetricSection } from "~/components/ui/MetricSection";
 import analyticsStyles from "~/styles/analyticsPage.module.css";
-import dashboardStyles from "~/styles/dashboardIndex.module.css";
 import { MetricCardSkeleton } from "~/components/skeleton/MetricCardSkeleton";
 import skeletonStyles from "~/styles/skeleton.module.css";
 import { useRef, useState, useEffect } from "react";
@@ -80,10 +79,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const configV3 = config.configV3 as { runtimeVersion?: "v1" | "v2" | "v3" } | null | undefined;
-  const runtimeVersion: "v1" | "v2" | "v3" =
-    configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
-      ? configV3.runtimeVersion
-      : "v3";
 
   return {
     metrics,
@@ -92,7 +87,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     billingStatus: billing.billingStatus,
     isEntitled: billing.isEntitled,
     configV3: configV3 ?? null,
-    runtimeVersion,
   };
 };
 
@@ -103,7 +97,6 @@ type LoaderData = {
   billingStatus: string;
   isEntitled: boolean;
   configV3: { runtimeVersion?: "v1" | "v2" | "v3" } | null;
-  runtimeVersion: "v1" | "v2" | "v3";
 };
 
 const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
@@ -115,7 +108,7 @@ const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
 export default function AnalyticsPage() {
   const navigation = useNavigation();
   const isLoading = navigation.state === "loading";
-  const { metrics, plan, capabilities, billingStatus, isEntitled, runtimeVersion } =
+  const { metrics, plan, capabilities, billingStatus, isEntitled } =
     useLoaderData<LoaderData>();
 
   const cp = metrics.cartPerformance;
@@ -142,15 +135,8 @@ export default function AnalyticsPage() {
   const engagement = metrics.engagement;
   const totalDecisions = cp.trend.reduce((s, p) => s + p.decisions, 0);
 
-  const runtimeLabel = runtimeVersion === "v3" ? "V3" : runtimeVersion === "v1" ? "V1" : "V2";
-
   return (
     <s-page heading="Analytics">
-      <div className={analyticsStyles.runtimeBadgeWrap}>
-        <span className={dashboardStyles.runtimeBadge} title={`Cart Pro runtime: ${runtimeLabel}. Analytics show events from this runtime.`}>
-          Runtime: {runtimeLabel}
-        </span>
-      </div>
       {isLoading ? (
         <>
           <s-section heading="Analytics">

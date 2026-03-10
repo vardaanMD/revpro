@@ -23,7 +23,6 @@ import { generatePreviewDecision, type PreviewRenderState, type PreviewUI } from
 import { FormSection } from "~/components/ui/FormSection";
 import { FormField } from "~/components/ui/FormField";
 import { SelectField } from "~/components/ui/SelectField";
-import { CartPreview } from "~/components/CartPreview";
 import settingsStyles from "~/styles/settingsPage.module.css";
 import previewPanelStyles from "~/styles/previewPanel.module.css";
 
@@ -109,14 +108,8 @@ function buildConfigV3FromForm(
   }
   base.upsell.collections = collections;
 
-  // Runtime version for dynamic embed (v1/v2/v3). Default "v3".
-  if (
-    formData.runtimeVersion === "v1" ||
-    formData.runtimeVersion === "v2" ||
-    formData.runtimeVersion === "v3"
-  ) {
-    base.runtimeVersion = formData.runtimeVersion;
-  }
+  // Cart drawer is always V3; no runtime toggle.
+  base.runtimeVersion = "v3";
 
   // Safety: always set version; ensure no undefined nested objects
   base.version = "3.0.0";
@@ -177,10 +170,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const configV3 = config.configV3 as Partial<CartProConfigV3> | null | undefined;
-  const runtimeVersion =
-    configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
-      ? configV3.runtimeVersion
-      : "v3";
   const appearanceV3 = (configV3?.appearance as { backgroundColor?: string; bannerBackgroundColor?: string; cartHeaderMessages?: string[] } | undefined) ?? {};
   const cartHeaderMessages = Array.isArray(appearanceV3.cartHeaderMessages)
     ? appearanceV3.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3)
@@ -213,7 +202,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       countdownEnabled: config.countdownEnabled ?? true,
       emojiMode: config.emojiMode ?? true,
       engineVersion: config.engineVersion ?? "v1",
-      runtimeVersion,
       cartHeaderMessage1: cartHeaderMessages[0] ?? "",
       cartHeaderMessage2: cartHeaderMessages[1] ?? "",
       cartHeaderMessage3: cartHeaderMessages[2] ?? "",
@@ -399,9 +387,6 @@ export default function SettingsPage() {
 
   const [strategy, setStrategy] = useState(config.recommendationStrategy);
   const [engineVersion, setEngineVersion] = useState(config.engineVersion);
-  const [runtimeVersion, setRuntimeVersion] = useState(
-    (config as { runtimeVersion?: "v1" | "v2" | "v3" }).runtimeVersion ?? "v3"
-  );
   const initialRows = useMemo(
     () => toMilestoneRows(config.milestones ?? []),
     [config.milestones]
@@ -581,10 +566,6 @@ export default function SettingsPage() {
             >
               <div className={settingsStyles.planStateBlock}>
                 <div className={settingsStyles.planStateRow}>
-                  <s-text tone="subdued">Runtime</s-text>
-                  <s-text><strong>{(config as { runtimeVersion?: string }).runtimeVersion === "v3" ? "V3" : (config as { runtimeVersion?: string }).runtimeVersion === "v1" ? "V1" : "V2"}</strong></s-text>
-                </div>
-                <div className={settingsStyles.planStateRow}>
                   <s-text tone="subdued">Upsell</s-text>
                   <s-text>{planFeatureFlags.enableUpsell ? "On" : "Off"}</s-text>
                 </div>
@@ -611,7 +592,7 @@ export default function SettingsPage() {
           <div className={settingsStyles.section}>
             <FormSection
               heading="Cart Pro Engine"
-              description="Choose which engine version runs on your storefront. Use V3 for custom header messages and drawer background. Change anytime for instant rollback."
+              description="Choose which decision engine version runs on your storefront. Change anytime for instant rollback."
             >
               <SelectField
                 label="Engine version"
@@ -622,17 +603,6 @@ export default function SettingsPage() {
                   { value: "v2", label: "V2 (config-first)" },
                 ]}
                 onChange={setEngineVersion}
-              />
-              <SelectField
-                label="Runtime version (storefront)"
-                name="runtimeVersion"
-                value={runtimeVersion}
-                options={[
-                  { value: "v1", label: "V1" },
-                  { value: "v2", label: "V2" },
-                  { value: "v3", label: "V3" },
-                ]}
-                onChange={(v) => setRuntimeVersion(v as "v1" | "v2" | "v3")}
               />
             </FormSection>
           </div>
@@ -824,11 +794,6 @@ export default function SettingsPage() {
           <div className={settingsStyles.section}>
             {capabilities.allowUIConfig ? (
               <FormSection heading="Visual Customization">
-                {runtimeVersion !== "v3" && (
-                  <p className={settingsStyles.lockHint} style={{ marginBottom: "var(--app-space-4)" }}>
-                    <s-text tone="neutral">Header messages and drawer background apply only when Runtime version (above) is set to <strong>V3</strong>.</s-text>
-                  </p>
-                )}
                 <FormField label="Brand color" id="primaryColor" helperText="Primary brand color">
                   <input
                     id="primaryColor"
@@ -971,27 +936,19 @@ export default function SettingsPage() {
       </Form>
         </div>
         <div className={previewPanelStyles.previewColumn}>
-          <div className={previewPanelStyles.previewLabel}>Live preview</div>
-          <div className={previewPanelStyles.previewDrawerWrap}>
-            <CartPreview ui={previewRenderState.ui} decision={previewRenderState.decision} capabilities={capabilities} enableCrossSellOverride={previewEnableCrossSell} />
+          <div className={previewPanelStyles.previewLabel}>
+            Cart drawer preview
           </div>
-          {runtimeVersion === "v3" && (
-            <>
-              <div className={previewPanelStyles.previewLabel} style={{ marginTop: "var(--app-space-6)" }}>
-                V3 preview
-              </div>
-              <p className={settingsStyles.v3PreviewHint}>
-                Same snapshot as storefront (mergeWithDefaultV3 + featureFlags + recommendations). Save to refresh.
-              </p>
-              <div className={previewPanelStyles.previewDrawerWrap}>
-                <iframe
-                  title="Cart Pro V3 preview"
-                  src="/app/preview-v3-frame"
-                  className={previewPanelStyles.previewV3Iframe}
-                />
-              </div>
-            </>
-          )}
+          <p className={settingsStyles.v3PreviewHint}>
+            Same snapshot as storefront (mergeWithDefaultV3 + featureFlags + recommendations). Save to refresh.
+          </p>
+          <div className={previewPanelStyles.previewDrawerWrap}>
+            <iframe
+              title="Cart Pro V3 preview"
+              src="/app/preview-v3-frame"
+              className={previewPanelStyles.previewV3Iframe}
+            />
+          </div>
         </div>
       </div>
     </s-page>

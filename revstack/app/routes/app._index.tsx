@@ -114,10 +114,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const configV3 = config.configV3 as { runtimeVersion?: "v1" | "v2" | "v3" } | null | undefined;
-  const runtimeVersion: "v1" | "v2" | "v3" =
-    configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
-      ? configV3.runtimeVersion
-      : "v3";
 
   return {
     metrics,
@@ -130,7 +126,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     onboardingJustCompleted,
     retention,
     configV3: configV3 ?? null,
-    runtimeVersion,
   };
 };
 
@@ -145,7 +140,6 @@ type LoaderData = {
   onboardingJustCompleted: boolean;
   retention: RetentionContext | null;
   configV3: { runtimeVersion?: "v1" | "v2" | "v3" } | null;
-  runtimeVersion: "v1" | "v2" | "v3";
 };
 
 const PLAN_LABELS: Record<Plan, string> = {
@@ -168,7 +162,6 @@ export default function DashboardIndex() {
     onboardingJustCompleted,
     retention,
     configV3,
-    runtimeVersion,
   } = useLoaderData<LoaderData>();
 
   const [transitionFromSkeleton, setTransitionFromSkeleton] = useState(false);
@@ -226,19 +219,11 @@ export default function DashboardIndex() {
         </>
       ) : (
         <div className={skeletonStyles.contentFade} style={{ opacity: transitionFromSkeleton ? 0.6 : 1 }}>
-      {(retention || runtimeVersion) && (
+      {retention && (
         <s-section>
           <s-stack direction="inline" gap="base" style={{ alignItems: "center" }}>
-            {retention && (
-              <>
-                <s-text tone="neutral">Status:</s-text>
-                <HealthBadge status={retention.healthStatus} />
-              </>
-            )}
-            <s-text tone="subdued">Runtime:</s-text>
-            <span className={dashboardStyles.runtimeBadge} title={`Cart Pro runtime: ${runtimeVersion === "v3" ? "V3" : runtimeVersion === "v1" ? "V1" : "V2"}`}>
-              {runtimeVersion === "v3" ? "V3" : runtimeVersion === "v1" ? "V1" : "V2"}
-            </span>
+            <s-text tone="neutral">Status:</s-text>
+            <HealthBadge status={retention.healthStatus} />
           </s-stack>
         </s-section>
       )}

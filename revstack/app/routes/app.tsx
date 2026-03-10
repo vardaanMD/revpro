@@ -5,7 +5,6 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { AppLink } from "~/components/AppLink";
 import { LoadingBar } from "~/components/LoadingBar";
-import dashboardStyles from "~/styles/dashboardIndex.module.css";
 import { authenticate } from "../shopify.server";
 import { getShopConfig, getFallbackShopConfig } from "~/lib/shop-config.server";
 import { getBillingContext } from "~/lib/billing-context.server";
@@ -139,12 +138,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const onboardingCompleted = config.onboardingCompleted;
 
-  const configV3 = config.configV3 as { runtimeVersion?: "v1" | "v2" | "v3" } | null | undefined;
-  const runtimeVersion: "v1" | "v2" | "v3" =
-    configV3?.runtimeVersion === "v1" || configV3?.runtimeVersion === "v2" || configV3?.runtimeVersion === "v3"
-      ? configV3.runtimeVersion
-      : "v3";
-
   if (process.env.NODE_ENV === "development") {
     console.log("[SHOP CONTEXT]", shop);
   }
@@ -171,16 +164,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     onboardingStep: config.onboardingStep,
     billingStatus: billing.billingStatus,
     plan: billing.plan,
-    runtimeVersion,
   };
 };
 
-function runtimeLabel(v: "v1" | "v2" | "v3"): string {
-  return v === "v3" ? "V3" : v === "v1" ? "V1" : "V2";
-}
-
 export default function App() {
-  const { apiKey, onboardingCompleted, billing, runtimeVersion } = useLoaderData<typeof loader>();
+  const { apiKey, onboardingCompleted, billing } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
   const isBillingActive = billing.isEntitled;
@@ -199,9 +187,6 @@ export default function App() {
         <AppLink to={billing.isEntitled ? "/app/billing" : "/app/upgrade"}>
           {isBillingActive ? "Billing" : "Activate Plan"}
         </AppLink>
-        <span className={dashboardStyles.runtimeBadge} title={`Cart runtime: ${runtimeLabel(runtimeVersion)}`}>
-          Cart runtime: {runtimeLabel(runtimeVersion)}
-        </span>
       </s-app-nav>
 
       <Outlet />

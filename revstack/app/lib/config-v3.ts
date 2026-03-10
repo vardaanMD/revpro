@@ -189,7 +189,7 @@ export function mergeWithDefaultV3(
       base.appearance.cartHeaderMessages = a.cartHeaderMessages
         .filter((m): m is string => typeof m === "string" && m.trim() !== "")
         .slice(0, 3)
-        .map((m) => m.trim());
+        .map((m) => (m ?? "").trim());
     }
     if (typeof a.backgroundColor === "string" && a.backgroundColor.trim()) {
       base.appearance.backgroundColor = a.backgroundColor.trim();

@@ -1,6 +1,6 @@
 {% comment %}
-  Cart Pro — theme app extension block (dynamic runtime).
-  Fetches snapshot from /apps/cart-pro/snapshot/v3; loads v1, v2, or v3 runtime based on config.runtimeVersion.
+  Cart Pro — theme app extension block. Always loads the V3 runtime.
+  Fetches snapshot from /apps/cart-pro/snapshot/v3, applies config, then loads cart-pro-v3.js.
   Enable in Theme customizer > App embeds.
 {% endcomment %}
 {% schema %}
@@ -17,15 +17,9 @@
 
   var CACHE_KEY = 'cart-pro-v3-config';
 
-  function loadRuntime(version) {
+  function loadV3() {
     var script = document.createElement('script');
-    if (version === 'v3') {
-      script.src = "{{ 'cart-pro-v3.js' | asset_url }}";
-    } else if (version === 'v2') {
-      script.src = "{{ 'cart-pro-v2.js' | asset_url }}";
-    } else {
-      script.src = "{{ 'cart-pro-v1.js' | asset_url }}";
-    }
+    script.src = "{{ 'cart-pro-v3.js' | asset_url }}";
     script.defer = true;
     document.body.appendChild(script);
   }
@@ -40,18 +34,12 @@
     }
   }
 
-  function useConfigAndLoad(config) {
-    var version = (config && config.runtimeVersion) ? config.runtimeVersion : 'v3';
-    applySnapshot(config);
-    loadRuntime(version);
-  }
-
   try {
     var cached = sessionStorage.getItem(CACHE_KEY);
     if (cached) {
       var parsed = JSON.parse(cached);
-      if (parsed && typeof parsed.runtimeVersion !== 'undefined') {
-        useConfigAndLoad(parsed);
+      if (parsed && typeof parsed === 'object') {
+        applySnapshot(parsed);
         fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
           .then(function(r) {
             if (!r.ok) throw new Error('Snapshot response ' + r.status);
@@ -63,6 +51,7 @@
             if (config) applySnapshot(config);
           })
           .catch(function() {});
+        loadV3();
         return;
       }
     }
@@ -76,12 +65,12 @@
       return r.json();
     })
     .then(function(config) {
-      if (config) useConfigAndLoad(config);
-      else loadRuntime('v3');
+      if (config) applySnapshot(config);
+      loadV3();
     })
     .catch(function(err) {
       console.error('[CartPro] Snapshot load failed', err);
-      loadRuntime('v3');
+      loadV3();
     });
 
 })();
