@@ -8,6 +8,7 @@ import { useLoaderData, useNavigation } from "react-router";
 import { AppLink } from "~/components/AppLink";
 import { authenticate } from "../shopify.server";
 import { getShopConfig, getFallbackShopConfig } from "~/lib/shop-config.server";
+import { getShopCurrency } from "~/lib/shop-currency.server";
 import { getAppLayoutFromContext } from "~/lib/request-context.server";
 import { logResilience } from "~/lib/logger.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
@@ -33,8 +34,6 @@ import { MetricCardSkeleton } from "~/components/skeleton/MetricCardSkeleton";
 import { ChartSkeleton } from "~/components/skeleton/ChartSkeleton";
 import skeletonStyles from "~/styles/skeleton.module.css";
 import { useRef, useState, useEffect } from "react";
-
-const FALLBACK_CURRENCY = "USD";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const requestStart = performance.now();
@@ -74,8 +73,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   ]);
   timings.getDashboardMetrics = performance.now() - tMetrics;
 
-  const currency =
-    (process.env.STORE_CURRENCY ?? FALLBACK_CURRENCY).trim() || FALLBACK_CURRENCY;
+  const currency = process.env.STORE_CURRENCY?.trim() || getShopCurrency(config);
   const url = new URL(request.url);
   const onboardingJustCompleted =
     url.searchParams.get("onboarding") === "complete";

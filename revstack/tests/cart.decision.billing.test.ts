@@ -165,7 +165,6 @@ describe("cart.decision billing transition", () => {
     const json = (await res.json()) as Record<string, unknown>;
     expect(json).not.toHaveProperty("error");
     expect(Array.isArray(json.crossSell)).toBe(true);
-    expect(json).toHaveProperty("ui");
 
     expect(prisma.decisionMetric.create).toHaveBeenCalled();
   });

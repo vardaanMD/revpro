@@ -9,6 +9,7 @@ import type { RawCartProConfig } from './configSchema';
 
 export const defaultConfig: RawCartProConfig = {
   version: '3.0.0',
+  currency: 'USD',
   appearance: {
     primaryColor: '#333',
     accentColor: '#16a34a',

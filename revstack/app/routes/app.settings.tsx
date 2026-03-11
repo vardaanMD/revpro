@@ -9,6 +9,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "~/shopify.server";
 import { getShopConfig, getFallbackShopConfig, invalidateShopConfigCache } from "~/lib/shop-config.server";
+import { ensureShopCurrencySynced, getShopCurrency } from "~/lib/shop-currency.server";
 import { getAppLayoutFromContext } from "~/lib/request-context.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
 import { getBillingContext } from "~/lib/billing-context.server";
@@ -154,6 +155,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     admin = auth.admin as { graphql: (query: string, opts?: unknown) => Promise<Response> };
   }
   const billing = await getBillingContext(shop, config);
+  const currency = await ensureShopCurrencySynced(shop, admin as Parameters<typeof ensureShopCurrencySynced>[1]);
   const manualCollectionIds =
     config.manualCollectionIds != null && Array.isArray(config.manualCollectionIds)
       ? JSON.stringify(config.manualCollectionIds as string[], null, 2)
@@ -167,8 +169,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   let initialPreviewRenderState: PreviewRenderState | null = null;
   try {
-    const catalog = await getCatalogForShop(admin, shop, "USD", request);
-    initialPreviewRenderState = await generatePreviewDecision(shop, admin, undefined, config, catalog);
+    const catalog = await getCatalogForShop(admin, shop, currency, request);
+    initialPreviewRenderState = await generatePreviewDecision(shop, admin, undefined, config, catalog, request, currency);
   } catch (err) {
     if (err instanceof Response && err.status === 302) throw err;
     logWarn({
@@ -230,6 +232,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
     capabilities: billing.capabilities,
     initialPreviewRenderState,
+    currency,
   };
 };
 
@@ -414,7 +417,7 @@ function mergePreviewRenderState(
 }
 
 export default function SettingsPage() {
-  const { config, capabilities, initialPreviewRenderState, savedFromRedirect } = useLoaderData<typeof loader>();
+  const { config, capabilities, initialPreviewRenderState, savedFromRedirect, currency } = useLoaderData<typeof loader>();
   const actionData = useActionData() as ActionData | undefined;
   const navigation = useNavigation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1042,6 +1045,7 @@ export default function SettingsPage() {
               decision={previewRenderState.decision}
               capabilities={capabilities}
               enableCrossSellOverride={previewEnableCrossSell}
+              currency={currency}
             />
           </div>
         </div>

@@ -8,6 +8,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "~/shopify.server";
 import { getAppLayoutFromContext } from "~/lib/request-context.server";
 import { getShopConfig } from "~/lib/shop-config.server";
+import { getShopCurrency } from "~/lib/shop-currency.server";
 import { prisma } from "~/lib/prisma.server";
 import { invalidateShopConfigCache } from "~/lib/shop-config.server";
 import { buildConfigV3FromOnboardingStep3 } from "~/lib/onboarding-wizard.server";
@@ -54,6 +55,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     storefrontUrl,
     freeShippingThresholdCents: config.freeShippingThresholdCents,
     recommendationStrategy: config.recommendationStrategy ?? "COLLECTION_MATCH",
+    currency: getShopCurrency(config),
   };
 };
 
@@ -294,9 +296,9 @@ export default function OnboardingWizardPage() {
                   <input type="hidden" name="intent" value="step3_configure" />
                   <s-stack direction="block" gap="base">
                     <FormField
-                      label="Free shipping threshold (USD)"
+                      label="Free shipping threshold"
                       id="freeShippingThresholdDollars"
-                      helperText="Enter 0 to disable the free shipping bar"
+                      helperText={`Amount in your store currency (${data.currency}). Enter 0 to disable the free shipping bar.`}
                       infoTip="The cart value at which you offer free shipping. This drives the progress bar customers see — e.g. 'Add $12 more for free shipping'."
                     >
                       <input

@@ -72,17 +72,18 @@ async function firePremiumConfettiPreview(
   frame();
 }
 
-const CURRENCY = "USD";
 const MOCK_CART_TOTAL_CENTS = 1999;
+const DEFAULT_PREVIEW_CURRENCY = "USD";
 
 type MilestoneItem = { amount: number; label: string };
 
 /** Use fixed locale so server and client render the same (avoids hydration mismatch). */
-function formatMoney(cents: number): string {
+function formatMoney(cents: number, currency: string): string {
+  const code = (currency && currency.trim().length >= 2) ? currency.trim() : DEFAULT_PREVIEW_CURRENCY;
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: CURRENCY,
+      currency: code,
     }).format(cents / 100);
   } catch {
     return (cents / 100).toFixed(2);
@@ -106,10 +107,11 @@ function stripEmoji(s: string, emojiMode: boolean): string {
 }
 
 /** Placeholder products when cross-sell is empty so the recommendations section is always visible in preview. */
-function getPlaceholderRecs(): Product[] {
+function getPlaceholderRecs(currency: string): Product[] {
+  const code = (currency && currency.trim().length >= 2) ? currency.trim() : DEFAULT_PREVIEW_CURRENCY;
   return [
-    { id: "preview-rec-1", variantId: "", title: "Recommended product", price: { amount: 2499, currency: "USD" }, inStock: true, collections: [] },
-    { id: "preview-rec-2", variantId: "", title: "You may also like", price: { amount: 1999, currency: "USD" }, inStock: true, collections: [] },
+    { id: "preview-rec-1", variantId: "", title: "Recommended product", price: { amount: 2499, currency: code }, inStock: true, collections: [] },
+    { id: "preview-rec-2", variantId: "", title: "You may also like", price: { amount: 1999, currency: code }, inStock: true, collections: [] },
   ];
 }
 
@@ -119,11 +121,14 @@ interface CartPreviewProps {
   capabilities: Capabilities;
   /** When set (e.g. from settings page), overrides visibility of cross-sell section for reactive preview. */
   enableCrossSellOverride?: boolean;
+  /** Shop primary currency for formatting (e.g. from settings loader). Defaults to USD. */
+  currency?: string;
 }
 
 const ROTATE_INTERVAL_MS = 4000;
 
-export function CartPreview({ ui, decision, capabilities, enableCrossSellOverride }: CartPreviewProps) {
+export function CartPreview({ ui, decision, capabilities, enableCrossSellOverride, currency: currencyProp }: CartPreviewProps) {
+  const currency = (currencyProp && currencyProp.trim().length >= 2) ? currencyProp.trim() : DEFAULT_PREVIEW_CURRENCY;
   const { crossSell, freeShippingRemaining, milestones, enableCouponTease } = decision;
   const showConfetti = ui.showConfetti !== false;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -162,7 +167,7 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
   const showMilestones = capabilities.allowMilestones && effectiveMilestones.length > 0;
   /* When enableCrossSellOverride is provided (settings preview), use it; otherwise use capability. */
   const showCrossSell = enableCrossSellOverride !== undefined ? enableCrossSellOverride : capabilities.allowCrossSell;
-  const recsToShow = crossSell.length > 0 ? crossSell : getPlaceholderRecs();
+  const recsToShow = crossSell.length > 0 ? crossSell : getPlaceholderRecs(currency);
   const showCouponTease = capabilities.allowCouponTease && enableCouponTease;
   const couponTeaseMessage = ui.couponTeaseMessage || "Apply coupon at checkout to unlock savings";
   // Show tease banner whenever the merchant has the feature on + toggle on, regardless of capability gate
@@ -191,16 +196,16 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
     ? (ui.emojiMode ? "🎉 FREE Shipping Unlocked!" : "FREE Shipping Unlocked!")
     : freeShippingRemaining > 0
       ? (ui.emojiMode
-          ? `Almost there! Just ${formatMoney(freeShippingRemaining)} more 🚀`
-          : `Almost there! Just ${formatMoney(freeShippingRemaining)} more`)
+          ? `Almost there! Just ${formatMoney(freeShippingRemaining, currency)} more 🚀`
+          : `Almost there! Just ${formatMoney(freeShippingRemaining, currency)} more`)
       : "";
 
   const nextMilestone = effectiveMilestones.find((m) => MOCK_CART_TOTAL_CENTS < m.amount);
   const milestoneMessage = nextMilestone
     ? stripEmoji(
         ui.emojiMode
-          ? `🚚 Spend ${formatMoney(nextMilestone.amount - MOCK_CART_TOTAL_CENTS)} more to unlock ${nextMilestone.label}`
-          : `Spend ${formatMoney(nextMilestone.amount - MOCK_CART_TOTAL_CENTS)} more to unlock ${nextMilestone.label}`,
+          ? `🚚 Spend ${formatMoney(nextMilestone.amount - MOCK_CART_TOTAL_CENTS, currency)} more to unlock ${nextMilestone.label}`
+          : `Spend ${formatMoney(nextMilestone.amount - MOCK_CART_TOTAL_CENTS, currency)} more to unlock ${nextMilestone.label}`,
         ui.emojiMode
       )
     : (ui.emojiMode ? "🎉 Reward unlocked!" : "Reward unlocked!");
@@ -280,7 +285,7 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
                     +
                   </button>
                 </div>
-                <span className={styles.mockLinePrice}>{formatMoney(MOCK_CART_TOTAL_CENTS)}</span>
+                <span className={styles.mockLinePrice}>{formatMoney(MOCK_CART_TOTAL_CENTS, currency)}</span>
                 <button type="button" className={styles.mockRemoveBtn} aria-label="Remove" disabled>
                   {trashIcon}
                 </button>
@@ -314,7 +319,7 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
                       <a href={handle ? `#/products/${handle}` : "#"} className={styles.recTitle}>
                         {rec.title ?? "Recommended product"}
                       </a>
-                      <div className={styles.recPrice}>{formatMoney(priceCents)}</div>
+                      <div className={styles.recPrice}>{formatMoney(priceCents, currency)}</div>
                       <button type="button" className={styles.recAdd} disabled>
                         Add to cart
                       </button>
@@ -347,7 +352,7 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
           )}
           <div className={styles.subtotal}>
             <span>Subtotal</span>
-            <span className={styles.subtotalValue}>{formatMoney(MOCK_CART_TOTAL_CENTS)}</span>
+            <span className={styles.subtotalValue}>{formatMoney(MOCK_CART_TOTAL_CENTS, currency)}</span>
           </div>
           {shippingMsg && (
             <div className={styles.shippingMsg}>{shippingMsg}</div>

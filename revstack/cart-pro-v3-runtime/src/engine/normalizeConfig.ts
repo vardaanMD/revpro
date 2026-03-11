@@ -267,12 +267,20 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
  * Normalize canonical (or partial) config into NormalizedEngineConfig.
  * Snapshot returns full CartProConfigV3; this maps to engine-internal shape.
  */
+const DEFAULT_CURRENCY = 'USD';
+
 export function normalizeConfig(
   rawConfig: RawCartProConfig | null | undefined
 ): NormalizedEngineConfig {
   const raw = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+  const currency =
+    (typeof (raw as Record<string, unknown>).currency === 'string' &&
+     ((raw as Record<string, unknown>).currency as string).trim().length >= 2)
+      ? ((raw as Record<string, unknown>).currency as string).trim()
+      : DEFAULT_CURRENCY;
   return {
     version: typeof raw.version === 'string' ? raw.version.trim() || DEFAULT_VERSION : DEFAULT_VERSION,
+    currency,
     appearance: normalizeAppearance(raw),
     discounts: normalizeDiscounts(raw),
     freeGifts: normalizeFreeGifts(raw),

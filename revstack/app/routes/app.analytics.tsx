@@ -9,6 +9,7 @@ import { AppLink } from "~/components/AppLink";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "~/shopify.server";
 import { getShopConfig, getFallbackShopConfig } from "~/lib/shop-config.server";
+import { getShopCurrency } from "~/lib/shop-currency.server";
 import { getAppLayoutFromContext } from "~/lib/request-context.server";
 import { logResilience } from "~/lib/logger.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
@@ -29,8 +30,6 @@ import { MetricCardSkeleton } from "~/components/skeleton/MetricCardSkeleton";
 import skeletonStyles from "~/styles/skeleton.module.css";
 import { useRef, useState, useEffect } from "react";
 import { logInfo } from "~/lib/logger.server";
-
-const CURRENCY = process.env.STORE_CURRENCY ?? "USD";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const requestStart = performance.now();
@@ -79,6 +78,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const configV3 = config.configV3 as { runtimeVersion?: "v3" } | null | undefined;
+  const currency = process.env.STORE_CURRENCY?.trim() || getShopCurrency(config);
 
   return {
     metrics,
@@ -87,6 +87,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     billingStatus: billing.billingStatus,
     isEntitled: billing.isEntitled,
     configV3: configV3 ?? null,
+    currency,
   };
 };
 
@@ -97,6 +98,7 @@ type LoaderData = {
   billingStatus: string;
   isEntitled: boolean;
   configV3: { runtimeVersion?: "v3" } | null;
+  currency: string;
 };
 
 const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
@@ -108,7 +110,7 @@ const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
 export default function AnalyticsPage() {
   const navigation = useNavigation();
   const isLoading = navigation.state === "loading";
-  const { metrics, plan, capabilities, billingStatus, isEntitled } =
+  const { metrics, plan, capabilities, billingStatus, isEntitled, currency } =
     useLoaderData<LoaderData>();
 
   const cp = metrics.cartPerformance;
@@ -226,8 +228,8 @@ export default function AnalyticsPage() {
             <StatCard label="Cart opens" value={cp.summary.totalDecisions} contextLabel={rangeLabel} />
             <StatCard label="Carts that saw recommendations" value={`${(cp.summary.showRate * 100).toFixed(1)}%`} contextLabel="of cart opens" />
             <StatCard label="Added to cart from recommendations" value={addRateDisplay} contextLabel="when recommendations were shown" />
-            <StatCard label="Average cart total when opened" contextLabel={rangeLabel} value={formatCurrency(cp.summary.avgCartValue, CURRENCY)} />
-            <StatCard label="Total cart value (sum when opened)" contextLabel={`${rangeLabel} — not revenue`} value={formatCurrency(cp.cartValueAtEvaluation, CURRENCY)} />
+            <StatCard label="Average cart total when opened" contextLabel={rangeLabel} value={formatCurrency(cp.summary.avgCartValue, currency)} />
+            <StatCard label="Total cart value (sum when opened)" contextLabel={`${rangeLabel} — not revenue`} value={formatCurrency(cp.cartValueAtEvaluation, currency)} />
           </MetricSection>
         </s-section>
 
@@ -262,7 +264,7 @@ export default function AnalyticsPage() {
             Revenue from your store’s paid orders (we use the orders/paid webhook; permission is granted when you install the app). We don’t claim this is caused by the app.
           </p>
           <MetricSection>
-            <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, CURRENCY)} contextLabel={`${rangeLabel} from paid orders`} />
+            <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, currency)} contextLabel={`${rangeLabel} from paid orders`} />
           </MetricSection>
         </s-section>
       </div>

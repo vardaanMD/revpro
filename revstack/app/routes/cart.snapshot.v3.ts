@@ -14,6 +14,7 @@ import {
   mergeWithDefaultV3,
   type CartProConfigV3,
 } from "~/lib/config-v3";
+import { getShopCurrency } from "~/lib/shop-currency.server";
 import { warmCatalogForShop } from "~/lib/catalog-warm.server";
 import { prisma } from "~/lib/prisma.server";
 import {
@@ -122,6 +123,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       productToCollections: collectionAware.productToCollections,
       recommendations,
       runtimeVersion,
+      currency: getShopCurrency(shopConfig),
     };
 
     return Response.json(snapshotPayload, {
@@ -142,6 +144,7 @@ function safeFallbackSnapshot() {
   return {
     version: "3.0.0",
     runtimeVersion: "v3",
+    currency: "USD",
     appearance: {
       primaryColor: "#333",
       accentColor: "#16a34a",

@@ -7,6 +7,7 @@ import {
 } from "@revpro/decision-engine";
 import type { Product } from "@revpro/decision-engine";
 import { getShopConfig } from "~/lib/shop-config.server";
+import { getShopCurrency } from "~/lib/shop-currency.server";
 import { logWarn } from "~/lib/logger.server";
 import { getCatalogForShop } from "~/lib/catalog.server";
 import { AdminApi401Error } from "~/lib/admin-api-errors.server";
@@ -96,6 +97,7 @@ export type PreviewOverrides = {
  * Does NOT call storefront /cart/decision; does NOT mutate DB.
  * Optional overrides apply only to this call and are not persisted.
  * Pass config to avoid redundant getShopConfig when caller already has it.
+ * Pass currencyFromLoader to use shop primary currency (e.g. from ensureShopCurrencySynced).
  */
 export async function generatePreviewDecision(
   shop: string,
@@ -103,14 +105,18 @@ export async function generatePreviewDecision(
   overrides?: PreviewOverrides,
   configFromLoader?: ShopConfig | null,
   catalogFromLoader?: Product[] | null,
-  request?: Request
+  request?: Request,
+  currencyFromLoader?: string
 ): Promise<PreviewRenderState> {
   const config = configFromLoader ?? (await getShopConfig(shop));
+  const currency = currencyFromLoader?.trim() && currencyFromLoader.length >= 2
+    ? currencyFromLoader.trim()
+    : getShopCurrency(config);
   let catalog: Product[] =
     catalogFromLoader ??
     (await (async () => {
       try {
-        return await getCatalogForShop(admin, shop, "USD", request);
+        return await getCatalogForShop(admin, shop, currency, request);
       } catch (err) {
         if (err instanceof Response && err.status === 302) throw err;
         if (err instanceof AdminApi401Error) throw err;
@@ -122,7 +128,6 @@ export async function generatePreviewDecision(
         return [];
       }
     })());
-  const currency = "USD";
   const cart = buildMockCartSnapshot(catalog, currency);
 
   const planRaw = config.plan ?? "basic";

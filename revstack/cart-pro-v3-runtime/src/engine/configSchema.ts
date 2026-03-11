@@ -112,6 +112,8 @@ export interface CartProConfigV3 {
   checkout: CartProConfigV3Checkout;
   analytics: CartProConfigV3Analytics;
   freeShipping?: CartProConfigV3FreeShipping;
+  /** Shop primary currency (e.g. USD, EUR). Used as display fallback before cart is loaded. */
+  currency?: string;
   /** Collection-aware recommendations: collectionId -> list. Present when snapshot uses buildCollectionAwareRecommendations. */
   recommendationsByCollection?: Record<string, SnapshotRecommendationItemRaw[]>;
   /** Product ID (string) -> collection IDs. Used with recommendationsByCollection to derive primary collection from cart. */
@@ -234,6 +236,8 @@ export interface ConfigAppearance {
  */
 export interface NormalizedEngineConfig {
   version: string;
+  /** Shop primary currency; fallback for display before cart.raw.currency is available. */
+  currency: string;
   appearance: ConfigAppearance;
   discounts: ConfigDiscounts;
   freeGifts: ConfigFreeGifts;

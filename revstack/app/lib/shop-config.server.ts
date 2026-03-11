@@ -125,5 +125,6 @@ export function getFallbackShopConfig(shop: string): ShopConfig {
     shippingBarPosition: "top",
     engineVersion: DEFAULT_SHOP_CONFIG.engineVersion,
     configV3: null,
+    primaryCurrency: "USD",
   };
 }

@@ -31,7 +31,8 @@
   $: checkout = $stateStore?.checkout ?? { enabled: false, overlayVisible: false, checkoutUrl: '' };
 
   $: items = cart?.raw?.items ?? [];
-  $: currency = cart?.raw?.currency ?? 'USD';
+  $: snapshotCurrency = engine?.getConfig?.()?.currency;
+  $: currency = cart?.raw?.currency ?? snapshotCurrency ?? 'USD';
   $: totalDiscountCents = cart?.raw?.total_discount ?? (cart?.subtotal && cart?.total != null ? Math.max(0, cart.subtotal - cart.total) : 0);
   $: showCheckoutIframe = checkout?.enabled && checkout?.overlayVisible && checkout?.checkoutUrl;
 

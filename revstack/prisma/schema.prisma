@@ -70,6 +70,8 @@ model ShopConfig {
   milestoneFlags            Json?
   engineVersion             String    @default("v1")
   configV3                  Json?
+  /** Shop primary currency (e.g. USD, EUR). Synced from Shopify shop.currencyCode. Null = not yet synced; app uses USD fallback. */
+  primaryCurrency           String?
 }
 
 model WebhookEvent {

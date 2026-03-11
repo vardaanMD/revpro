@@ -5,6 +5,7 @@
 import type { Product } from "@revpro/decision-engine";
 import type { CartSnapshot } from "@revpro/decision-engine";
 import { getShopConfig } from "~/lib/shop-config.server";
+import { getShopCurrency } from "~/lib/shop-currency.server";
 import { getBillingContext } from "~/lib/billing-context.server";
 import { resolveStrategyCatalogFromIndex } from "~/lib/catalog-index.server";
 import type { CatalogIndexSerialized, ProductLite } from "~/lib/catalog-index.server";
@@ -168,11 +169,10 @@ const EMPTY_CART: CartSnapshot = {
   items: [],
 };
 
-const CURRENCY = "USD";
-
 /** Build in-memory catalog index from ShopProduct rows. No Redis. */
 function buildCatalogIndexFromDbRows(
-  rows: Awaited<ReturnType<typeof prisma.shopProduct.findMany>>
+  rows: Awaited<ReturnType<typeof prisma.shopProduct.findMany>>,
+  currency: string
 ): CatalogIndexSerialized {
   const productsById: Record<string, ProductLite> = {};
   const crossSellCandidates: ProductLite[] = [];
@@ -202,7 +202,7 @@ function buildCatalogIndexFromDbRows(
 
   return {
     updatedAt: Date.now(),
-    currency: CURRENCY,
+    currency,
     productsById,
     crossSellCandidates,
     collectionMap,
@@ -266,7 +266,8 @@ export async function buildBootstrapSnapshotV2(
   if (rows.length === 0) {
     throw new Error(`V2 bootstrap: catalog missing for shop ${shop} (no ShopProduct rows)`);
   }
-  const index = buildCatalogIndexFromDbRows(rows);
+  const currency = getShopCurrency(config);
+  const index = buildCatalogIndexFromDbRows(rows, currency);
 
   const manualCollectionIds = Array.isArray(config.manualCollectionIds)
     ? (config.manualCollectionIds as string[])
@@ -378,11 +379,12 @@ export async function getHydratedRecommendationsForShop(
   shop: string
 ): Promise<HydratedRecommendation[]> {
   await ensureCatalogReady(shop);
+  const config = await getShopConfig(shop);
+  const currency = getShopCurrency(config);
   const rows = await prisma.shopProduct.findMany({ where: { shopDomain: shop } });
   if (rows.length === 0) return [];
 
-  const index = buildCatalogIndexFromDbRows(rows);
-  const config = await getShopConfig(shop);
+  const index = buildCatalogIndexFromDbRows(rows, currency);
   const billing = await getBillingContext(shop, config);
   const capabilities = billing.capabilities;
 
@@ -469,6 +471,8 @@ export async function buildCollectionAwareRecommendations(
   shop: string
 ): Promise<CollectionAwareRecommendations> {
   await ensureCatalogReady(shop);
+  const config = await getShopConfig(shop);
+  const currency = getShopCurrency(config);
   const rows = await prisma.shopProduct.findMany({ where: { shopDomain: shop } });
   if (rows.length === 0) {
     return {
@@ -477,7 +481,7 @@ export async function buildCollectionAwareRecommendations(
     };
   }
 
-  const index = buildCatalogIndexFromDbRows(rows);
+  const index = buildCatalogIndexFromDbRows(rows, currency);
   const { productsById, collectionMap } = index;
 
   const productToCollections: Record<string, string[]> = {};

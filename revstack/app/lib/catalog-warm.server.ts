@@ -6,6 +6,8 @@
 import type { Product } from "@revpro/decision-engine";
 import { getRedis, redisKey } from "~/lib/redis.server";
 import { getCatalogForShop } from "~/lib/catalog.server";
+import { getShopConfig } from "~/lib/shop-config.server";
+import { getShopCurrency } from "~/lib/shop-currency.server";
 import shopify from "~/shopify.server";
 import { logWarn, logResilience } from "~/lib/logger.server";
 import { prisma } from "~/lib/prisma.server";
@@ -162,12 +164,14 @@ export async function warmCatalogForShop(shop: string): Promise<Product[]> {
     return [];
   }
   let products: Product[];
+  const config = await getShopConfig(shop);
+  const currency = getShopCurrency(config);
   try {
     const admin = await shopify.unauthenticated.admin(shop);
     const auth = admin?.admin ?? null;
     console.log("[CATALOG WARM TRACE] admin client created");
     if (!auth) return [];
-    products = await getCatalogForShop(auth, shop, "USD");
+    products = await getCatalogForShop(auth, shop, currency);
     console.log("[CATALOG WARM TRACE] products fetched:", products.length);
   } catch (err) {
     await recordCatalogFailure(shop);
@@ -218,7 +222,7 @@ export async function warmCatalogForShop(shop: string): Promise<Product[]> {
     await redis.set(catalogRedisKey(shop), JSON.stringify(payload), "EX", REDIS_TTL_SECONDS);
     // Build and store precomputed decision index (no per-request catalog transform).
     const { buildCatalogIndexFromSnapshot } = await import("~/lib/catalog-index.server");
-    const index = buildCatalogIndexFromSnapshot(payload, "USD");
+    const index = buildCatalogIndexFromSnapshot(payload, currency);
     await redis.set(
       redisKey(shop, "catalog_index"),
       JSON.stringify(index),

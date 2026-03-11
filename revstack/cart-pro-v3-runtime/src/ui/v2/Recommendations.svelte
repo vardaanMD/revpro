@@ -11,7 +11,8 @@
   $: recs = state?.snapshotRecommendations ?? [];
   $: hasRecs = recs.length > 0;
   $: loading = state?.upsell?.loading ?? false;
-  $: currency = state?.cart?.raw?.currency ?? 'USD';
+  $: snapshotCurrency = engine?.getConfig?.()?.currency;
+  $: currency = state?.cart?.raw?.currency ?? snapshotCurrency ?? 'USD';
   // Phase 7: list version drives key block so list transition runs when engine replaces the list
   $: listVersion = state?.recommendationListVersion ?? 0;
   // Phase 8: when cart has items and we're waiting for first decision, show skeleton instead of default bucket
