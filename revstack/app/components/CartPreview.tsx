@@ -165,7 +165,8 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
   const recsToShow = crossSell.length > 0 ? crossSell : getPlaceholderRecs();
   const showCouponTease = capabilities.allowCouponTease && enableCouponTease;
   const couponTeaseMessage = ui.couponTeaseMessage || "Apply coupon at checkout to unlock savings";
-  const showTeaseBanner = showCouponTease && ui.showTeaseMessage !== false;
+  // Show tease banner whenever the merchant has the feature on + toggle on, regardless of capability gate
+  const showTeaseBanner = enableCouponTease && ui.showTeaseMessage !== false && !!couponTeaseMessage;
 
   const lastMilestoneAmount = effectiveMilestones.length
     ? effectiveMilestones[effectiveMilestones.length - 1].amount
@@ -326,11 +327,6 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
         )}
 
         <div className={styles.footer}>
-          {showTeaseBanner && (
-            <div className={styles.couponTeaseBanner}>
-              {couponTeaseMessage}
-            </div>
-          )}
           {showCouponTease && (
             <div className={styles.couponSection}>
               <input
@@ -342,6 +338,11 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
               <button type="button" className={styles.couponApply} disabled>
                 Apply
               </button>
+            </div>
+          )}
+          {showTeaseBanner && (
+            <div className={styles.couponTeaseBanner}>
+              {couponTeaseMessage}
             </div>
           )}
           <div className={styles.subtotal}>

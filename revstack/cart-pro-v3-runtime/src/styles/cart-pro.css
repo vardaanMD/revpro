@@ -92,10 +92,9 @@
   padding: 6px 8px;
 }
 #cart-pro-recommendations.cp-recommendations-container {
-  padding: 0 8px 12px 8px;
+  padding: 8px 8px 12px 8px;
   border-top: 1px solid #eee;
-  padding-top: 8px;
-  margin: 0 8px 8px;
+  margin: 0 0 8px 0;
 }
 #cart-pro-close {
   background: none;
@@ -359,14 +358,14 @@
   scroll-snap-align: start;
 }
 
-/* Recommendations: horizontal scroll, short card height */
+/* Recommendations: horizontal scroll, short card height; padding so first/last cards aren't cropped */
 .cp-rec-list {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 0 12px;
-  margin: 0 -10px;
+  padding: 4px 10px 12px 10px;
+  margin: 0;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
@@ -385,12 +384,12 @@
   border-radius: 3px;
 }
 
-/* Recommendation card: normal width, short height */
+/* Recommendation card: compact width/height so section isn't oversized, first card fully visible */
 .cp-rec-list .cart-pro-rec-card {
   flex-shrink: 0;
-  width: 180px;
+  width: 140px;
   min-height: 0;
-  padding: 8px;
+  padding: 6px;
   flex-direction: column;
   align-items: stretch;
   margin-bottom: 0;
@@ -399,7 +398,7 @@
 
 .cp-rec-list .cart-pro-rec-img-wrap {
   width: 100%;
-  height: 72px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -419,11 +418,11 @@
 }
 
 .cp-rec-list .cart-pro-rec-info {
-  gap: 6px;
+  gap: 4px;
 }
 
 .cp-rec-list .cart-pro-rec-title {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -432,12 +431,12 @@
 }
 
 .cp-rec-list .cart-pro-rec-price {
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .cp-rec-list .cart-pro-rec-add {
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 5px 8px;
+  font-size: 11px;
 }
 
 .cart-pro-rec-card {
@@ -1067,6 +1066,12 @@
 }
 .cp-recommendations-content {
   position: relative;
+}
+
+.cp-recommendations-heading {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .cp-recommendations-inner {

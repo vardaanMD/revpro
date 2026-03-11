@@ -256,33 +256,33 @@
 .recsHeading {
   font-size: 13px;
   font-weight: 600;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
 }
 
 .carousel {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
-  padding: 4px 0 12px;
+  padding: 4px 10px 12px 10px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
 }
 
 .recCard {
   flex: 0 0 auto;
-  width: 180px;
-  padding: 8px;
+  width: 140px;
+  padding: 6px;
   border: 1px solid #eee;
   border-radius: var(--cp-radius, 12px);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   scroll-snap-align: start;
 }
 
 .recImgWrap {
   width: 100%;
-  height: 72px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -314,7 +314,7 @@
 }
 
 .recTitle {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
   font-weight: 600;
   text-decoration: none;
@@ -330,19 +330,19 @@
 }
 
 .recPrice {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
 .recAdd {
   align-self: flex-start;
-  padding: 6px 10px;
+  padding: 5px 8px;
   background: var(--cp-primary, #111);
   color: #fff;
   border: none;
   border-radius: var(--cp-radius, 12px);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   cursor: default;
   opacity: 0.8;
 }

@@ -445,7 +445,7 @@ export default function SettingsPage() {
   const [previewEnableMilestones, setPreviewEnableMilestones] = useState(config.enableMilestones);
   const [previewEnableCouponTease, setPreviewEnableCouponTease] = useState(config.enableCouponTease);
   const [previewShowHeaderBanner, setPreviewShowHeaderBanner] = useState(config.showHeaderBanner !== false);
-  const [previewShowTeaseMessage, setPreviewShowTeaseMessage] = useState(config.showTeaseMessage !== false);
+  const previewShowTeaseMessage = true;
 
   useEffect(() => {
     if (actionData && !actionData.success && actionData.error) {
@@ -819,16 +819,7 @@ export default function SettingsPage() {
                       aria-label="Coupon tease message"
                     />
                   </FormField>
-                  {/* Hidden ensures we always receive the key when checkbox is unchecked */}
-                  <input type="hidden" name="showTeaseMessage" value="" />
-                  <s-checkbox
-                    name="showTeaseMessage"
-                    label="Show coupon tease message"
-                    defaultChecked={config.showTeaseMessage !== false}
-                    value="on"
-                    helperText="Show the tease banner when no discount code is applied"
-                    onChange={(e: React.FormEvent<HTMLElement>) => setPreviewShowTeaseMessage((e.currentTarget as HTMLInputElement).checked)}
-                  />
+                  <input type="hidden" name="showTeaseMessage" value="on" />
                 </>
               ) : (
                 <div className={settingsStyles.lockedInline}>
