@@ -202,8 +202,12 @@ export function getEngine(): Engine {
 /**
  * Mounts Cart Pro V3 inside an open Shadow DOM.
  * Injects passed styles (global + component CSS) into shadow root unconditionally.
+ * On hot reload (HMR), unmounts the previous instance first so we don't double-mount and hang.
  */
 export function mountCartProV3(componentCss: string): void {
+  if (typeof import.meta !== 'undefined' && (import.meta as { hot?: boolean }).hot && getResolvedHostElement()) {
+    unmountCartProV3();
+  }
   const engine = getEngine();
   if (themeConnectorInstance) {
     themeConnectorInstance.destroy();

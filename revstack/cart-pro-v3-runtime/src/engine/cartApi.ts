@@ -35,12 +35,31 @@ const FETCH_OPTIONS: RequestInit = {
   },
 };
 
+/** Timeout for cart API requests so a stuck network doesn't leave the app syncing forever. */
+const CART_FETCH_TIMEOUT_MS = 15000;
+
+function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number = CART_FETCH_TIMEOUT_MS
+): Promise<Response> {
+  const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = ac
+    ? setTimeout(() => ac.abort(), timeoutMs)
+    : null;
+  const signal = ac?.signal;
+  const resPromise = fetch(url, { ...init, signal });
+  if (!timeoutId) return resPromise;
+  return resPromise.finally(() => clearTimeout(timeoutId));
+}
+
 /**
  * GET /cart.js — fetch current cart.
  * Uses cache: 'no-store' so we never get a stale cart after mutations (avoids qty/price snap-back).
+ * Times out after CART_FETCH_TIMEOUT_MS so a stuck request doesn't leave syncing true forever.
  */
 export async function fetchCart(): Promise<any> {
-  const res = await fetch(cartJsUrl(), {
+  const res = await fetchWithTimeout(cartJsUrl(), {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
     cache: 'no-store',
@@ -53,15 +72,19 @@ export async function fetchCart(): Promise<any> {
 
 /**
  * POST /cart/add.js — add variant to cart.
+ * Times out after CART_FETCH_TIMEOUT_MS so add-to-cart doesn't hang indefinitely.
  */
 export async function addToCart(variantId: number, quantity: number): Promise<any> {
-  const res = await fetch(cartAddUrl(), {
-    ...FETCH_OPTIONS,
-    method: 'POST',
-    body: JSON.stringify({
-      items: [{ id: variantId, quantity }],
-    }),
-  });
+  const res = await fetchWithTimeout(
+    cartAddUrl(),
+    {
+      ...FETCH_OPTIONS,
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: variantId, quantity }],
+      }),
+    }
+  );
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.description || data.message || `Add to cart failed: ${res.status}`);
@@ -73,7 +96,7 @@ export async function addToCart(variantId: number, quantity: number): Promise<an
  * POST /cart/change.js — change line item quantity. Use quantity 0 to remove.
  */
 export async function changeCart(lineKey: string, quantity: number): Promise<any> {
-  const res = await fetch(cartChangeUrl(), {
+  const res = await fetchWithTimeout(cartChangeUrl(), {
     ...FETCH_OPTIONS,
     method: 'POST',
     body: JSON.stringify({ id: lineKey, quantity }),
@@ -97,7 +120,7 @@ export async function removeItem(lineKey: string): Promise<any> {
  * Attributes are sent to checkout and appear in order note_attributes.
  */
 export async function updateCartAttributes(attributes: Record<string, string>): Promise<any> {
-  const res = await fetch(cartUpdateUrl(), {
+  const res = await fetchWithTimeout(cartUpdateUrl(), {
     ...FETCH_OPTIONS,
     method: 'POST',
     body: JSON.stringify({ attributes }),

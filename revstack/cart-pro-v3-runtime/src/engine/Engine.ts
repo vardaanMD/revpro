@@ -1101,7 +1101,6 @@ export class Engine {
     try {
       const raw = await apiFetchCart();
       if (Date.now() - this.lastMutationAppliedAt < Engine.MUTATION_GRACE_MS) {
-        this.setState({ cart: { syncing: false } });
         return;
       }
       this.perf.cartSyncDuration =
@@ -1112,10 +1111,9 @@ export class Engine {
       this.applyCartRawBatched(raw, !st.initialSyncDone, options);
       this.ensureCartHasRevproSessionId(raw);
     } catch (err) {
-      this.setState({
-        cart: { syncing: false },
-      });
       throw err;
+    } finally {
+      this.setState({ cart: { syncing: false } });
     }
   }
 

@@ -16,11 +16,8 @@
   });
 
   function openDrawer() {
-    // Defer open so click handler returns immediately; avoids main-thread hang from sync store update + full re-render.
-    setTimeout(() => {
-      engine.setState({ ui: { drawerOpen: true } });
-      engine.onDrawerOpened?.();
-    }, 0);
+    engine.setState({ ui: { drawerOpen: true } });
+    engine.onDrawerOpened?.();
   }
 
   function closeDrawer() {

@@ -141,12 +141,8 @@ export function createThemeConnector(
     const handler = (e: Event): void => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      // Defer open so click handler returns immediately; avoids main-thread hang from sync store update + full re-render.
-      setTimeout(() => {
-        if (destroyed) return;
-        engine.setState({ ui: { drawerOpen: true } });
-        engine.onDrawerOpened?.();
-      }, 0);
+      engine.setState({ ui: { drawerOpen: true } });
+      engine.onDrawerOpened?.();
     };
 
     const seen = new Set<Element>();
@@ -166,13 +162,10 @@ export function createThemeConnector(
   }
 
   const externalUpdateHandler = (): void => {
-    if (!openOnExternal) return;
-    // Defer open so event handler returns immediately; avoids main-thread hang from sync store update + full re-render.
-    setTimeout(() => {
-      if (destroyed) return;
+    if (openOnExternal) {
       engine.setState({ ui: { drawerOpen: true } });
       engine.onDrawerOpened?.();
-    }, 0);
+    }
   };
 
   engine.on('cart:external-update', externalUpdateHandler);
