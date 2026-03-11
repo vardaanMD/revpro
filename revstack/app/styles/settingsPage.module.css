@@ -8,6 +8,42 @@
   padding: 0;
 }
 
+/* Card layout: sections as cards in a grid */
+.cardsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-5);
+}
+
+.cardRow {
+  display: grid;
+  gap: var(--app-space-5);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .cardRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.card {
+  background: var(--app-surface-base);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  padding: var(--app-space-5);
+  box-shadow: var(--app-shadow-card);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.card:hover {
+  box-shadow: var(--app-shadow-card-hover);
+}
+
+.cardFull {
+  grid-column: 1 / -1;
+}
+
 .inlineError {
   margin: var(--app-space-1) 0 0;
   font-size: var(--app-font-sm);
@@ -42,24 +78,78 @@
   flex-shrink: 0;
 }
 
-.numberInput {
-  padding: var(--app-space-2) var(--app-space-3);
-  min-width: 8rem;
+/* Text and number inputs — shared styling */
+.numberInput,
+.textInput {
   font-size: var(--app-font-base);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-base);
+  line-height: 1.4;
+  color: var(--p-color-text, #202223);
   background: var(--app-surface-base);
-  color: var(--p-color-text);
+  border: 1px solid var(--p-color-border, #c9cccf);
+  border-radius: var(--app-radius-base);
+  padding: 10px 14px;
+  min-width: 8rem;
+  width: 100%;
+  max-width: 16rem;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.numberInput::placeholder,
+.textInput::placeholder {
+  color: var(--app-muted-text);
+}
+
+.numberInput:hover,
+.textInput:hover {
+  border-color: var(--p-color-border-hover, #8c9196);
+}
+
+.numberInput:focus,
+.textInput:focus {
+  outline: none;
+  border-color: var(--p-color-border-info, #2c6ecb);
+  box-shadow: 0 0 0 2px rgba(44, 110, 203, 0.25);
+}
+
+.numberInput:disabled,
+.textInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.textInput {
+  min-width: 12rem;
+}
+
+.stackVertical {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-2);
+}
+
+.stackVertical input {
+  max-width: 100%;
 }
 
 .colorInput {
-  width: 48px;
-  height: 36px;
-  padding: var(--app-space-1);
-  border: 1px solid var(--app-border-subtle);
+  width: 56px;
+  height: 40px;
+  padding: 4px;
+  border: 1px solid var(--p-color-border, #c9cccf);
   border-radius: var(--app-radius-base);
   cursor: pointer;
   background: var(--app-surface-base);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.colorInput:hover {
+  border-color: var(--p-color-border-hover, #8c9196);
+}
+
+.colorInput:focus {
+  outline: none;
+  border-color: var(--p-color-border-info, #2c6ecb);
+  box-shadow: 0 0 0 2px rgba(44, 110, 203, 0.25);
 }
 
 .lockedInline {
@@ -86,6 +176,14 @@
   border-bottom: none;
 }
 
+/* Section inside card: no extra border */
+.card .section,
+.card .section:last-of-type {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
 .milestoneEditor {
   display: flex;
   flex-direction: column;
@@ -102,10 +200,16 @@
 .milestoneSpendWrap {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--app-border-subtle);
+  border: 1px solid var(--p-color-border, #c9cccf);
   border-radius: var(--app-radius-base);
   background: var(--app-surface-base);
   overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.milestoneSpendWrap:focus-within {
+  border-color: var(--p-color-border-info, #2c6ecb);
+  box-shadow: 0 0 0 2px rgba(44, 110, 203, 0.25);
 }
 
 .milestoneSpendPrefix {
@@ -116,18 +220,31 @@
 }
 
 .milestoneInput {
-  padding: var(--app-space-2) var(--app-space-3);
+  padding: 10px 14px;
   min-width: 7rem;
   font-size: var(--app-font-base);
-  border: 1px solid var(--app-border-subtle);
-  border-radius: var(--app-radius-base);
+  line-height: 1.4;
+  color: var(--p-color-text, #202223);
   background: var(--app-surface-base);
-  color: var(--p-color-text);
+  border: 1px solid var(--p-color-border, #c9cccf);
+  border-radius: var(--app-radius-base);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.milestoneInput:focus {
+  outline: none;
+  border-color: var(--p-color-border-info, #2c6ecb);
+  box-shadow: 0 0 0 2px rgba(44, 110, 203, 0.25);
 }
 
 .milestoneSpendWrap .milestoneInput {
   border: none;
   min-width: 5rem;
+  box-shadow: none;
+}
+
+.milestoneSpendWrap .milestoneInput:focus {
+  box-shadow: none;
 }
 
 .milestoneArrow {
@@ -153,6 +270,18 @@
   font-size: var(--app-font-sm);
   color: var(--app-muted-text);
   margin: 0 0 var(--app-space-2);
+}
+
+.saveButtonWrap {
+  padding-top: var(--app-space-2);
+}
+
+/* Color pickers in a row on larger screens */
+.colorRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-space-4);
+  align-items: flex-end;
 }
 
 /* Sticky save bar when main Save button scrolls out of view */

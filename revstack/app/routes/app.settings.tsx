@@ -628,8 +628,9 @@ export default function SettingsPage() {
       <Form id="settings-form" method="post" onSubmit={handleSubmit}>
         <input type="hidden" name="milestonesJson" value={milestonesJsonValue} />
         <fieldset disabled={isSubmitting} className={settingsStyles.fieldsetReset}>
-        <s-stack direction="block" gap="base">
-          <div className={settingsStyles.section}>
+        <div className={settingsStyles.cardsGrid}>
+          <div className={settingsStyles.cardRow}>
+            <div className={settingsStyles.card}>
             <FormSection
               heading="Thresholds"
               description="Free shipping and baseline cart value used for recommendations and free shipping bar."
@@ -672,9 +673,8 @@ export default function SettingsPage() {
                 />
               </FormField>
             </FormSection>
-          </div>
-
-          <div className={settingsStyles.section}>
+            </div>
+            <div className={settingsStyles.card}>
             <FormSection heading="Cross-Sell Controls">
               <s-checkbox
                 name="enableCrossSell"
@@ -755,9 +755,11 @@ export default function SettingsPage() {
                 </div>
               )}
             </FormSection>
+            </div>
           </div>
 
-          <div className={settingsStyles.section}>
+          <div className={settingsStyles.cardRow}>
+            <div className={`${settingsStyles.card} ${settingsStyles.cardFull}`}>
             <FormSection
               heading="Reward Milestones"
               description="Incentives customers unlock as cart value increases."
@@ -853,11 +855,14 @@ export default function SettingsPage() {
                 </div>
               )}
             </FormSection>
+            </div>
           </div>
 
-          <div className={settingsStyles.section}>
+          <div className={settingsStyles.cardRow}>
+            <div className={`${settingsStyles.card} ${settingsStyles.cardFull}`}>
             {capabilities.allowUIConfig ? (
               <FormSection heading="Visual Customization">
+                <div className={settingsStyles.colorRow}>
                 <FormField label="Brand color" id="primaryColor" helperText="Primary brand color" infoTip="Main brand color applied to buttons and primary UI elements in the cart drawer.">
                   <input
                     id="primaryColor"
@@ -902,6 +907,7 @@ export default function SettingsPage() {
                     onChange={(e) => setPreviewBannerBackgroundColor(e.target.value)}
                   />
                 </FormField>
+                </div>
                 <FormField label="Border radius" id="borderRadius" helperText="0–32" infoTip="Controls corner rounding across the cart drawer (0 = square corners, 32 = fully rounded).">
                   <input
                     id="borderRadius"
@@ -1001,14 +1007,15 @@ export default function SettingsPage() {
                 <input type="hidden" name="showHeaderBanner" value={config.showHeaderBanner !== false ? "on" : ""} />
               </FormSection>
             )}
+            </div>
           </div>
 
-          <div ref={saveButtonRef}>
+          <div ref={saveButtonRef} className={settingsStyles.saveButtonWrap}>
             <s-button type="submit" variant="primary" disabled={isSubmitting} loading={isSubmitting}>
               {isSubmitting ? "Saving…" : showSuccessBanner ? "Saved ✓" : "Save Changes"}
             </s-button>
           </div>
-        </s-stack>
+        </div>
         </fieldset>
       </Form>
       {showStickySave && (
@@ -1029,9 +1036,6 @@ export default function SettingsPage() {
           <div className={previewPanelStyles.previewLabel}>
             Live preview
           </div>
-          <p className={previewPanelStyles.previewNote}>
-            Preview updates as you change settings.
-          </p>
           <div className={previewPanelStyles.previewDrawerWrap}>
             <CartPreview
               ui={previewRenderState.ui}
