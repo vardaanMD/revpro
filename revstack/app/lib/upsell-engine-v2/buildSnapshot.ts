@@ -408,6 +408,8 @@ export async function getHydratedRecommendationsForShop(
     if (!variantId || variantId <= 0) return false;
     if (!p.title || p.title.trim().length === 0) return false;
     if (!p.handle || p.handle.trim().length === 0) return false;
+    // Exclude archived/unavailable products so they can't be shown or added to cart
+    if ((p as { inStock?: boolean }).inStock === false) return false;
     return true;
   });
 

@@ -17,10 +17,13 @@
       return (Number(cents) / 100).toFixed(2);
     }
   }
+
+  // Product page URL for storefront (relative path works on merchant's domain)
+  $: productUrl = (rec.handle && String(rec.handle).trim()) ? `/products/${encodeURIComponent(rec.handle)}` : '#';
 </script>
 
 <div class="cart-pro-rec-card cp-carousel-item" class:cp-rec-predicted={isPredicted}>
-  <a class="cart-pro-rec-img-wrap">
+  <a class="cart-pro-rec-img-wrap" href={productUrl}>
     <img
       class="cart-pro-rec-img"
       src={rec.imageUrl}
@@ -30,7 +33,7 @@
 
   <div class="cart-pro-rec-info">
 
-    <a class="cart-pro-rec-title">
+    <a class="cart-pro-rec-title" href={productUrl}>
       {rec.title}
     </a>
 

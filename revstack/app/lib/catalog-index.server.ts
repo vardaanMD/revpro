@@ -176,7 +176,7 @@ export function resolveStrategyCatalogFromIndex(
       const list: Product[] = [];
       for (const id of ids) {
         const lite = productsById[id];
-        if (lite) list.push(productLiteToProduct(lite, currency));
+        if (lite && lite.inStock) list.push(productLiteToProduct(lite, currency));
       }
       return list;
     }
@@ -201,7 +201,7 @@ export function resolveStrategyCatalogFromIndex(
       const list: Product[] = [];
       for (const id of ids) {
         const lite = productsById[id];
-        if (lite) list.push(productLiteToProduct(lite, currency));
+        if (lite && lite.inStock) list.push(productLiteToProduct(lite, currency));
       }
       return list.length > 0 ? list : crossSellCandidates.map((p) => productLiteToProduct(p, currency));
     }
