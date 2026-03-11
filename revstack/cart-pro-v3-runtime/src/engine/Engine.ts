@@ -767,7 +767,7 @@ export class Engine {
       }));
       await removeDiscountFromCart(code);
     }
-    await this.syncCart({ fromReapply: true });
+    await this.syncCart({ fromReapply: true, fromRevalidation: true });
   }
 
   /**
@@ -909,12 +909,46 @@ export class Engine {
   }
 
   /**
+   * Schedule a single debounced decision call; when it returns, set snapshotRecommendations once.
+   * Phase 3: reused after addToCart (silent apply) so list can update once after user stops adding.
+   */
+  private scheduleDecisionUpdate(raw: any): void {
+    if (this.destroyed || (raw?.items?.length ?? 0) === 0) return;
+    if (this.decisionDebounceTimer) {
+      clearTimeout(this.decisionDebounceTimer);
+      this.decisionDebounceTimer = null;
+    }
+    this.decisionDebounceTimer = setTimeout(() => {
+      this.decisionDebounceTimer = null;
+      if (this.destroyed) return;
+      const cs = getStateFromStore(this.stateStore);
+      const currentRaw = cs.cart.raw;
+      if ((currentRaw?.items?.length ?? 0) === 0) return;
+      const sig = this.getCartSignature(currentRaw);
+      fetchDecisionCrossSell(currentRaw).then((result) => {
+        if (this.destroyed || !result.ok) return;
+        const cur = getStateFromStore(this.stateStore).cart.raw;
+        if (!cur || this.getCartSignature(cur) !== sig) return;
+        if (result.items.length > 0) {
+          const curState = getStateFromStore(this.stateStore);
+          const prevIds = (curState.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
+          const nextIds = result.items.map((r: any) => r.variantId).join(',');
+          if (prevIds !== nextIds) {
+            this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now() });
+            preloadRecommendationImages(result.items);
+          }
+        }
+      });
+    }, DECISION_DEBOUNCE_MS);
+  }
+
+  /**
    * Lightweight batched cart apply for mutation happy paths (changeCart, removeItem).
    * Applies cart + shipping + rewards in ONE setState to avoid multi-render flash,
    * then defers heavier work (recommendations, upsell, decision) to a microtask.
    * @param markInitialSyncDone - when true, set initialSyncDone in the same batch (single re-render on first load)
    */
-  private applyCartRawBatched(raw: any, markInitialSyncDone?: boolean): void {
+  private applyCartRawBatched(raw: any, markInitialSyncDone?: boolean, options?: { fromRevalidation?: boolean }): void {
     if (this.destroyed) return;
     const { itemCount, subtotal, total } = Engine.cartMetricsFromRaw(raw);
     const itemsSubtotalFromRaw = raw.items_subtotal_price ?? subtotal;
@@ -975,47 +1009,31 @@ export class Engine {
     Promise.resolve().then(() => {
       if (this.destroyed) return;
 
-      // Collection-aware recommendations — only setState if list actually changed
-      const s = getStateFromStore(this.stateStore);
-      const byCollection = s.recommendationsByCollection;
-      const productToCollections = s.productToCollections;
-      if (byCollection && Object.keys(byCollection).length > 0 && productToCollections && Object.keys(productToCollections).length > 0) {
-        const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
-        const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
-        const list = Array.isArray(bucket) ? bucket : [];
-        const prevIds = (s.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
-        const nextIds = list.map((r: any) => r.variantId).join(',');
-        if (prevIds !== nextIds) {
-          this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
-          preloadRecommendationImages(list);
-        }
-      }
-
-      // Debounced decision call
-      if (this.decisionDebounceTimer) { clearTimeout(this.decisionDebounceTimer); this.decisionDebounceTimer = null; }
-      if ((raw?.items?.length ?? 0) > 0) {
-        this.decisionDebounceTimer = setTimeout(() => {
-          this.decisionDebounceTimer = null;
-          if (this.destroyed) return;
-          const cs = getStateFromStore(this.stateStore);
-          const currentRaw = cs.cart.raw;
-          if ((currentRaw?.items?.length ?? 0) === 0) return;
-          const sig = this.getCartSignature(currentRaw);
-          fetchDecisionCrossSell(currentRaw).then((result) => {
-            if (this.destroyed || !result.ok) return;
-            const cur = getStateFromStore(this.stateStore).cart.raw;
-            if (!cur || this.getCartSignature(cur) !== sig) return;
-            if (result.items.length > 0) {
-              const curState = getStateFromStore(this.stateStore);
-              const prevIds = (curState.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
-              const nextIds = result.items.map((r: any) => r.variantId).join(',');
-              if (prevIds !== nextIds) {
-                this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now() });
-                preloadRecommendationImages(result.items);
-              }
+      // Phase 5: skip recommendation update when this apply came from revalidation (discount removal only)
+      if (!options?.fromRevalidation) {
+        // Phase 2 (Option A): only set from bucket when cart is empty; when cart has items, decision callback is the single update
+        const hasItems = (raw?.items?.length ?? 0) > 0;
+        if (!hasItems) {
+          const s = getStateFromStore(this.stateStore);
+          const byCollection = s.recommendationsByCollection;
+          const productToCollections = s.productToCollections;
+          if (byCollection && Object.keys(byCollection).length > 0 && productToCollections && Object.keys(productToCollections).length > 0) {
+            const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
+            const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
+            let list = Array.isArray(bucket) ? bucket : [];
+            if (list.length === 0) {
+              list = byCollection['default'] ?? s.snapshotRecommendations ?? [];
             }
-          });
-        }, DECISION_DEBOUNCE_MS);
+            const prevIds = (s.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
+            const nextIds = list.map((r: any) => r.variantId).join(',');
+            if (prevIds !== nextIds && list.length > 0) {
+              this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
+              preloadRecommendationImages(list);
+            }
+          }
+        }
+
+        this.scheduleDecisionUpdate(raw);
       }
 
       // Countdown
@@ -1053,52 +1071,35 @@ export class Engine {
     this.reconcileCartDiscountState(raw);
     this.emit('cart:updated', { raw });
 
-    // Collection-aware recommendations: only update from bucket when keyed data is present and list actually changed.
-    const stateAfterCart = getStateFromStore(this.stateStore);
-    const byCollection = stateAfterCart.recommendationsByCollection;
-    const productToCollections = stateAfterCart.productToCollections;
-    if (
-      byCollection &&
-      Object.keys(byCollection).length > 0 &&
-      productToCollections &&
-      Object.keys(productToCollections).length > 0
-    ) {
-      const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
-      const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
-      const list = Array.isArray(bucket) ? bucket : [];
-      const prevIds = (stateAfterCart.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
-      const nextIds = list.map((r: any) => r.variantId).join(',');
-      if (prevIds !== nextIds) {
-        this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
-        preloadRecommendationImages(list);
+    // Phase 2 (Option A): only set from bucket when cart is empty; when cart has items, decision callback is the single update
+    const rawItemCount = raw?.items?.length ?? 0;
+    if (rawItemCount === 0) {
+      const stateAfterCart = getStateFromStore(this.stateStore);
+      const byCollection = stateAfterCart.recommendationsByCollection;
+      const productToCollections = stateAfterCart.productToCollections;
+      if (
+        byCollection &&
+        Object.keys(byCollection).length > 0 &&
+        productToCollections &&
+        Object.keys(productToCollections).length > 0
+      ) {
+        const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
+        const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
+        let list = Array.isArray(bucket) ? bucket : [];
+        if (list.length === 0) {
+          list = byCollection['default'] ?? stateAfterCart.snapshotRecommendations ?? [];
+        }
+        const prevIds = (stateAfterCart.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
+        const nextIds = list.map((r: any) => r.variantId).join(',');
+        if (prevIds !== nextIds && list.length > 0) {
+          this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
+          preloadRecommendationImages(list);
+        }
       }
     }
 
-    // Phase 4/5: debounced background decision call (500ms); cart signature used to ignore stale responses.
-    if (this.decisionDebounceTimer) {
-      clearTimeout(this.decisionDebounceTimer);
-      this.decisionDebounceTimer = null;
-    }
-    const rawItemCount = raw?.items?.length ?? 0;
-    if (rawItemCount > 0) {
-      this.decisionDebounceTimer = setTimeout(() => {
-        this.decisionDebounceTimer = null;
-        if (this.destroyed) return;
-        const state = getStateFromStore(this.stateStore);
-        const currentRaw = state.cart.raw;
-        if ((currentRaw?.items?.length ?? 0) === 0) return;
-        const decisionCartSignature = this.getCartSignature(currentRaw);
-        fetchDecisionCrossSell(currentRaw).then((result) => {
-          if (this.destroyed || !result.ok) return;
-          const current = getStateFromStore(this.stateStore).cart.raw;
-          if (!current || this.getCartSignature(current) !== decisionCartSignature) return;
-          if (result.items.length > 0) {
-            this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now() });
-            preloadRecommendationImages(result.items);
-          }
-        });
-      }, DECISION_DEBOUNCE_MS);
-    }
+    // Debounced background decision call (500ms); when cart has items this is the only recommendation update
+    this.scheduleDecisionUpdate(raw);
 
       // V2 lever: trace config-derived lever state (do not clear these in syncCart).
       console.log('[CartPro V3] Lever state:', {
@@ -1339,7 +1340,7 @@ export class Engine {
    * - Skip entirely when within MUTATION_GRACE_MS of our own add/change/remove (don't start fetch).
    * - After fetch returns, skip apply if we're now in grace (fetch was in flight when user mutated; don't overwrite with stale result).
    */
-  async syncCart(options?: { fromReapply?: boolean }): Promise<void> {
+  async syncCart(options?: { fromReapply?: boolean; fromRevalidation?: boolean }): Promise<void> {
     if (this.destroyed) return;
     if (this.internalMutationInProgress) return;
     if (Date.now() - this.lastMutationAppliedAt < Engine.MUTATION_GRACE_MS) return;
@@ -1360,7 +1361,7 @@ export class Engine {
           ? performance.now() - syncStart
           : 0;
       const st = getStateFromStore(this.stateStore);
-      this.applyCartRawBatched(raw, !st.initialSyncDone);
+      this.applyCartRawBatched(raw, !st.initialSyncDone, options);
       this.ensureCartHasRevproSessionId(raw);
     } catch (err) {
       this.setState({
@@ -1631,7 +1632,9 @@ export class Engine {
           total_price: prevTotal + newLinesTotal,
         };
         this.lastMutationAppliedAt = Date.now();
-        this.applyCartRaw(mergedRaw, { fromReapply: true });
+        // Phase 3: minimal apply (cart + shipping + rewards), no rec list update; one debounced decision update later
+        this.applyCartRawSilent(mergedRaw);
+        this.scheduleDecisionUpdate(mergedRaw);
       } else {
         await this.syncCart();
       }
@@ -1645,7 +1648,7 @@ export class Engine {
         this.emitEvent('upsell:add', { variantId, quantity });
         // Always emit recommendation:click for CTR (server records one CrossSellEvent click per add).
         const item = s.snapshotRecommendations?.find((r) => r.variantId === variantId) ?? s.upsell?.aiRecommendations?.find((r) => r.variantId === variantId);
-        const productId = item?.productId ?? String(variantId);
+        const productId = (item as { productId?: string } | undefined)?.productId ?? String(variantId);
         const fromSnapshot = (s.snapshotRecommendations ?? []).map((r) => r.productId ?? String(r.variantId));
         const fromAi = (s.upsell?.aiRecommendations ?? []).map((r) => (r as { productId?: string; variantId: number }).productId ?? String(r.variantId));
         const recommendedProductIds = [...new Set([...fromSnapshot, ...fromAi])].filter((id) => typeof id === 'string' && id.length > 0);

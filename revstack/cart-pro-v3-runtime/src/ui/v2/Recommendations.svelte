@@ -6,33 +6,25 @@
 
   const stateStore = engine.stateStore;
   $: state = $stateStore;
-  $: hasSnapshot =
-    Array.isArray(state?.snapshotRecommendations) &&
-    state.snapshotRecommendations.length > 0;
-
-  $: primaryRecommendations = hasSnapshot
-    ? state.snapshotRecommendations
-    : (state?.upsell?.standard ?? []);
-
-  $: aiRecommendations = state?.upsell?.aiRecommendations ?? [];
+  // Phase 4: single source of truth — always derive from snapshot; no hasSnapshot flip to standard/AI
+  $: recs = state?.snapshotRecommendations ?? [];
+  $: hasRecs = recs.length > 0;
   $: loading = state?.upsell?.loading ?? false;
   $: currency = state?.cart?.raw?.currency ?? 'USD';
 
-  $: recs = hasSnapshot
-    ? primaryRecommendations
-    : [
-        ...primaryRecommendations,
-        ...aiRecommendations.map((r) => ({
-          variantId: r.variantId,
-          title: r.title ?? `Variant #${r.variantId}`,
-          imageUrl: r.imageUrl ?? null,
-          handle: r.handle ?? '',
-          price: r.price ?? { amount: 0 },
-        })),
-      ];
-  $: hasRecs = recs.length > 0;
-
-  $: console.log('[CartPro] Recommendations state:', hasSnapshot ? 'snapshot' : state?.upsell?.standard);
+  // Phase 6: shimmer only when transitioning from no recs to has recs (not on every list change)
+  let justLoaded = false;
+  let prevRecsLength = 0;
+  $: {
+    if (recs.length > 0 && prevRecsLength === 0) {
+      justLoaded = true;
+      setTimeout(() => {
+        justLoaded = false;
+      }, 200);
+    }
+    prevRecsLength = recs.length;
+  }
+  $: showShimmer = (loading && !hasRecs) || justLoaded;
 </script>
 
 <div id="cart-pro-recommendations" class="cp-recommendations-container">
@@ -40,7 +32,7 @@
     {#if loading && !hasRecs}
       <div class="cp-recommendations-content cp-rec-container-shimmer"></div>
     {:else if hasRecs}
-      <div class="cp-recommendations-content cp-rec-container-shimmer">
+      <div class="cp-recommendations-content" class:cp-rec-container-shimmer={showShimmer}>
         <h4 style="margin-bottom:10px;">You may also like</h4>
         <div class="cp-rec-list cp-carousel">
           {#each recs as rec (rec.variantId)}
