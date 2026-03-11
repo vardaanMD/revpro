@@ -365,6 +365,9 @@ function mergePreviewRenderState(
     backgroundColor?: string;
     bannerBackgroundColor?: string;
     cartHeaderMessages?: string[];
+    showHeaderBanner: boolean;
+    showTeaseMessage: boolean;
+    couponTeaseMessage: string;
   },
   capabilities: { allowMilestones: boolean }
 ): PreviewRenderState {
@@ -396,6 +399,9 @@ function mergePreviewRenderState(
       cartHeaderMessages: state.cartHeaderMessages && state.cartHeaderMessages.length > 0
         ? state.cartHeaderMessages
         : (initial?.ui?.cartHeaderMessages ?? []),
+      showHeaderBanner: state.showHeaderBanner,
+      showTeaseMessage: state.showTeaseMessage,
+      couponTeaseMessage: state.couponTeaseMessage,
     },
     decision: {
       ...baseDecision,
@@ -438,6 +444,8 @@ export default function SettingsPage() {
   const [previewEnableCrossSell, setPreviewEnableCrossSell] = useState(config.enableCrossSell);
   const [previewEnableMilestones, setPreviewEnableMilestones] = useState(config.enableMilestones);
   const [previewEnableCouponTease, setPreviewEnableCouponTease] = useState(config.enableCouponTease);
+  const [previewShowHeaderBanner, setPreviewShowHeaderBanner] = useState(config.showHeaderBanner !== false);
+  const [previewShowTeaseMessage, setPreviewShowTeaseMessage] = useState(config.showTeaseMessage !== false);
 
   useEffect(() => {
     if (actionData && !actionData.success && actionData.error) {
@@ -502,6 +510,9 @@ export default function SettingsPage() {
           cartHeaderMessages: [config.cartHeaderMessage1 ?? "", config.cartHeaderMessage2 ?? "", config.cartHeaderMessage3 ?? ""]
             .map((m) => (typeof m === "string" ? m.trim() : ""))
             .filter((m) => m.length > 0),
+          showHeaderBanner: previewShowHeaderBanner,
+          showTeaseMessage: previewShowTeaseMessage,
+          couponTeaseMessage: config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings",
         },
         capabilities
       ),
@@ -520,9 +531,12 @@ export default function SettingsPage() {
       previewMilestoneAmounts,
       previewBackgroundColor,
       previewBannerBackgroundColor,
+      previewShowHeaderBanner,
+      previewShowTeaseMessage,
       config.cartHeaderMessage1,
       config.cartHeaderMessage2,
       config.cartHeaderMessage3,
+      config.couponTeaseMessage,
       capabilities,
     ]
   );
@@ -813,6 +827,7 @@ export default function SettingsPage() {
                     defaultChecked={config.showTeaseMessage !== false}
                     value="on"
                     helperText="Show the tease banner when no discount code is applied"
+                    onChange={(e: React.FormEvent<HTMLElement>) => setPreviewShowTeaseMessage((e.currentTarget as HTMLInputElement).checked)}
                   />
                 </>
               ) : (
@@ -916,6 +931,7 @@ export default function SettingsPage() {
                   label="Show header message banner"
                   defaultChecked={config.showHeaderBanner !== false}
                   value="on"
+                  onChange={(e: React.FormEvent<HTMLElement>) => setPreviewShowHeaderBanner((e.currentTarget as HTMLInputElement).checked)}
                 />
                 <FormField
                   label="Header messages"

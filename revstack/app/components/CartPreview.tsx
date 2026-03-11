@@ -129,7 +129,8 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
   const containerRef = useRef<HTMLDivElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const headerMessages = ui.cartHeaderMessages ?? [];
-  const hasHeaderMessages = headerMessages.length > 0;
+  const showHeaderBanner = ui.showHeaderBanner !== false;
+  const hasHeaderMessages = showHeaderBanner && headerMessages.length > 0;
   const [headerMessageIndex, setHeaderMessageIndex] = useState(0);
   const currentHeaderMessage = hasHeaderMessages ? headerMessages[headerMessageIndex % headerMessages.length] : "";
 
@@ -163,6 +164,8 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
   const showCrossSell = enableCrossSellOverride !== undefined ? enableCrossSellOverride : capabilities.allowCrossSell;
   const recsToShow = crossSell.length > 0 ? crossSell : getPlaceholderRecs();
   const showCouponTease = capabilities.allowCouponTease && enableCouponTease;
+  const couponTeaseMessage = ui.couponTeaseMessage || "Apply coupon at checkout to unlock savings";
+  const showTeaseBanner = showCouponTease && ui.showTeaseMessage !== false;
 
   const lastMilestoneAmount = effectiveMilestones.length
     ? effectiveMilestones[effectiveMilestones.length - 1].amount
@@ -323,6 +326,11 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
         )}
 
         <div className={styles.footer}>
+          {showTeaseBanner && (
+            <div className={styles.couponTeaseBanner}>
+              {couponTeaseMessage}
+            </div>
+          )}
           {showCouponTease && (
             <div className={styles.couponSection}>
               <input

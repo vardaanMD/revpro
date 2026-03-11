@@ -355,6 +355,17 @@
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.05);
 }
 
+.couponTeaseBanner {
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: var(--cp-radius, 12px);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cp-accent, #16a34a);
+  background: color-mix(in srgb, var(--cp-accent, #16a34a) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cp-accent, #16a34a) 40%, transparent);
+}
+
 .couponSection {
   display: flex;
   gap: 8px;

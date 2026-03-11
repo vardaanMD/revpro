@@ -30,6 +30,12 @@ export type PreviewUI = {
   bannerBackgroundColor?: string | null;
   /** V3: up to 3 rotating header messages */
   cartHeaderMessages?: string[];
+  /** V3: when false, header message banner is hidden */
+  showHeaderBanner?: boolean;
+  /** V3: when false, coupon tease message banner is hidden */
+  showTeaseMessage?: boolean;
+  /** V3: coupon tease message text */
+  couponTeaseMessage?: string;
 };
 
 /** Admin preview render state: UI and decision kept separate (no merging). */
