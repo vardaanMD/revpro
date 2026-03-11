@@ -164,8 +164,9 @@ export function validateSettingsForm(formData: FormData): {
   const recommendationsHeading = typeof recommendationsHeadingRaw === "string" ? recommendationsHeadingRaw : "";
   const couponTeaseMessage = typeof couponTeaseMessageRaw === "string" ? couponTeaseMessageRaw : "";
 
-  const showHeaderBanner = formData.get("showHeaderBanner") === "on";
-  const showTeaseMessage = formData.get("showTeaseMessage") === "on";
+  // Use getAll + pop so when hidden (value="") and checkbox (value="on") share the same name, the checkbox wins when checked
+  const showHeaderBanner = (formData.getAll("showHeaderBanner").pop() ?? "") === "on";
+  const showTeaseMessage = (formData.getAll("showTeaseMessage").pop() ?? "") === "on";
 
   const raw = {
     freeShippingThresholdCents,

@@ -101,9 +101,13 @@ export function buildV3SnapshotPayload<T extends { rewards?: { tiers?: unknown[]
     typeof appearance.bannerBackgroundColor === "string" && appearance.bannerBackgroundColor.trim()
       ? (appearance.bannerBackgroundColor as string).trim()
       : "#16a34a";
+  // Preserve all appearance keys from config (showHeaderBanner, showConfetti, countdownEnabled, emojiMode, countdownDurationMs, etc.)
+  // so the storefront receives them and toggles/colour pickers reflect correctly.
+  const appearancePassThrough = { ...appearance } as Record<string, unknown>;
   return {
     ...config,
     appearance: {
+      ...appearancePassThrough,
       primaryColor,
       accentColor,
       radius,

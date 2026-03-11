@@ -805,6 +805,8 @@ export default function SettingsPage() {
                       aria-label="Coupon tease message"
                     />
                   </FormField>
+                  {/* Hidden ensures we always receive the key when checkbox is unchecked */}
+                  <input type="hidden" name="showTeaseMessage" value="" />
                   <s-checkbox
                     name="showTeaseMessage"
                     label="Show coupon tease message"
@@ -907,6 +909,8 @@ export default function SettingsPage() {
                   value="on"
                   onChange={(e: React.FormEvent<HTMLElement>) => setPreviewCountdownEnabled((e.currentTarget as HTMLInputElement).checked)}
                 />
+                {/* Hidden ensures we always receive the key when checkbox is unchecked (browsers omit unchecked checkboxes) */}
+                <input type="hidden" name="showHeaderBanner" value="" />
                 <s-checkbox
                   name="showHeaderBanner"
                   label="Show header message banner"
