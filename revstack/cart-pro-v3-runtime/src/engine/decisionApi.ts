@@ -68,7 +68,7 @@ export interface FetchDecisionCrossSellResult {
 
 /**
  * POST current cart to the decision endpoint (app proxy). Parse response.crossSell and map to SnapshotRecommendationItem[].
- * Does not block; call from background (e.g. after applyCartRaw). Only run when cart has at least one item.
+ * Does not block; call from background (e.g. after applyCartRawBatched). Only run when cart has at least one item.
  */
 export async function fetchDecisionCrossSell(cartRaw: any): Promise<FetchDecisionCrossSellResult> {
   const items = Array.isArray(cartRaw?.items) ? cartRaw.items : [];

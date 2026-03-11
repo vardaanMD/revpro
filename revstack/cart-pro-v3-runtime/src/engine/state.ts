@@ -184,6 +184,8 @@ export interface EngineState {
   productToCollections: Record<string, string[]>;
   /** True after the first syncCart completes and all state slices are populated. UI gates on this to prevent flash. */
   initialSyncDone: boolean;
+  /** Phase 8: true while waiting for first decision when cart has items; UI shows skeleton instead of default bucket. */
+  recommendationsDecisionPending: boolean;
 }
 
 /** Deep partial for state updates: each top-level key is optional and can be a partial of that slice. */
@@ -204,6 +206,7 @@ export type PartialEngineState = {
   recommendationsByCollection?: Record<string, SnapshotRecommendationItem[]>;
   productToCollections?: Record<string, string[]>;
   initialSyncDone?: boolean;
+  recommendationsDecisionPending?: boolean;
 };
 
 export function createInitialState(): EngineState {
@@ -290,6 +293,7 @@ export function createInitialState(): EngineState {
     recommendationsByCollection: {},
     productToCollections: {},
     initialSyncDone: false,
+    recommendationsDecisionPending: false,
   };
 }
 
@@ -334,6 +338,7 @@ export function setState(
     if (partial.recommendationsByCollection != null) next.recommendationsByCollection = partial.recommendationsByCollection;
     if (partial.productToCollections != null) next.productToCollections = partial.productToCollections;
     if (partial.initialSyncDone != null) next.initialSyncDone = partial.initialSyncDone;
+    if (partial.recommendationsDecisionPending != null) next.recommendationsDecisionPending = partial.recommendationsDecisionPending;
     return next;
   });
 }
@@ -367,6 +372,7 @@ export function updateState(
     if (partial.recommendationsByCollection != null) next.recommendationsByCollection = partial.recommendationsByCollection;
     if (partial.productToCollections != null) next.productToCollections = partial.productToCollections;
     if (partial.initialSyncDone != null) next.initialSyncDone = partial.initialSyncDone;
+    if (partial.recommendationsDecisionPending != null) next.recommendationsDecisionPending = partial.recommendationsDecisionPending;
     return next;
   });
 }

@@ -2,6 +2,8 @@
 
 This plan addresses flashing, snapping, and inconsistent show/add behavior of the recommendations UI by reducing multiple sequential updates and stabilizing the data source.
 
+**Follow-on:** For further improvements (transitions, skeleton, stable list, single render, dead code cleanup, card layout), see [RECOMMENDATIONS_IMPLEMENTATION_PLAN.md](./RECOMMENDATIONS_IMPLEMENTATION_PLAN.md).
+
 ---
 
 ## Phase 1: Prevent Empty-Bucket Clearing (Quick Win)

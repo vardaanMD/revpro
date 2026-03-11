@@ -20,7 +20,7 @@ This doc summarizes how v1/v2 kept cart quantity and price stable, and the equiv
 ## V3 patches (this runtime)
 
 1. **Use mutation response, not a follow-up GET (v1-style)**  
-   In `addToCart` / `changeCart` / `removeItem` we use the **response** from the mutation (add/change returns cart or items). We call `applyCartRaw(response, { fromReapply: true })` so we don’t enqueue `reapplyDiscounts`/`syncFreeGifts` from that apply and trigger an extra sync.
+   In `addToCart` / `changeCart` / `removeItem` we use the **response** from the mutation (add/change returns cart or items). We call `applyCartRawSilent or applyCartRawBatched` so we don’t enqueue `reapplyDiscounts`/`syncFreeGifts` from that apply and trigger an extra sync.
 
 2. **Grace period after our own mutation**  
    - `lastMutationAppliedAt` is set when we apply the mutation response.  
@@ -30,7 +30,7 @@ This doc summarizes how v1/v2 kept cart quantity and price stable, and the equiv
    At the **start** of `syncCart()` we skip if `Date.now() - lastMutationAppliedAt < MUTATION_GRACE_MS`. So we don’t start a new fetch that could overwrite the just-applied mutation.
 
 4. **Don’t apply a sync that completed during grace (v1-style)**  
-   **After** `await apiFetchCart()` in `syncCart()`, we check again: if we’re now in the grace period, we **don’t** call `applyCartRaw(raw)` and we just clear `syncing`. So a sync that was **already in flight** when the user mutated does not overwrite when it completes (avoids snap-back from stale GET).
+   **After** `await apiFetchCart()` in `syncCart()`, we check again: if we’re now in the grace period, we **don’t** call `applyCartRawBatched(raw)` and we just clear `syncing`. So a sync that was **already in flight** when the user mutated does not overwrite when it completes (avoids snap-back from stale GET).
 
 5. **Interceptor: don’t emit during mutation or grace**  
    `getInternalMutationInProgress()` returns true if we’re in a mutation **or** within `MUTATION_GRACE_MS` of `lastMutationAppliedAt`. So the PerformanceObserver doesn’t emit `cart:external-update` for our own change.js, and we don’t enqueue a redundant `syncCart`.

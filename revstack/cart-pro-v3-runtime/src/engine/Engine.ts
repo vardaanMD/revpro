@@ -931,13 +931,21 @@ export class Engine {
         if (!cur || this.getCartSignature(cur) !== sig) return;
         if (result.items.length > 0) {
           const curState = getStateFromStore(this.stateStore);
-          const prevIds = (curState.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
-          const nextIds = result.items.map((r: any) => r.variantId).join(',');
-          if (prevIds !== nextIds) {
-            this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now() });
+          const prev = curState.snapshotRecommendations ?? [];
+          const nextIds = new Set(result.items.map((r: any) => r.variantId));
+          const prevIds = new Set(prev.map((r: any) => r.variantId));
+          const setsEqual = nextIds.size === prevIds.size && [...nextIds].every((id) => prevIds.has(id));
+          if (!setsEqual) {
+            this.setState({ snapshotRecommendations: result.items, recommendationListVersion: Date.now(), recommendationsDecisionPending: false });
             preloadRecommendationImages(result.items);
+          } else {
+            this.setState({ recommendationsDecisionPending: false });
           }
+        } else {
+          this.setState({ recommendationsDecisionPending: false });
         }
+      }).catch(() => {
+        if (!this.destroyed) this.setState({ recommendationsDecisionPending: false });
       });
     }, DECISION_DEBOUNCE_MS);
   }
@@ -1001,6 +1009,29 @@ export class Engine {
       partial.initialSyncDone = true;
     }
 
+    // Phase 10: empty cart — include bucket-derived recs in this batch so one render instead of two
+    const hasItems = (raw?.items?.length ?? 0) > 0;
+    if (!hasItems) {
+      const byCollection = state.recommendationsByCollection;
+      const productToCollections = state.productToCollections;
+      if (byCollection && Object.keys(byCollection).length > 0 && productToCollections && Object.keys(productToCollections).length > 0) {
+        const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
+        const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
+        let list = Array.isArray(bucket) ? bucket : [];
+        if (list.length === 0) {
+          list = byCollection['default'] ?? state.snapshotRecommendations ?? [];
+        }
+        if (list.length > 0) {
+          const prevIds = (state.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
+          const nextIds = list.map((r: any) => r.variantId).join(',');
+          if (prevIds !== nextIds) {
+            partial.snapshotRecommendations = list;
+            partial.recommendationListVersion = Date.now();
+          }
+        }
+      }
+    }
+
     // Single setState — one Svelte re-render
     this.setState(partial);
     this.emit('cart:updated', { raw });
@@ -1012,24 +1043,23 @@ export class Engine {
       // Phase 5: skip recommendation update when this apply came from revalidation (discount removal only)
       if (!options?.fromRevalidation) {
         // Phase 2 (Option A): only set from bucket when cart is empty; when cart has items, decision callback is the single update
-        const hasItems = (raw?.items?.length ?? 0) > 0;
-        if (!hasItems) {
+        // Phase 10: empty-cart recs already set in partial above; skip duplicate setState here
+        const hasItemsForRecs = (raw?.items?.length ?? 0) > 0;
+        if (!hasItemsForRecs) {
+          // Already applied in main batch for single render; only preload if we have list
+          const s = getStateFromStore(this.stateStore);
+          if ((s.snapshotRecommendations ?? []).length > 0) {
+            preloadRecommendationImages(s.snapshotRecommendations!);
+          }
+        } else {
+          // Phase 8: when cart has items, if current list is still the default bucket show skeleton until decision returns
           const s = getStateFromStore(this.stateStore);
           const byCollection = s.recommendationsByCollection;
-          const productToCollections = s.productToCollections;
-          if (byCollection && Object.keys(byCollection).length > 0 && productToCollections && Object.keys(productToCollections).length > 0) {
-            const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
-            const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
-            let list = Array.isArray(bucket) ? bucket : [];
-            if (list.length === 0) {
-              list = byCollection['default'] ?? s.snapshotRecommendations ?? [];
-            }
-            const prevIds = (s.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
-            const nextIds = list.map((r: any) => r.variantId).join(',');
-            if (prevIds !== nextIds && list.length > 0) {
-              this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
-              preloadRecommendationImages(list);
-            }
+          const defaultBucket = (byCollection && byCollection['default']) ? byCollection['default'] : [];
+          const defaultIds = (defaultBucket as any[]).map((r: any) => r.variantId).sort().join(',');
+          const snapIds = (s.snapshotRecommendations ?? []).map((r: any) => r.variantId).sort().join(',');
+          if (defaultIds && defaultIds === snapIds) {
+            this.setState({ recommendationsDecisionPending: true });
           }
         }
 
@@ -1052,289 +1082,7 @@ export class Engine {
   }
 
   /**
-   * Apply a cart raw object to state (reconcile, shipping, rewards, upsell). Used by syncCart
-   * and by mutation handlers for instant updates when the API returns full/merged cart.
-   */
-  private applyCartRaw(raw: any, options?: { fromReapply?: boolean }): void {
-    if (this.destroyed) return;
-    const { itemCount, subtotal, total } = Engine.cartMetricsFromRaw(raw);
-    this.setState({
-      cart: {
-        raw,
-        itemCount,
-        subtotal,
-        total,
-        syncing: false,
-        lastSyncedAt: Date.now(),
-      },
-    });
-    this.reconcileCartDiscountState(raw);
-    this.emit('cart:updated', { raw });
-
-    // Phase 2 (Option A): only set from bucket when cart is empty; when cart has items, decision callback is the single update
-    const rawItemCount = raw?.items?.length ?? 0;
-    if (rawItemCount === 0) {
-      const stateAfterCart = getStateFromStore(this.stateStore);
-      const byCollection = stateAfterCart.recommendationsByCollection;
-      const productToCollections = stateAfterCart.productToCollections;
-      if (
-        byCollection &&
-        Object.keys(byCollection).length > 0 &&
-        productToCollections &&
-        Object.keys(productToCollections).length > 0
-      ) {
-        const primaryKey = getPrimaryCollectionKey(raw, byCollection, productToCollections);
-        const bucket = Array.isArray(byCollection[primaryKey]) ? byCollection[primaryKey] : byCollection['default'];
-        let list = Array.isArray(bucket) ? bucket : [];
-        if (list.length === 0) {
-          list = byCollection['default'] ?? stateAfterCart.snapshotRecommendations ?? [];
-        }
-        const prevIds = (stateAfterCart.snapshotRecommendations ?? []).map((r: any) => r.variantId).join(',');
-        const nextIds = list.map((r: any) => r.variantId).join(',');
-        if (prevIds !== nextIds && list.length > 0) {
-          this.setState({ snapshotRecommendations: list, recommendationListVersion: Date.now() });
-          preloadRecommendationImages(list);
-        }
-      }
-    }
-
-    // Debounced background decision call (500ms); when cart has items this is the only recommendation update
-    this.scheduleDecisionUpdate(raw);
-
-      // V2 lever: trace config-derived lever state (do not clear these in syncCart).
-      console.log('[CartPro V3] Lever state:', {
-        countdownEnabled: this.config?.appearance?.countdownEnabled === true,
-        shippingThreshold: this.config?.freeShipping?.thresholdCents,
-        teaseMessage: this.config?.discounts?.teaseMessage,
-      });
-
-      // Urgency countdown: config as primary; restart only when disabled or cart signature changed.
-      const enabled = this.config?.appearance?.countdownEnabled === true;
-      if (!enabled) {
-        this.countdown.stop();
-      } else {
-        const signature = this.getCartSignature(raw);
-        if (!this.countdown.isRunning() || signature !== this.lastCountdownSignature) {
-          const duration =
-            this.config.appearance.countdownDurationMs ?? DEFAULT_COUNTDOWN_MS;
-          this.countdown.start(duration);
-          this.lastCountdownSignature = signature;
-        }
-      }
-
-      // Shipping: update remaining/unlocked from config threshold + cart only; do not clear or reset lever.
-      console.log("[CartPro V3] syncCart → shipping START", performance.now());
-      const threshold = this.config.freeShipping.thresholdCents ?? null;
-      if (threshold != null) {
-        const itemsSubtotal = raw.items_subtotal_price ?? subtotal;
-        const remaining = threshold - itemsSubtotal;
-        this.setState({
-          shipping: {
-            remaining: Math.max(remaining, 0),
-            unlocked: remaining <= 0,
-            loading: false,
-          },
-        });
-      } else {
-        this.setState({
-          shipping: {
-            remaining: null,
-            unlocked: false,
-            loading: false,
-          },
-        });
-      }
-      console.log("[CartPro V3] syncCart → shipping END", performance.now());
-
-      // Rewards: compute unlocked tier (only when feature enabled).
-      console.log("[CartPro V3] syncCart → rewards START", performance.now());
-      const stateForRewards = getStateFromStore(this.stateStore);
-      const { rewards } = stateForRewards;
-      const runRewards = !this.config || this.config.featureFlags.enableRewards;
-      if (runRewards) {
-        const subtotalCents = stateForRewards.cart.subtotal ?? 0;
-        const newUnlockedIndex = computeUnlockedTier(subtotalCents, rewards.tiers);
-        const lastUnlocked = rewards.lastUnlockedTierIndex;
-        const isNewTierUnlock =
-          newUnlockedIndex !== null &&
-          (lastUnlocked === null || newUnlockedIndex > lastUnlocked);
-        // Only show confetti when this is not the initial sync (page load); first add-to-cart or later unlocks get confetti
-        const isFirstRewardsApply = !this.rewardsInitialized;
-        if (isFirstRewardsApply) this.rewardsInitialized = true;
-        this.setState({
-          rewards: {
-            ...rewards,
-            unlockedTierIndex: newUnlockedIndex,
-            lastUnlockedTierIndex: isNewTierUnlock ? newUnlockedIndex : rewards.lastUnlockedTierIndex,
-            showConfetti: isNewTierUnlock && !isFirstRewardsApply,
-          },
-        });
-      }
-      console.log("[CartPro V3] syncCart → rewards END", performance.now());
-
-      // Upsell: compute standard list and optionally fetch AI (only when feature enabled).
-      const stateAfterSync = getStateFromStore(this.stateStore);
-      const runUpsell = !this.config || this.config.featureFlags.enableUpsell;
-      const standardConfig = stateAfterSync.upsell.standardConfig;
-      let standard = stateAfterSync.upsell.standard;
-      const currentStateForUpsell = getStateFromStore(this.stateStore);
-      const hasSnapshot =
-        Array.isArray(currentStateForUpsell.snapshotRecommendations) &&
-        currentStateForUpsell.snapshotRecommendations.length > 0;
-      if (runUpsell) {
-        console.log("[CartPro V3] syncCart → upsell START", performance.now());
-        standard = computeStandardUpsell(raw, standardConfig);
-        console.log("[CartPro V3] syncCart → upsell END", performance.now());
-        if (!hasSnapshot) {
-          this.setState({
-            upsell: {
-              ...stateAfterSync.upsell,
-              standard,
-            },
-          });
-        }
-        console.log('[CartPro] Rule-based recommendations:', standard);
-
-        if (stateAfterSync.upsell.aiEnabled) {
-          const signature = getCartSignatureForAi(raw);
-          const cached = this.aiRecommendationsCache.get(signature);
-            if (cached !== undefined) {
-            const stateBeforeAi = getStateFromStore(this.stateStore);
-            const hasSnapshotBeforeAi =
-              Array.isArray(stateBeforeAi.snapshotRecommendations) &&
-              stateBeforeAi.snapshotRecommendations.length > 0;
-            if (!hasSnapshotBeforeAi) {
-              this.setState({
-                upsell: {
-                  ...getStateFromStore(this.stateStore).upsell,
-                  aiRecommendations: cached,
-                  loading: false,
-                },
-              });
-            } else {
-              this.setState({
-                upsell: { ...getStateFromStore(this.stateStore).upsell, loading: false },
-              });
-            }
-          } else {
-            this.aiFetchStartedAt = Date.now();
-            this.setState({
-              upsell: {
-                ...getStateFromStore(this.stateStore).upsell,
-                loading: true,
-              },
-            });
-            debouncedPostRecommendations(raw, (result) => {
-              if (this.destroyed) return;
-              if (this.aiFetchStartedAt > 0) {
-                this.perf.aiFetchDuration = Date.now() - this.aiFetchStartedAt;
-                this.aiFetchStartedAt = 0;
-              }
-              const currentRaw = getStateFromStore(this.stateStore).cart.raw;
-              const currentSignature = currentRaw ? getCartSignatureForAi(currentRaw) : '';
-              if (currentSignature !== signature) return;
-              const cartVariantIds = new Set(
-                (currentRaw?.items ?? []).map((i: any) => Number(i?.variant_id ?? i?.id)).filter((n: number) => Number.isInteger(n) && n > 0)
-              );
-              const filtered = result.filter((r) => !cartVariantIds.has(r.variantId));
-              this.aiRecommendationsCache.set(signature, filtered);
-              const s = getStateFromStore(this.stateStore);
-              const hasSnapshotInCallback =
-                Array.isArray(s.snapshotRecommendations) &&
-                s.snapshotRecommendations.length > 0;
-              if (!hasSnapshotInCallback) {
-                this.setState({
-                  upsell: {
-                    ...s.upsell,
-                    aiRecommendations: filtered,
-                    loading: false,
-                  },
-                });
-              } else {
-                this.setState({
-                  upsell: { ...s.upsell, loading: false },
-                });
-              }
-              const ids = result.map((r) => r.variantId);
-              if (ids.length > 0) {
-                fetchVariantAvailability(ids, s.upsell.cache).then((next) => {
-                  if (Object.keys(next).length === 0) return;
-                  const s2 = getStateFromStore(this.stateStore);
-                  this.setState({
-                    upsell: { ...s2.upsell, cache: { ...s2.upsell.cache, ...next } },
-                  });
-                });
-              }
-            });
-          }
-        }
-
-        // Variant availability: only fetch IDs not already in cache to avoid duplicate fetches.
-        const stateForVariant = getStateFromStore(this.stateStore);
-        const variantIdsToCheck = [
-          ...standard.map((r) => r.variantId),
-          ...stateForVariant.upsell.aiRecommendations.map((r) => r.variantId),
-        ]
-          .filter((id, i, arr) => arr.indexOf(id) === i)
-          .filter((id) => stateForVariant.upsell.cache[id] === undefined);
-        if (variantIdsToCheck.length > 0) {
-          const currentCache = getStateFromStore(this.stateStore).upsell.cache;
-          fetchVariantAvailability(variantIdsToCheck, currentCache).then((next) => {
-            if (Object.keys(next).length === 0) return;
-            const s = getStateFromStore(this.stateStore);
-            this.setState({
-              upsell: {
-                ...s.upsell,
-                cache: { ...s.upsell.cache, ...next },
-              },
-            });
-          });
-        }
-      }
-
-      // Stub ONLY when AI disabled; never overwrite aiRecommendations when AI enabled (cache/callback own it).
-      if (!stateAfterSync.upsell.aiEnabled) {
-        const stubAI = buildStubRecommendations(raw);
-        const stateBeforeStub = getStateFromStore(this.stateStore);
-        const hasSnapshotBeforeStub =
-          Array.isArray(stateBeforeStub.snapshotRecommendations) &&
-          stateBeforeStub.snapshotRecommendations.length > 0;
-        if (!hasSnapshotBeforeStub) {
-          this.setState({
-            upsell: {
-              ...getStateFromStore(this.stateStore).upsell,
-              aiRecommendations: stubAI,
-              loading: false,
-            },
-          });
-        } else {
-          this.setState({
-            upsell: { ...getStateFromStore(this.stateStore).upsell, loading: false },
-          });
-        }
-      } else {
-        const stateNow = getStateFromStore(this.stateStore);
-        if (!stateNow.upsell.loading) {
-          this.setState({ upsell: { ...stateNow.upsell, loading: false } });
-        }
-      }
-
-      if (!options?.fromReapply) {
-        const state = getStateFromStore(this.stateStore);
-        const runDiscounts = !this.config || this.config.featureFlags.enableDiscounts;
-        const runFreeGifts = !this.config || this.config.featureFlags.enableFreeGifts;
-        if (runDiscounts && state.discount.applied.length > 0) {
-          setTimeout(() => this.enqueueEffect(() => this.reapplyDiscounts()), 0);
-        }
-        if (runFreeGifts && state.freeGifts.config.length > 0) {
-          setTimeout(() => this.enqueueEffect(() => this.syncFreeGifts()), 0);
-        }
-      }
-      this.triggerRevalidation();
-  }
-
-  /**
-   * Sync cart from Shopify. Fetches cart then applies via applyCartRaw.
+   * Sync cart from Shopify. Fetches cart then applies via applyCartRawBatched.
    * When fromReapply is true, does not enqueue reapplyDiscounts to avoid loop.
    * V1-style guards to prevent snap-back / stuck:
    * - Skip entirely when within MUTATION_GRACE_MS of our own add/change/remove (don't start fetch).
