@@ -32,6 +32,7 @@
     prevRecsLength = recs.length;
   }
   $: showShimmer = (loading && !hasRecs) || justLoaded;
+  $: recommendationsHeading = engine?.getConfig?.()?.upsell?.recommendationsHeading ?? 'You may also like';
 </script>
 
 <div id="cart-pro-recommendations" class="cp-recommendations-container">
@@ -41,7 +42,7 @@
     {:else if hasRecs}
       {#key listVersion}
         <div class="cp-recommendations-content" class:cp-rec-container-shimmer={showShimmer} in:fade={{ duration: 150 }} out:fade={{ duration: 150 }}>
-          <h4 style="margin-bottom:10px;">You may also like</h4>
+          <h4 style="margin-bottom:10px;">{recommendationsHeading}</h4>
           <div class="cp-rec-list cp-carousel">
             {#each recs as rec (rec.variantId)}
               <RecommendationCard {engine} rec={rec} isPredicted={false} {currency} />

@@ -67,6 +67,10 @@ export const settingsFormSchema = z.object({
   cartHeaderMessage1: z.string().optional(),
   cartHeaderMessage2: z.string().optional(),
   cartHeaderMessage3: z.string().optional(),
+  /** Recommendations section heading (e.g. "You may also like"). */
+  recommendationsHeading: z.string().optional(),
+  /** Coupon tease message shown when no code is applied. */
+  couponTeaseMessage: z.string().optional(),
 });
 
 export type SettingsFormData = z.infer<typeof settingsFormSchema>;
@@ -151,6 +155,11 @@ export function validateSettingsForm(formData: FormData): {
   const cartHeaderMessage2 = typeof cartHeaderMessage2Raw === "string" ? cartHeaderMessage2Raw : "";
   const cartHeaderMessage3 = typeof cartHeaderMessage3Raw === "string" ? cartHeaderMessage3Raw : "";
 
+  const recommendationsHeadingRaw = formData.get("recommendationsHeading");
+  const couponTeaseMessageRaw = formData.get("couponTeaseMessage");
+  const recommendationsHeading = typeof recommendationsHeadingRaw === "string" ? recommendationsHeadingRaw : "";
+  const couponTeaseMessage = typeof couponTeaseMessageRaw === "string" ? couponTeaseMessageRaw : "";
+
   const raw = {
     freeShippingThresholdCents,
     baselineAovCents,
@@ -172,6 +181,8 @@ export function validateSettingsForm(formData: FormData): {
     cartHeaderMessage1,
     cartHeaderMessage2,
     cartHeaderMessage3,
+    recommendationsHeading,
+    couponTeaseMessage,
   };
 
   const result = settingsFormSchema.safeParse(raw);

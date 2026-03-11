@@ -781,10 +781,10 @@
   border-radius: var(--cp-radius);
   font-size: 13px;
   font-weight: 600;
-  color: #1a5f2a;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.12), rgba(76, 175, 80, 0.06));
-  border: 1px solid rgba(76, 175, 80, 0.4);
-  box-shadow: 0 0 12px rgba(76, 175, 80, 0.2);
+  color: var(--cp-accent);
+  background: color-mix(in srgb, var(--cp-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cp-accent) 40%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cp-accent) 20%, transparent);
   max-height: 0;
   opacity: 0;
   overflow: hidden;

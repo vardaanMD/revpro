@@ -162,7 +162,7 @@ function safeFallbackSnapshot() {
       enableAnalytics: true,
     },
     rewards: { tiers: [], milestones: [] },
-    discounts: { allowStacking: false, whitelist: [] },
+    discounts: { allowStacking: false, whitelist: [], teaseMessage: "Apply coupon at checkout to unlock savings" },
     freeGifts: { rules: [] },
     upsell: { standardRules: [], ai: { enabled: false } },
     checkout: { mode: "default", overlay: { enabled: false } },

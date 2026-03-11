@@ -41,6 +41,8 @@ export interface CartProConfigV3Upsell {
   collections: string[];
   standardRules: unknown[];
   ai: CartProConfigV3UpsellAi;
+  /** Section heading for recommendations (e.g. "You may also like"). */
+  recommendationsHeading?: string;
 }
 
 export interface CartProConfigV3Rewards {
@@ -122,6 +124,7 @@ export const DEFAULT_CONFIG_V3 = Object.freeze({
     collections: [],
     standardRules: [],
     ai: { enabled: false },
+    recommendationsHeading: "You may also like",
   },
   rewards: {
     tiers: [],
@@ -215,6 +218,10 @@ export function mergeWithDefaultV3(
         enabled: Boolean(u.ai.enabled),
         endpoint: typeof u.ai.endpoint === "string" ? u.ai.endpoint : undefined,
       };
+    }
+    if (typeof u.recommendationsHeading === "string") {
+      const trimmed = u.recommendationsHeading.trim();
+      base.upsell.recommendationsHeading = trimmed || base.upsell.recommendationsHeading;
     }
   }
 

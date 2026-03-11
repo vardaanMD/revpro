@@ -107,6 +107,14 @@ function buildConfigV3FromForm(
     // keep base.upsell.collections
   }
   base.upsell.collections = collections;
+  base.upsell.recommendationsHeading =
+    typeof formData.recommendationsHeading === "string" && formData.recommendationsHeading.trim()
+      ? formData.recommendationsHeading.trim()
+      : "You may also like";
+  base.discounts.teaseMessage =
+    typeof formData.couponTeaseMessage === "string" && formData.couponTeaseMessage.trim()
+      ? formData.couponTeaseMessage.trim()
+      : "Apply coupon at checkout to unlock savings";
 
   // Cart drawer is always V3; no runtime toggle.
   base.runtimeVersion = "v3";
@@ -174,6 +182,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const cartHeaderMessages = Array.isArray(appearanceV3.cartHeaderMessages)
     ? appearanceV3.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3)
     : [];
+  const upsellV3 = configV3?.upsell as { recommendationsHeading?: string } | undefined;
+  const discountsV3 = configV3?.discounts as { teaseMessage?: string } | undefined;
 
   const savedFromRedirect = new URL(request.url).searchParams.get("saved") === "1";
   return {
@@ -201,6 +211,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       cartHeaderMessage1: cartHeaderMessages[0] ?? "",
       cartHeaderMessage2: cartHeaderMessages[1] ?? "",
       cartHeaderMessage3: cartHeaderMessages[2] ?? "",
+      recommendationsHeading: upsellV3?.recommendationsHeading ?? "You may also like",
+      couponTeaseMessage: discountsV3?.teaseMessage ?? "Apply coupon at checkout to unlock savings",
     },
     capabilities: billing.capabilities,
     initialPreviewRenderState,
@@ -661,6 +673,21 @@ export default function SettingsPage() {
                       data-1p-ignore
                     />
                   )}
+                  <FormField
+                    label="Recommendations section title"
+                    id="recommendationsHeading"
+                    helperText="Heading above the cross-sell product list (e.g. You may also like)"
+                  >
+                    <input
+                      id="recommendationsHeading"
+                      type="text"
+                      name="recommendationsHeading"
+                      placeholder="You may also like"
+                      defaultValue={config.recommendationsHeading ?? "You may also like"}
+                      className={settingsStyles.textInput}
+                      aria-label="Recommendations section title"
+                    />
+                  </FormField>
                 </>
               ) : (
                 <div className={settingsStyles.lockedBlock}>
@@ -676,6 +703,7 @@ export default function SettingsPage() {
                   <input type="hidden" name="recommendationStrategy" value="COLLECTION_MATCH" />
                   <input type="hidden" name="recommendationLimit" value={String(config.recommendationLimit)} />
                   <input type="hidden" name="manualCollectionIds" value={config.manualCollectionIds} />
+                  <input type="hidden" name="recommendationsHeading" value={config.recommendationsHeading ?? "You may also like"} />
                 </div>
               )}
             </FormSection>
@@ -740,13 +768,30 @@ export default function SettingsPage() {
                 </p>
               )}
               {capabilities.allowCouponTease ? (
-                <s-checkbox
-                  name="enableCouponTease"
-                  label="Enable Coupon Tease"
-                  defaultChecked={config.enableCouponTease}
-                  value="on"
-                  onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableCouponTease((e.currentTarget as HTMLInputElement).checked)}
-                />
+                <>
+                  <s-checkbox
+                    name="enableCouponTease"
+                    label="Enable Coupon Tease"
+                    defaultChecked={config.enableCouponTease}
+                    value="on"
+                    onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableCouponTease((e.currentTarget as HTMLInputElement).checked)}
+                  />
+                  <FormField
+                    label="Coupon tease message"
+                    id="couponTeaseMessage"
+                    helperText="Message shown when no discount code is applied"
+                  >
+                    <input
+                      id="couponTeaseMessage"
+                      type="text"
+                      name="couponTeaseMessage"
+                      placeholder="Apply coupon at checkout to unlock savings"
+                      defaultValue={config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings"}
+                      className={settingsStyles.textInput}
+                      aria-label="Coupon tease message"
+                    />
+                  </FormField>
+                </>
               ) : (
                 <div className={settingsStyles.lockedInline}>
                   <s-text tone="neutral">Enable Coupon Tease</s-text>
@@ -754,6 +799,7 @@ export default function SettingsPage() {
                     <s-text tone="neutral">Next stage: Advanced plan</s-text>
                   </span>
                   <input type="hidden" name="enableCouponTease" value="" />
+                  <input type="hidden" name="couponTeaseMessage" value={config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings"} />
                 </div>
               )}
             </FormSection>

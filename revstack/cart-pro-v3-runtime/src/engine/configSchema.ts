@@ -49,6 +49,8 @@ export interface CartProConfigV3Upsell {
   collections: string[];
   standardRules: unknown[];
   ai: CartProConfigV3UpsellAi;
+  /** Section heading for recommendations (e.g. "You may also like"). */
+  recommendationsHeading?: string;
 }
 
 export interface CartProConfigV3Rewards {
@@ -162,6 +164,8 @@ export interface ConfigUpsell {
   variantToThreshold: Map<number, number>;
   aiEnabled: boolean;
   oneTick: { variantId: number } | null;
+  /** Section heading for recommendations (e.g. "You may also like"). */
+  recommendationsHeading: string;
 }
 
 export interface ConfigRewardsTier {

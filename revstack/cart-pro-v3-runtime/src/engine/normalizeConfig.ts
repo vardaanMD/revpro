@@ -116,11 +116,16 @@ function normalizeUpsell(raw: RawCartProConfig): ConfigUpsell {
     variantToThreshold.set(rule.variantId, rule.conditionSubtotalCents);
   }
   const aiEnabled = Boolean(raw.upsell?.ai?.enabled);
+  const recommendationsHeading =
+    typeof raw.upsell?.recommendationsHeading === 'string'
+      ? (raw.upsell.recommendationsHeading.trim() || 'You may also like')
+      : 'You may also like';
   return {
     standardRules,
     variantToThreshold,
     aiEnabled,
     oneTick: null,
+    recommendationsHeading,
   };
 }
 

@@ -34,6 +34,7 @@ export const defaultConfig: RawCartProConfig = {
     collections: [],
     standardRules: [],
     ai: { enabled: false },
+    recommendationsHeading: 'You may also like',
   },
   rewards: {
     tiers: [],
@@ -41,6 +42,7 @@ export const defaultConfig: RawCartProConfig = {
   discounts: {
     allowStacking: false,
     whitelist: [],
+    teaseMessage: 'Apply coupon at checkout to unlock savings',
   },
   freeGifts: {
     rules: [],
