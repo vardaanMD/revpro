@@ -21,7 +21,7 @@ import { requestContext } from "./app/lib/request-context.server";
 import { runAppAuth } from "./app/run-app-auth.server";
 import { getRedis } from "./app/lib/redis.server";
 import { prisma } from "./app/lib/prisma.server";
-import { logResilience } from "./app/lib/logger.server";
+import { logResilience, setLogSink } from "./app/lib/logger.server";
 import { AdminApi401Error } from "./app/lib/admin-api-errors.server";
 
 const BUILD_PATH = path.resolve(process.cwd(), "build/server/index.js");
@@ -190,11 +190,19 @@ async function main() {
   }
 
   // Cold start mitigation: warm Redis so first request doesn't pay connection cost.
+  // Also register log sink to buffer logs into a Redis ring buffer for the log viewer.
   try {
     const redis = getRedis();
     redis.ping().catch(() => {});
+    const LOG_KEY = "revstack:logs:stream";
+    const LOG_MAX = 1000;
+    setLogSink((payload) => {
+      const str = JSON.stringify(payload);
+      redis.lpush(LOG_KEY, str).catch(() => {});
+      redis.ltrim(LOG_KEY, 0, LOG_MAX - 1).catch(() => {});
+    });
   } catch {
-    // REDIS_URL missing or connect failed
+    // REDIS_URL missing or connect failed — log sink simply stays null
   }
 
   // Prisma: ensure connection is established before listening (avoids race conditions where
