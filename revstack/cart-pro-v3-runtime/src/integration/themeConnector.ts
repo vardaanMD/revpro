@@ -8,7 +8,7 @@ import type { Engine } from '../engine/Engine';
 
 const DEFAULT_CART_SELECTORS = [
   'a[href="/cart"]',
-  'a[href*="/cart"]',
+  'a[href$="/cart"]',
   'button[name="cart"]',
   '.cart-icon',
   '.site-header__cart',
