@@ -1,3 +1,7 @@
+.bannerRegion {
+  margin-bottom: var(--app-space-4);
+}
+
 .fieldsetReset {
   border: none;
   margin: 0;
@@ -149,4 +153,20 @@
   font-size: var(--app-font-sm);
   color: var(--app-muted-text);
   margin: 0 0 var(--app-space-2);
+}
+
+/* Sticky save bar when main Save button scrolls out of view */
+.stickySaveBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--app-space-3) var(--app-space-4);
+  background: var(--app-surface-base);
+  border-top: 1px solid var(--app-border-subtle);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }

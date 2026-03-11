@@ -1,3 +1,15 @@
+/* Page subtitle: current range in header */
+.pageRange {
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+  margin: 0 0 var(--app-space-4);
+}
+
+.pageRange strong {
+  color: var(--p-color-text);
+  font-weight: 600;
+}
+
 /* Tab bar: Cart View | Order View */
 .tabBar {
   display: flex;

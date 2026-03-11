@@ -5,7 +5,7 @@ import type {
 } from "react-router";
 import { Form, redirect, useActionData, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import { AppLink } from "~/components/AppLink";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "~/shopify.server";
 import { getShopConfig, getFallbackShopConfig, invalidateShopConfigCache } from "~/lib/shop-config.server";
@@ -430,6 +430,8 @@ export default function SettingsPage() {
   const [milestoneRows, setMilestoneRows] = useState<MilestoneRow[]>(initialRows);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [showSuccessBanner, setShowSuccessBanner] = useState(true);
+  const [showStickySave, setShowStickySave] = useState(false);
+  const saveButtonRef = useRef<HTMLDivElement>(null);
 
   /* Reactive preview state: derived from form, not persisted until submit */
   const [previewPrimaryColor, setPreviewPrimaryColor] = useState(config.primaryColor || "#111111");
@@ -467,6 +469,17 @@ export default function SettingsPage() {
       return () => clearTimeout(t);
     }
   }, [actionData, savedFromRedirect]);
+
+  useEffect(() => {
+    const el = saveButtonRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickySave(!entry?.isIntersecting),
+      { threshold: 0, rootMargin: "-80px 0px 0px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const milestonesJsonValue = useMemo(() => {
     const valid = milestoneRows.filter(
@@ -598,19 +611,21 @@ export default function SettingsPage() {
 
   return (
     <s-page heading="Settings">
-      {success && showSuccessBanner && (
-        <s-banner tone="success" dismissible={true}>
-          Settings saved successfully.
-        </s-banner>
-      )}
-      {error && (
-        <s-banner tone="critical" dismissible={false}>
-          {error.includes("Failed to save") ? "We couldn't save your changes. Please check the fields below and try again." : error}
-        </s-banner>
-      )}
+      <div role="status" aria-live="polite" aria-atomic="true" className={settingsStyles.bannerRegion}>
+        {success && showSuccessBanner && (
+          <s-banner tone="success" dismissible={true}>
+            Settings saved successfully.
+          </s-banner>
+        )}
+        {error && (
+          <s-banner tone="critical" dismissible={false}>
+            {error.includes("Failed to save") ? "We couldn't save your changes. Please check the fields below and try again." : error}
+          </s-banner>
+        )}
+      </div>
       <div className={previewPanelStyles.settingsWithPreview}>
         <div className={previewPanelStyles.formColumn}>
-      <Form method="post" onSubmit={handleSubmit}>
+      <Form id="settings-form" method="post" onSubmit={handleSubmit}>
         <input type="hidden" name="milestonesJson" value={milestonesJsonValue} />
         <fieldset disabled={isSubmitting} className={settingsStyles.fieldsetReset}>
         <s-stack direction="block" gap="base">
@@ -988,17 +1003,35 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <s-button type="submit" variant="primary" disabled={isSubmitting} loading={isSubmitting}>
-            {isSubmitting ? "Saving…" : showSuccessBanner ? "Saved ✓" : "Save Changes"}
-          </s-button>
+          <div ref={saveButtonRef}>
+            <s-button type="submit" variant="primary" disabled={isSubmitting} loading={isSubmitting}>
+              {isSubmitting ? "Saving…" : showSuccessBanner ? "Saved ✓" : "Save Changes"}
+            </s-button>
+          </div>
         </s-stack>
         </fieldset>
       </Form>
+      {showStickySave && (
+        <div className={settingsStyles.stickySaveBar} role="region" aria-label="Save settings">
+          <s-button
+            type="submit"
+            form="settings-form"
+            variant="primary"
+            disabled={isSubmitting}
+            loading={isSubmitting}
+          >
+            {isSubmitting ? "Saving…" : "Save Changes"}
+          </s-button>
+        </div>
+      )}
         </div>
         <div className={previewPanelStyles.previewColumn}>
           <div className={previewPanelStyles.previewLabel}>
-            Cart drawer preview
+            Live preview
           </div>
+          <p className={previewPanelStyles.previewNote}>
+            Preview updates as you change settings.
+          </p>
           <div className={previewPanelStyles.previewDrawerWrap}>
             <CartPreview
               ui={previewRenderState.ui}

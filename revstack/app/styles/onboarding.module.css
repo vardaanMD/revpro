@@ -67,3 +67,28 @@
   border-color: var(--p-color-border-info, #2c6ecb);
   box-shadow: 0 0 0 1px var(--p-color-border-info, #2c6ecb);
 }
+
+/* Step names under progress bar */
+.stepNames {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--app-space-2);
+  gap: var(--app-space-2);
+}
+
+.stepName {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--app-font-xs);
+  color: var(--app-muted-text);
+  text-align: center;
+}
+
+.stepNameCurrent {
+  font-weight: 600;
+  color: var(--p-color-text, #202223);
+}
+
+.stepNameComplete {
+  color: var(--p-color-text-success, #008060);
+}

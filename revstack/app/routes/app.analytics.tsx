@@ -137,6 +137,11 @@ export default function AnalyticsPage() {
 
   return (
     <s-page heading="Analytics">
+      {!isLoading && (
+        <p className={analyticsStyles.pageRange} aria-live="polite">
+          Showing: <strong>{rangeLabel}</strong>
+        </p>
+      )}
       {isLoading ? (
         <>
           <s-section heading="Analytics">

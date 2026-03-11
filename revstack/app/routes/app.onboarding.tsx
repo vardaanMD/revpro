@@ -167,6 +167,8 @@ export default function OnboardingWizardPage() {
   const stepLabel =
     step <= WIZARD_STEP_CONFIGURE_BASICS ? `Step ${step + 1} of 4` : step === WIZARD_STEP_LAUNCH ? "Complete" : "";
 
+  const stepNames = ["Welcome", "Extension", "Verify", "Configure", "Launch"];
+
   return (
     <s-page>
       <s-stack direction="block" gap="large">
@@ -179,7 +181,18 @@ export default function OnboardingWizardPage() {
               aria-valuenow={step + 1}
               aria-valuemin={1}
               aria-valuemax={WIZARD_STEP_COUNT + 1}
+              aria-label={`Step ${step + 1} of 5: ${stepNames[step]}`}
             />
+          </div>
+          <div className={onboardingStyles.stepNames}>
+            {stepNames.map((name, i) => (
+              <span
+                key={name}
+                className={`${onboardingStyles.stepName} ${i === step ? onboardingStyles.stepNameCurrent : i < step ? onboardingStyles.stepNameComplete : ""}`}
+              >
+                {name}
+              </span>
+            ))}
           </div>
           {stepLabel && (
             <s-text tone="subdued">{stepLabel}</s-text>

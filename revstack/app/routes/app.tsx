@@ -1,10 +1,11 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Outlet, useLoaderData, useNavigation, useRouteError } from "react-router";
+import { Outlet, useLoaderData, useLocation, useNavigation, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { AppLink } from "~/components/AppLink";
 import { LoadingBar } from "~/components/LoadingBar";
+import appNavStyles from "~/styles/appNav.module.css";
 import { authenticate } from "../shopify.server";
 import { getShopConfig, getFallbackShopConfig } from "~/lib/shop-config.server";
 import { getBillingContext } from "~/lib/billing-context.server";
@@ -167,29 +168,76 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
+function isNavActive(pathname: string, to: string): boolean {
+  const base = to.replace(/\?.*$/, "").replace(/#.*$/, "");
+  if (base === "/app" || base === "/app/") {
+    return pathname === "/app" || pathname === "/app/";
+  }
+  return pathname === base || pathname.startsWith(base + "/");
+}
+
 export default function App() {
   const { apiKey, onboardingCompleted, billing } = useLoaderData<typeof loader>();
+  const location = useLocation();
   const navigation = useNavigation();
+  const pathname = location.pathname;
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
   const isBillingActive = billing.isEntitled;
+  const billingTo = billing.isEntitled ? "/app/billing" : "/app/upgrade";
 
   return (
     <AppProvider embedded apiKey={apiKey}>
       <LoadingBar isLoading={isLoading} />
-      <s-app-nav>
-        <AppLink to="/app">Overview</AppLink>
-        <AppLink to="/app/additional">Additional page</AppLink>
+      <s-app-nav role="navigation" aria-label="App navigation">
+        <AppLink
+          to="/app"
+          className={isNavActive(pathname, "/app") ? appNavStyles.active : undefined}
+          aria-current={isNavActive(pathname, "/app") ? "page" : undefined}
+        >
+          Overview
+        </AppLink>
+        <AppLink
+          to="/app/additional"
+          className={isNavActive(pathname, "/app/additional") ? appNavStyles.active : undefined}
+          aria-current={isNavActive(pathname, "/app/additional") ? "page" : undefined}
+        >
+          Additional page
+        </AppLink>
         {!onboardingCompleted && (
-          <AppLink to="/app/onboarding">Onboarding</AppLink>
+          <AppLink
+            to="/app/onboarding"
+            className={isNavActive(pathname, "/app/onboarding") ? appNavStyles.active : undefined}
+            aria-current={isNavActive(pathname, "/app/onboarding") ? "page" : undefined}
+          >
+            Onboarding
+          </AppLink>
         )}
-        <AppLink to="/app/settings">Settings</AppLink>
-        <AppLink to="/app/analytics">Analytics</AppLink>
-        <AppLink to={billing.isEntitled ? "/app/billing" : "/app/upgrade"}>
+        <AppLink
+          to="/app/settings"
+          className={isNavActive(pathname, "/app/settings") ? appNavStyles.active : undefined}
+          aria-current={isNavActive(pathname, "/app/settings") ? "page" : undefined}
+        >
+          Settings
+        </AppLink>
+        <AppLink
+          to="/app/analytics"
+          className={isNavActive(pathname, "/app/analytics") ? appNavStyles.active : undefined}
+          aria-current={isNavActive(pathname, "/app/analytics") ? "page" : undefined}
+        >
+          Analytics
+        </AppLink>
+        <AppLink
+          to={billingTo}
+          className={isNavActive(pathname, billingTo) ? appNavStyles.active : undefined}
+          aria-current={isNavActive(pathname, billingTo) ? "page" : undefined}
+        >
           {isBillingActive ? "Billing" : "Activate Plan"}
         </AppLink>
       </s-app-nav>
 
-      <Outlet />
+      <main role="main">
+        <Outlet />
+      </main>
       <footer className="app-branding-footer" aria-label="App branding">
         RevPRO
       </footer>

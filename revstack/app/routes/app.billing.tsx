@@ -25,11 +25,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     config = await getShopConfig(shop);
   }
   const billing = await getBillingContext(shop, config);
-  return { billingActive: billing.isEntitled, plan: billing.plan };
+  const storeHandle = shop.replace(/\.myshopify\.com$/, "");
+  const shopifyBillingUrl = `https://admin.shopify.com/store/${storeHandle}/settings/billing`;
+  return { billingActive: billing.isEntitled, plan: billing.plan, shopifyBillingUrl };
 };
 
 export default function BillingPage() {
-  const { billingActive, plan } = useLoaderData<typeof loader>();
+  const { billingActive, plan, shopifyBillingUrl } = useLoaderData<typeof loader>();
   const planLabel = plan === "growth" ? "Growth" : plan === "advanced" ? "Advanced" : "Basic";
 
   return (
@@ -41,6 +43,13 @@ export default function BillingPage() {
               <s-text tone="auto">Current plan: {planLabel}</s-text>
               <s-text tone="neutral">
                 Subscription and invoices are managed in your Shopify admin billing settings.
+              </s-text>
+              <s-text tone="subdued">
+                To update your payment method or view invoices, open{" "}
+                <a href={shopifyBillingUrl} target="_blank" rel="noopener noreferrer">
+                  Shopify admin → Settings → Billing
+                </a>
+                .
               </s-text>
               <AppLink to="/app/upgrade">
                 <s-button variant="secondary">Change plan</s-button>

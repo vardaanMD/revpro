@@ -1,0 +1,14 @@
+/* Active state for app nav link — visible highlight for current route */
+.active {
+  font-weight: 600;
+  color: var(--p-color-text, #202223);
+}
+
+.active::after {
+  content: "";
+  display: block;
+  height: 2px;
+  background: var(--p-color-border-interactive, #008060);
+  border-radius: 1px;
+  margin-top: 2px;
+}
