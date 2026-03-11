@@ -91,6 +91,10 @@
       setHostPointerEvents('auto');
       setAppContainerPointerEvents('auto');
       removeThemeDrawerClass();
+      if (drawerEl) {
+        drawerEl.style.transition = '';
+        drawerEl.style.transform = '';
+      }
     });
   } else {
     releaseBodyScroll();
@@ -119,6 +123,66 @@
     setHostPointerEvents('none');
     removeThemeDrawerClass();
     dispatch('close');
+  }
+
+  /** Scroll footer into view when coupon input is focused (keeps checkout button visible above keyboard on mobile). */
+  let footerEl;
+  function scrollFooterIntoView() {
+    requestAnimationFrame(() => {
+      const el = footerEl || (typeof document !== 'undefined' && document.getElementById('cart-pro-footer'));
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    });
+  }
+
+  /** Swipe-to-close: track drag from header only so it doesn't conflict with recommendation carousel. */
+  const SWIPE_CLOSE_THRESHOLD_PX = 50;
+  let drawerEl;
+  let dragStartX = 0;
+  let lastDragOffset = 0;
+  let isDragging = false;
+
+  function getClientX(e) {
+    if (e.type.startsWith('touch')) return e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0;
+    return e.clientX ?? 0;
+  }
+
+  function onSwipeStart(e) {
+    if (!drawerEl || !$stateStore?.ui?.drawerOpen) return;
+    isDragging = true;
+    dragStartX = getClientX(e);
+    lastDragOffset = 0;
+    drawerEl.style.transition = 'none';
+    if (e.type === 'mousedown') {
+      const up = (e2) => { onSwipeEnd(); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+      const move = (e2) => onSwipeMove(e2);
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    }
+  }
+
+  function onSwipeMove(e) {
+    if (!isDragging || !drawerEl) return;
+    const x = getClientX(e);
+    const deltaX = x - dragStartX;
+    const offset = Math.max(0, deltaX);
+    lastDragOffset = offset;
+    drawerEl.style.transform = `translateX(${offset}px)`;
+    if (offset > 0 && e.cancelable) e.preventDefault();
+  }
+
+  function onSwipeEnd() {
+    if (!isDragging || !drawerEl) return;
+    isDragging = false;
+    drawerEl.style.transition = '';
+    if (lastDragOffset >= SWIPE_CLOSE_THRESHOLD_PX) {
+      drawerEl.style.transform = '';
+      handleClose();
+    } else {
+      drawerEl.style.transform = 'translateX(0)';
+    }
+    lastDragOffset = 0;
   }
 
   function onCloseCheckout() {
@@ -178,10 +242,22 @@
 
 <div id="cart-pro" class:open={$stateStore?.ui?.drawerOpen} role="presentation" bind:this={cartProEl}>
   <div id="cart-pro-overlay" role="button" tabindex="-1" aria-label="Close cart overlay" on:click={handleClose} on:keydown={(e) => e.key === 'Escape' && handleClose()}></div>
-  <div id="cart-pro-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-pro-title" tabindex="-1">
-    <div id="cart-pro-header">
-      <span id="cart-pro-title">Your Cart</span>
-      <button id="cart-pro-close" type="button" aria-label="Close drawer" on:click={handleClose}>×</button>
+  <div id="cart-pro-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-pro-title" tabindex="-1" bind:this={drawerEl}>
+    <div
+      id="cart-pro-header"
+      class="cp-drawer-header-with-swipe"
+      role="presentation"
+      on:touchstart={onSwipeStart}
+      on:touchmove={onSwipeMove}
+      on:touchend={onSwipeEnd}
+      on:touchcancel={onSwipeEnd}
+      on:mousedown={onSwipeStart}
+    >
+      <span class="cp-drawer-handle" aria-hidden="true"></span>
+      <div class="cp-header-row">
+        <span id="cart-pro-title">Your Cart</span>
+        <button id="cart-pro-close" type="button" aria-label="Close drawer" on:click={handleClose}>×</button>
+      </div>
     </div>
     {#if hasHeaderMessages && currentHeaderMessage}
       <div class="cp-cart-header-messages" aria-live="polite">
@@ -196,9 +272,9 @@
           <Recommendations {engine} />
         {/if}
       </div>
-      <div id="cart-pro-footer">
+      <div id="cart-pro-footer" bind:this={footerEl}>
         {#if enableDiscounts}
-          <CouponSection {engine} applied={discount.applied} validating={discount.validating} lastError={discount.lastError} />
+          <CouponSection {engine} applied={discount.applied} validating={discount.validating} lastError={discount.lastError} onCouponInputFocus={scrollFooterIntoView} />
         {/if}
         <CheckoutSection
           {engine}
@@ -228,6 +304,30 @@
 <div id="cart-pro-confetti-layer" bind:this={confettiLayerEl} aria-hidden="true" class="cart-pro-confetti-layer"></div>
 
 <style>
+  .cp-drawer-header-with-swipe {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cp-drawer-handle {
+    width: 36px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    margin: 0 auto 8px;
+    flex-shrink: 0;
+  }
+  .cp-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 0;
+  }
+  @media (min-width: 769px) {
+    .cp-drawer-handle {
+      display: none;
+    }
+  }
   .checkout-overlay {
     position: fixed;
     inset: 0;

@@ -125,11 +125,14 @@ function ensureBodyHost(): HTMLElement {
     document.body.appendChild(host);
   }
 
-  // FORCE full viewport overlay
+  // FORCE full viewport overlay (100dvh for mobile when URL bar shows/hides, 100vh fallback)
   host.style.position = 'fixed';
   host.style.inset = '0';
   host.style.width = '100vw';
   host.style.height = '100vh';
+  if (typeof CSS !== 'undefined' && CSS.supports?.('height', '100dvh')) {
+    host.style.height = '100dvh';
+  }
   host.style.zIndex = '10000000';
   host.style.pointerEvents = 'none';
   host.style.margin = '0';

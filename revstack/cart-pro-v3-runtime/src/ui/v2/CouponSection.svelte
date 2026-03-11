@@ -7,11 +7,17 @@
   export let validating = false;
   /** @type { string | null } */
   export let lastError = null;
+  /** Optional: called when coupon input is focused (e.g. to scroll footer into view on mobile). */
+  export let onCouponInputFocus = () => {};
 
   let discountInput = '';
   // V2 lever: tease from config only; no unrelated runtime flags.
   $: teaseMessage = engine?.getConfig?.()?.discounts?.teaseMessage;
   $: showTeaseMessage = engine?.getConfig?.()?.discounts?.showTeaseMessage !== false;
+
+  function handleInputFocus() {
+    onCouponInputFocus();
+  }
 
   function onApply() {
     const code = discountInput.trim();
@@ -26,7 +32,7 @@
 </script>
 
 <div class="cp-coupon-section" id="cp-coupon-section" class:cp-loading={validating} class:cp-success={applied.length > 0 && !lastError} class:cp-error={!!lastError}>
-  <input type="text" id="cp-coupon-input" placeholder="Discount code" bind:value={discountInput} on:keydown={(e) => e.key === 'Enter' && onApply()} disabled={validating} />
+  <input type="text" id="cp-coupon-input" placeholder="Discount code" bind:value={discountInput} on:focus={handleInputFocus} on:keydown={(e) => e.key === 'Enter' && onApply()} disabled={validating} />
   <button type="button" id="cp-coupon-apply" on:click={onApply} disabled={validating || !discountInput.trim()}>
     {validating ? 'Checking…' : 'Apply'}
   </button>
