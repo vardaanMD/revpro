@@ -25,25 +25,14 @@ type LogPayload = {
   meta?: Record<string, unknown>;
 };
 
-function formatPayload(level: "info" | "warn" | "error", params: {
-  shop?: string;
-  requestId?: string;
-  path?: string;
-  route?: string;
-  message: string;
-  meta?: Record<string, unknown>;
-}): string {
-  const full: LogPayload = {
-    level,
-    timestamp: new Date().toISOString(),
-    requestId: params.requestId ?? null,
-    shop: params.shop ?? null,
-    route: params.route ?? params.path ?? "",
-    message: params.message,
-    meta: params.meta,
-  };
-  return JSON.stringify(full);
+type LogSink = (payload: LogPayload) => void;
+let _logSink: LogSink | null = null;
+
+/** Register an external sink (e.g. Redis ring buffer). Call from server.ts after Redis is ready. */
+export function setLogSink(fn: LogSink): void {
+  _logSink = fn;
 }
+
 
 function write(level: "info" | "warn" | "error", params: {
   shop?: string;
@@ -54,8 +43,19 @@ function write(level: "info" | "warn" | "error", params: {
   meta?: Record<string, unknown>;
 }): void {
   if (!shouldLog(level)) return;
-  const out = formatPayload(level, params);
-  process.stdout.write(out + "\n");
+  const payload: LogPayload = {
+    level,
+    timestamp: new Date().toISOString(),
+    requestId: params.requestId ?? null,
+    shop: params.shop ?? null,
+    route: params.route ?? params.path ?? "",
+    message: params.message,
+    meta: params.meta,
+  };
+  process.stdout.write(JSON.stringify(payload) + "\n");
+  if (_logSink) {
+    try { _logSink(payload); } catch { /* never let sink errors affect logging */ }
+  }
 }
 
 export function logInfo(params: {

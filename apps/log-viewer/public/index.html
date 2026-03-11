@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>revPRO Log Viewer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3347;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --info: #3b82f6;
+      --info-bg: #1e3a5f;
+      --warn: #f59e0b;
+      --warn-bg: #3b2e0d;
+      --error: #ef4444;
+      --error-bg: #3b0e0e;
+      --radius: 8px;
+      --font-mono: 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', monospace;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; }
+
+    /* ── Layout ── */
+    .layout { display: flex; flex-direction: column; height: 100vh; }
+
+    header {
+      display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+    header h1 span { color: var(--muted); font-weight: 400; }
+
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e; flex-shrink: 0;
+      box-shadow: 0 0 6px #22c55e88;
+    }
+    .status-dot.offline { background: #ef4444; box-shadow: 0 0 6px #ef444488; }
+
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+    /* ── Controls bar ── */
+    .controls {
+      display: flex; align-items: center; gap: 10px; padding: 10px 20px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; flex-wrap: wrap;
+    }
+
+    .chip-group { display: flex; gap: 4px; }
+    .chip {
+      padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border); background: transparent;
+      color: var(--muted); transition: all 0.15s;
+    }
+    .chip:hover { border-color: var(--text); color: var(--text); }
+    .chip.active { background: var(--surface2); color: var(--text); border-color: #4e5a78; }
+    .chip.info.active { background: var(--info-bg); color: var(--info); border-color: var(--info); }
+    .chip.warn.active { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+    .chip.error.active { background: var(--error-bg); color: var(--error); border-color: var(--error); }
+
+    .search-input {
+      padding: 5px 10px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: 12px; width: 160px;
+      outline: none;
+    }
+    .search-input:focus { border-color: #4e5a78; }
+    .search-input::placeholder { color: var(--muted); }
+
+    select.search-input { cursor: pointer; width: auto; }
+
+    .toggle-btn {
+      padding: 5px 12px; border-radius: var(--radius); font-size: 12px; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border); background: var(--surface2);
+      color: var(--muted); transition: all 0.15s; white-space: nowrap;
+    }
+    .toggle-btn:hover { color: var(--text); }
+    .toggle-btn.active { background: #2d3a5a; color: var(--text); border-color: #4e5a78; }
+
+    .sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+    .count-label { font-size: 12px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+    /* ── Log list ── */
+    .log-list {
+      flex: 1; overflow-y: auto; padding: 12px 20px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .log-list::-webkit-scrollbar { width: 6px; }
+    .log-list::-webkit-scrollbar-track { background: transparent; }
+    .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Pretty card ── */
+    .log-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; transition: border-color 0.15s;
+    }
+    .log-card:hover { border-color: #4e5a78; }
+    .log-card.info { border-left: 3px solid var(--info); }
+    .log-card.warn { border-left: 3px solid var(--warn); }
+    .log-card.error { border-left: 3px solid var(--error); }
+
+    .card-header {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      cursor: pointer; user-select: none;
+    }
+    .level-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px; padding: 2px 7px;
+      border-radius: 4px; flex-shrink: 0; text-transform: uppercase;
+    }
+    .info .level-badge { background: var(--info-bg); color: var(--info); }
+    .warn .level-badge { background: var(--warn-bg); color: var(--warn); }
+    .error .level-badge { background: var(--error-bg); color: var(--error); }
+
+    .card-ts { font-size: 11px; color: var(--muted); font-family: var(--font-mono); flex-shrink: 0; }
+    .card-route { font-size: 11px; color: var(--muted); background: var(--surface2); padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+    .card-msg { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-chevron { color: var(--muted); font-size: 11px; flex-shrink: 0; transition: transform 0.2s; }
+    .log-card.expanded .card-chevron { transform: rotate(90deg); }
+
+    .card-body { padding: 0 14px 12px; display: none; }
+    .log-card.expanded .card-body { display: block; }
+
+    .meta-row { display: flex; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
+    .meta-pill { font-size: 11px; color: var(--muted); }
+    .meta-pill strong { color: var(--text); }
+
+    .meta-block {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 8px 10px; font-family: var(--font-mono); font-size: 11.5px; color: #93c5fd;
+      white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto;
+    }
+
+    /* ── Raw view ── */
+    .raw-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 10px 14px;
+    }
+    .raw-card pre {
+      font-family: var(--font-mono); font-size: 11.5px; color: #93c5fd;
+      white-space: pre-wrap; word-break: break-all;
+    }
+
+    /* ── Empty / loading ── */
+    .empty { text-align: center; color: var(--muted); padding: 60px 0; font-size: 14px; }
+    .empty .icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* ── Refresh indicator ── */
+    .refreshing { animation: pulse 1s ease-in-out infinite alternate; }
+    @keyframes pulse { from { opacity: 1; } to { opacity: 0.5; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <!-- Header -->
+  <header>
+    <div class="status-dot" id="statusDot"></div>
+    <h1>revPRO <span>/ Log Viewer</span></h1>
+    <div class="header-right">
+      <button class="toggle-btn active" id="autoRefreshBtn" onclick="toggleAutoRefresh()">↻ Live</button>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="controls">
+    <!-- Level filter -->
+    <div class="chip-group">
+      <button class="chip active" data-level="all" onclick="setLevel('all')">All</button>
+      <button class="chip info" data-level="info" onclick="setLevel('info')">INFO</button>
+      <button class="chip warn" data-level="warn" onclick="setLevel('warn')">WARN</button>
+      <button class="chip error" data-level="error" onclick="setLevel('error')">ERROR</button>
+    </div>
+
+    <div class="sep"></div>
+
+    <input class="search-input" id="shopInput" placeholder="Filter shop..." oninput="debounceRefresh()" />
+    <input class="search-input" id="routeInput" placeholder="Filter route..." oninput="debounceRefresh()" />
+
+    <select class="search-input" id="limitSelect" onchange="refresh()">
+      <option value="50">50 entries</option>
+      <option value="100" selected>100 entries</option>
+      <option value="250">250 entries</option>
+      <option value="500">500 entries</option>
+    </select>
+
+    <div class="sep"></div>
+
+    <button class="toggle-btn" id="viewToggle" onclick="toggleView()">{ } Raw</button>
+
+    <span class="count-label" id="countLabel">—</span>
+  </div>
+
+  <!-- Log list -->
+  <div class="log-list" id="logList">
+    <div class="empty"><div class="icon">📋</div>Loading logs…</div>
+  </div>
+</div>
+
+<script>
+  let state = {
+    level: 'all',
+    view: 'pretty',   // 'pretty' | 'raw'
+    autoRefresh: true,
+    refreshTimer: null,
+    debounceTimer: null,
+    entries: [],
+  };
+
+  // ── Level filter ──
+  function setLevel(level) {
+    state.level = level;
+    document.querySelectorAll('.chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.level === level);
+    });
+    refresh();
+  }
+
+  // ── View toggle ──
+  function toggleView() {
+    state.view = state.view === 'pretty' ? 'raw' : 'pretty';
+    const btn = document.getElementById('viewToggle');
+    btn.textContent = state.view === 'pretty' ? '{ } Raw' : '◈ Pretty';
+    btn.classList.toggle('active', state.view === 'raw');
+    render(state.entries);
+  }
+
+  // ── Auto-refresh ──
+  function toggleAutoRefresh() {
+    state.autoRefresh = !state.autoRefresh;
+    const btn = document.getElementById('autoRefreshBtn');
+    btn.classList.toggle('active', state.autoRefresh);
+    btn.textContent = state.autoRefresh ? '↻ Live' : '↻ Paused';
+    if (state.autoRefresh) scheduleRefresh();
+    else clearTimeout(state.refreshTimer);
+  }
+
+  function scheduleRefresh() {
+    clearTimeout(state.refreshTimer);
+    if (state.autoRefresh) state.refreshTimer = setTimeout(() => refresh(), 3000);
+  }
+
+  function debounceRefresh() {
+    clearTimeout(state.debounceTimer);
+    state.debounceTimer = setTimeout(refresh, 400);
+  }
+
+  // ── Fetch ──
+  async function refresh() {
+    const level = state.level === 'all' ? '' : state.level;
+    const shop = document.getElementById('shopInput').value.trim();
+    const route = document.getElementById('routeInput').value.trim();
+    const limit = document.getElementById('limitSelect').value;
+    const token = new URLSearchParams(location.search).get('token') || '';
+
+    const params = new URLSearchParams({ limit });
+    if (level) params.set('level', level);
+    if (shop) params.set('shop', shop);
+    if (route) params.set('route', route);
+    if (token) params.set('token', token);
+
+    const dot = document.getElementById('statusDot');
+
+    try {
+      const res = await fetch(`/api/logs?${params}`);
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      state.entries = data.entries || [];
+      dot.classList.remove('offline');
+      document.getElementById('countLabel').textContent =
+        `${state.entries.length} of ${data.total} logs`;
+      render(state.entries);
+    } catch (e) {
+      dot.classList.add('offline');
+      document.getElementById('countLabel').textContent = 'Connection error';
+    }
+
+    scheduleRefresh();
+  }
+
+  // ── Render ──
+  function render(entries) {
+    const list = document.getElementById('logList');
+    if (!entries.length) {
+      list.innerHTML = '<div class="empty"><div class="icon">🔍</div>No logs match your filters.</div>';
+      return;
+    }
+    list.innerHTML = entries.map((e, i) =>
+      state.view === 'pretty' ? prettyCard(e, i) : rawCard(e, i)
+    ).join('');
+  }
+
+  function prettyCard(e, i) {
+    const ts = formatTs(e.timestamp);
+    const meta = e.meta ? JSON.stringify(e.meta, null, 2) : null;
+    const route = e.route ? `<span class="card-route">${esc(e.route)}</span>` : '';
+    const metaBlock = meta
+      ? `<div class="meta-block">${esc(meta)}</div>`
+      : '';
+    const shop = e.shop ? `<span class="meta-pill"><strong>shop</strong> ${esc(e.shop)}</span>` : '';
+    const reqId = e.requestId ? `<span class="meta-pill"><strong>reqId</strong> ${esc(e.requestId)}</span>` : '';
+    const hasBody = e.shop || e.requestId || meta;
+
+    return `
+<div class="log-card ${e.level}" id="card-${i}">
+  <div class="card-header" onclick="toggleCard(${i})">
+    <span class="level-badge">${e.level}</span>
+    <span class="card-ts">${ts}</span>
+    ${route}
+    <span class="card-msg">${esc(e.message)}</span>
+    ${hasBody ? '<span class="card-chevron">▶</span>' : ''}
+  </div>
+  ${hasBody ? `
+  <div class="card-body">
+    ${(shop || reqId) ? `<div class="meta-row">${shop}${reqId}</div>` : ''}
+    ${metaBlock}
+  </div>` : ''}
+</div>`;
+  }
+
+  function rawCard(e, i) {
+    return `<div class="raw-card"><pre>${esc(JSON.stringify(e, null, 2))}</pre></div>`;
+  }
+
+  function toggleCard(i) {
+    document.getElementById(`card-${i}`)?.classList.toggle('expanded');
+  }
+
+  // ── Helpers ──
+  function formatTs(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    } catch { return iso; }
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ── Boot ──
+  refresh();
+</script>
+</body>
+</html>
