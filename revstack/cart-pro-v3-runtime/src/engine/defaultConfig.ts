@@ -17,6 +17,7 @@ export const defaultConfig: RawCartProConfig = {
     countdownEnabled: true,
     emojiMode: true,
     countdownDurationMs: 600_000,
+    showHeaderBanner: true,
     cartHeaderMessages: [],
     bannerBackgroundColor: '#16a34a',
   },
@@ -43,6 +44,7 @@ export const defaultConfig: RawCartProConfig = {
     allowStacking: false,
     whitelist: [],
     teaseMessage: 'Apply coupon at checkout to unlock savings',
+    showTeaseMessage: true,
   },
   freeGifts: {
     rules: [],

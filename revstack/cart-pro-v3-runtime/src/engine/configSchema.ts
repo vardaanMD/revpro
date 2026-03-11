@@ -15,6 +15,8 @@ export interface CartProConfigV3Appearance {
   emojiMode: boolean;
   /** Urgency countdown duration in ms. Primary source; fallback in engine if missing. */
   countdownDurationMs?: number;
+  /** When true, show the rotating header message banner below "Your Cart". Default true. */
+  showHeaderBanner?: boolean;
   backgroundColor?: string;
   /** Background color for the header message banner section. */
   bannerBackgroundColor?: string;
@@ -61,6 +63,8 @@ export interface CartProConfigV3Discounts {
   allowStacking: boolean;
   whitelist: string[];
   teaseMessage?: string;
+  /** When true, show the coupon tease message banner when no code is applied. Default true. */
+  showTeaseMessage?: boolean;
 }
 
 export interface CartProConfigV3FreeGifts {
@@ -141,6 +145,8 @@ export interface ConfigDiscounts {
   oneClickOffer: ConfigOneClickOffer;
   stacking: ConfigStacking;
   teaseMessage?: string;
+  /** When true, show the coupon tease message banner. Default true. */
+  showTeaseMessage: boolean;
 }
 
 export interface ConfigFreeGiftRule {
@@ -211,6 +217,7 @@ export interface ConfigAppearance {
   countdownEnabled: boolean;
   emojiMode: boolean;
   countdownDurationMs?: number;
+  showHeaderBanner: boolean;
   backgroundColor?: string;
   bannerBackgroundColor?: string;
   surfaceColor?: string;

@@ -15,6 +15,8 @@ export interface CartProConfigV3Appearance {
   countdownDurationMs?: number;
   /** Up to 3 custom messages shown below "Your Cart" that rotate. */
   cartHeaderMessages?: [string?, string?, string?] | string[];
+  /** When true, show the rotating header message banner below "Your Cart". Default true. */
+  showHeaderBanner?: boolean;
   /** Drawer background color (behind cart content). */
   backgroundColor?: string;
   /** Background color for the header message banner section (below "Your Cart"). */
@@ -53,6 +55,8 @@ export interface CartProConfigV3Discounts {
   allowStacking: boolean;
   whitelist: string[];
   teaseMessage?: string;
+  /** When true, show the coupon tease message banner when no code is applied. Default true. */
+  showTeaseMessage?: boolean;
 }
 
 export interface CartProConfigV3FreeGifts {
@@ -107,6 +111,7 @@ export const DEFAULT_CONFIG_V3 = Object.freeze({
     countdownEnabled: true,
     emojiMode: true,
     countdownDurationMs: 600000,
+    showHeaderBanner: true,
     backgroundColor: "#ffffff",
     bannerBackgroundColor: "#16a34a",
   },
@@ -133,6 +138,7 @@ export const DEFAULT_CONFIG_V3 = Object.freeze({
     allowStacking: false,
     whitelist: [],
     teaseMessage: "Apply coupon at checkout to unlock savings",
+    showTeaseMessage: true,
   },
   freeShipping: {
     thresholdCents: 5000,
@@ -195,6 +201,7 @@ export function mergeWithDefaultV3(
     if (typeof a.bannerBackgroundColor === "string" && a.bannerBackgroundColor.trim()) {
       base.appearance.bannerBackgroundColor = a.bannerBackgroundColor.trim();
     }
+    if (typeof a.showHeaderBanner === "boolean") base.appearance.showHeaderBanner = a.showHeaderBanner;
   }
 
   if (persisted.featureFlags && typeof persisted.featureFlags === "object" && !Array.isArray(persisted.featureFlags)) {
@@ -236,6 +243,7 @@ export function mergeWithDefaultV3(
     if (typeof d.allowStacking === "boolean") base.discounts.allowStacking = d.allowStacking;
     if (Array.isArray(d.whitelist)) base.discounts.whitelist = d.whitelist.filter((w): w is string => typeof w === "string");
     base.discounts.teaseMessage = d.teaseMessage ?? base.discounts.teaseMessage;
+    if (typeof d.showTeaseMessage === "boolean") base.discounts.showTeaseMessage = d.showTeaseMessage;
   }
 
   base.freeShipping = {

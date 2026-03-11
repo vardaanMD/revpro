@@ -71,6 +71,10 @@ export const settingsFormSchema = z.object({
   recommendationsHeading: z.string().optional(),
   /** Coupon tease message shown when no code is applied. */
   couponTeaseMessage: z.string().optional(),
+  /** When true, show the rotating header message banner below "Your Cart". */
+  showHeaderBanner: z.boolean(),
+  /** When true, show the coupon tease message banner when no code is applied. */
+  showTeaseMessage: z.boolean(),
 });
 
 export type SettingsFormData = z.infer<typeof settingsFormSchema>;
@@ -160,6 +164,9 @@ export function validateSettingsForm(formData: FormData): {
   const recommendationsHeading = typeof recommendationsHeadingRaw === "string" ? recommendationsHeadingRaw : "";
   const couponTeaseMessage = typeof couponTeaseMessageRaw === "string" ? couponTeaseMessageRaw : "";
 
+  const showHeaderBanner = formData.get("showHeaderBanner") === "on";
+  const showTeaseMessage = formData.get("showTeaseMessage") === "on";
+
   const raw = {
     freeShippingThresholdCents,
     baselineAovCents,
@@ -183,6 +190,8 @@ export function validateSettingsForm(formData: FormData): {
     cartHeaderMessage3,
     recommendationsHeading,
     couponTeaseMessage,
+    showHeaderBanner,
+    showTeaseMessage,
   };
 
   const result = settingsFormSchema.safeParse(raw);

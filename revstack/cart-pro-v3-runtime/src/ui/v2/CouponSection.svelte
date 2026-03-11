@@ -11,6 +11,7 @@
   let discountInput = '';
   // V2 lever: tease from config only; no unrelated runtime flags.
   $: teaseMessage = engine?.getConfig?.()?.discounts?.teaseMessage;
+  $: showTeaseMessage = engine?.getConfig?.()?.discounts?.showTeaseMessage !== false;
 
   function onApply() {
     const code = discountInput.trim();
@@ -42,4 +43,4 @@
     {/each}
   </div>
 </div>
-<div id="cart-pro-coupon-banner" class="cp-coupon-banner" class:cp-coupon-banner-visible={!!(teaseMessage && applied.length === 0)} aria-hidden="true">{teaseMessage && applied.length === 0 ? teaseMessage : ''}</div>
+<div id="cart-pro-coupon-banner" class="cp-coupon-banner" class:cp-coupon-banner-visible={!!(showTeaseMessage && teaseMessage && applied.length === 0)} aria-hidden="true">{showTeaseMessage && teaseMessage && applied.length === 0 ? teaseMessage : ''}</div>

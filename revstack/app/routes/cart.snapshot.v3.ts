@@ -152,6 +152,7 @@ function safeFallbackSnapshot() {
       countdownEnabled: true,
       emojiMode: true,
       countdownDurationMs: 600000,
+      showHeaderBanner: true,
     },
     featureFlags: {
       enableUpsell: true,
@@ -162,7 +163,7 @@ function safeFallbackSnapshot() {
       enableAnalytics: true,
     },
     rewards: { tiers: [], milestones: [] },
-    discounts: { allowStacking: false, whitelist: [], teaseMessage: "Apply coupon at checkout to unlock savings" },
+    discounts: { allowStacking: false, whitelist: [], teaseMessage: "Apply coupon at checkout to unlock savings", showTeaseMessage: true },
     freeGifts: { rules: [] },
     upsell: { standardRules: [], ai: { enabled: false } },
     checkout: { mode: "default", overlay: { enabled: false } },

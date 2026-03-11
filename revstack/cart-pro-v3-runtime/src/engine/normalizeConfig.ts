@@ -58,10 +58,12 @@ function normalizeStacking(raw: RawCartProConfig): ConfigStacking {
 function normalizeDiscounts(raw: RawCartProConfig): ConfigDiscounts {
   const d = raw.discounts;
   const teaseMessage = typeof d?.teaseMessage === 'string' ? d.teaseMessage.trim() || undefined : undefined;
+  const showTeaseMessage = typeof d?.showTeaseMessage === 'boolean' ? d.showTeaseMessage : true;
   return {
     oneClickOffer: normalizeOneClickOffer(),
     stacking: normalizeStacking(raw),
     teaseMessage,
+    showTeaseMessage,
   };
 }
 
@@ -215,6 +217,7 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
       countdownEnabled: true,
       emojiMode: true,
       countdownDurationMs: defaultCountdownDurationMs,
+      showHeaderBanner: true,
       backgroundColor: DEFAULT_BACKGROUND,
       bannerBackgroundColor: DEFAULT_BANNER_BG,
     };
@@ -243,6 +246,7 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
   const cartHeaderMessages = Array.isArray(a.cartHeaderMessages)
     ? a.cartHeaderMessages.filter((m): m is string => typeof m === 'string' && m.trim() !== '').slice(0, 3).map((m) => m.trim())
     : undefined;
+  const showHeaderBanner = typeof a.showHeaderBanner === 'boolean' ? a.showHeaderBanner : true;
   return {
     primaryColor,
     accentColor,
@@ -251,6 +255,7 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     countdownEnabled: typeof a.countdownEnabled === 'boolean' ? a.countdownEnabled : true,
     emojiMode: typeof a.emojiMode === 'boolean' ? a.emojiMode : true,
     countdownDurationMs,
+    showHeaderBanner,
     merchantCartDrawerSelector,
     cartHeaderMessages: (cartHeaderMessages?.length ?? 0) > 0 ? cartHeaderMessages : undefined,
     backgroundColor,

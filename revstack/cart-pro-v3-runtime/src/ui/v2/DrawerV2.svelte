@@ -61,7 +61,8 @@
   $: enableDiscounts = engine?.getConfig?.()?.featureFlags?.enableDiscounts ?? true;
   /** Up to 3 custom header messages that rotate (from config.appearance.cartHeaderMessages). */
   $: cartHeaderMessages = engine?.getConfig?.()?.appearance?.cartHeaderMessages ?? [];
-  $: hasHeaderMessages = Array.isArray(cartHeaderMessages) && cartHeaderMessages.length > 0;
+  $: showHeaderBanner = engine?.getConfig?.()?.appearance?.showHeaderBanner !== false;
+  $: hasHeaderMessages = showHeaderBanner && Array.isArray(cartHeaderMessages) && cartHeaderMessages.length > 0;
 
   const ROTATE_INTERVAL_MS = 4000;
   let headerMessageState = { index: 0 };

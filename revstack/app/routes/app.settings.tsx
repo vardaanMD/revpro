@@ -115,6 +115,8 @@ function buildConfigV3FromForm(
     typeof formData.couponTeaseMessage === "string" && formData.couponTeaseMessage.trim()
       ? formData.couponTeaseMessage.trim()
       : "Apply coupon at checkout to unlock savings";
+  if (typeof formData.showHeaderBanner === "boolean") base.appearance.showHeaderBanner = formData.showHeaderBanner;
+  if (typeof formData.showTeaseMessage === "boolean") base.discounts.showTeaseMessage = formData.showTeaseMessage;
 
   // Cart drawer is always V3; no runtime toggle.
   base.runtimeVersion = "v3";
@@ -178,12 +180,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const configV3 = config.configV3 as Partial<CartProConfigV3> | null | undefined;
-  const appearanceV3 = (configV3?.appearance as { backgroundColor?: string; bannerBackgroundColor?: string; cartHeaderMessages?: string[] } | undefined) ?? {};
+  const appearanceV3 = (configV3?.appearance as Partial<CartProConfigV3["appearance"]> | undefined) ?? {};
   const cartHeaderMessages = Array.isArray(appearanceV3.cartHeaderMessages)
     ? appearanceV3.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3)
     : [];
   const upsellV3 = configV3?.upsell as { recommendationsHeading?: string } | undefined;
-  const discountsV3 = configV3?.discounts as { teaseMessage?: string } | undefined;
+  const discountsV3 = configV3?.discounts as { teaseMessage?: string; showTeaseMessage?: boolean } | undefined;
+
+  // Use configV3.appearance as source of truth so form shows same values as storefront; fall back to flat columns for backward compat
+  const primaryColor = appearanceV3.primaryColor ?? config.primaryColor ?? "";
+  const accentColor = appearanceV3.accentColor ?? config.accentColor ?? "";
+  const backgroundColor = appearanceV3.backgroundColor ?? "#ffffff";
+  const bannerBackgroundColor = appearanceV3.bannerBackgroundColor ?? "#16a34a";
+  const borderRadius = typeof appearanceV3.borderRadius === "number" ? appearanceV3.borderRadius : (config.borderRadius ?? 12);
+  const showConfetti = typeof appearanceV3.showConfetti === "boolean" ? appearanceV3.showConfetti : (config.showConfetti ?? true);
+  const countdownEnabled = typeof appearanceV3.countdownEnabled === "boolean" ? appearanceV3.countdownEnabled : (config.countdownEnabled ?? true);
+  const emojiMode = typeof appearanceV3.emojiMode === "boolean" ? appearanceV3.emojiMode : (config.emojiMode ?? true);
 
   const savedFromRedirect = new URL(request.url).searchParams.get("saved") === "1";
   return {
@@ -199,20 +211,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       recommendationStrategy: config.recommendationStrategy ?? "COLLECTION_MATCH",
       recommendationLimit: config.recommendationLimit ?? 1,
       manualCollectionIds,
-      primaryColor: config.primaryColor ?? "",
-      accentColor: config.accentColor ?? "",
-      backgroundColor: appearanceV3.backgroundColor ?? "#ffffff",
-      bannerBackgroundColor: appearanceV3.bannerBackgroundColor ?? "#16a34a",
-      borderRadius: config.borderRadius ?? 12,
-      showConfetti: config.showConfetti ?? true,
-      countdownEnabled: config.countdownEnabled ?? true,
-      emojiMode: config.emojiMode ?? true,
+      primaryColor: primaryColor || "#111111",
+      accentColor: accentColor || "#16a34a",
+      backgroundColor,
+      bannerBackgroundColor,
+      borderRadius,
+      showConfetti,
+      countdownEnabled,
+      emojiMode,
       engineVersion: "v3",
       cartHeaderMessage1: cartHeaderMessages[0] ?? "",
       cartHeaderMessage2: cartHeaderMessages[1] ?? "",
       cartHeaderMessage3: cartHeaderMessages[2] ?? "",
       recommendationsHeading: upsellV3?.recommendationsHeading ?? "You may also like",
       couponTeaseMessage: discountsV3?.teaseMessage ?? "Apply coupon at checkout to unlock savings",
+      showHeaderBanner: appearanceV3.showHeaderBanner !== false,
+      showTeaseMessage: discountsV3?.showTeaseMessage !== false,
     },
     capabilities: billing.capabilities,
     initialPreviewRenderState,
@@ -791,6 +805,13 @@ export default function SettingsPage() {
                       aria-label="Coupon tease message"
                     />
                   </FormField>
+                  <s-checkbox
+                    name="showTeaseMessage"
+                    label="Show coupon tease message"
+                    defaultChecked={config.showTeaseMessage !== false}
+                    value="on"
+                    helperText="Show the tease banner when no discount code is applied"
+                  />
                 </>
               ) : (
                 <div className={settingsStyles.lockedInline}>
@@ -800,6 +821,7 @@ export default function SettingsPage() {
                   </span>
                   <input type="hidden" name="enableCouponTease" value="" />
                   <input type="hidden" name="couponTeaseMessage" value={config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings"} />
+                  <input type="hidden" name="showTeaseMessage" value={config.showTeaseMessage !== false ? "on" : ""} />
                 </div>
               )}
             </FormSection>
@@ -885,6 +907,12 @@ export default function SettingsPage() {
                   value="on"
                   onChange={(e: React.FormEvent<HTMLElement>) => setPreviewCountdownEnabled((e.currentTarget as HTMLInputElement).checked)}
                 />
+                <s-checkbox
+                  name="showHeaderBanner"
+                  label="Show header message banner"
+                  defaultChecked={config.showHeaderBanner !== false}
+                  value="on"
+                />
                 <FormField
                   label="Header messages"
                   id="cartHeaderMessages"
@@ -939,6 +967,7 @@ export default function SettingsPage() {
                 <input type="hidden" name="cartHeaderMessage1" value={config.cartHeaderMessage1 || ""} />
                 <input type="hidden" name="cartHeaderMessage2" value={config.cartHeaderMessage2 || ""} />
                 <input type="hidden" name="cartHeaderMessage3" value={config.cartHeaderMessage3 || ""} />
+                <input type="hidden" name="showHeaderBanner" value={config.showHeaderBanner !== false ? "on" : ""} />
               </FormSection>
             )}
           </div>
