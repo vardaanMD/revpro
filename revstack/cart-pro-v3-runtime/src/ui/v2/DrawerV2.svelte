@@ -67,16 +67,30 @@
   let headerMessageState = { index: 0 };
   let rotateIntervalId = null;
   $: currentHeaderMessage = hasHeaderMessages ? cartHeaderMessages[headerMessageState.index % cartHeaderMessages.length] : '';
+
+  /** When drawer is open, app container must have pointer-events: auto so buttons (e.g. Add on recommendations) receive clicks. */
+  function setAppContainerPointerEvents(value) {
+    if (typeof document === 'undefined') return;
+    const root = cartProEl?.getRootNode?.();
+    if (root && root instanceof ShadowRoot) {
+      const appContainer = root.getElementById('cart-pro-v3-app');
+      if (appContainer) appContainer.style.pointerEvents = value;
+    }
+  }
+
+  let cartProEl;
   $: if (drawerOpen) {
     if (typeof document !== 'undefined') {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     }
     setHostPointerEvents('auto');
+    setAppContainerPointerEvents('auto');
     removeThemeDrawerClass();
   } else {
     releaseBodyScroll();
     setHostPointerEvents('none');
+    setAppContainerPointerEvents('none');
     removeThemeDrawerClass();
   }
 
@@ -87,6 +101,7 @@
     }
     releaseBodyScroll();
     setHostPointerEvents('none');
+    setAppContainerPointerEvents('none');
     removeThemeDrawerClass();
     if (confettiTimeoutId != null) clearTimeout(confettiTimeoutId);
     const layerEl = confettiLayerEl || document.getElementById('cart-pro-confetti-layer');
@@ -156,7 +171,7 @@
   });
 </script>
 
-<div id="cart-pro" class:open={$stateStore?.ui?.drawerOpen} role="presentation">
+<div id="cart-pro" class:open={$stateStore?.ui?.drawerOpen} role="presentation" bind:this={cartProEl}>
   <div id="cart-pro-overlay" role="button" tabindex="-1" aria-label="Close cart overlay" on:click={handleClose} on:keydown={(e) => e.key === 'Escape' && handleClose()}></div>
   <div id="cart-pro-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-pro-title" tabindex="-1">
     <div id="cart-pro-header">
