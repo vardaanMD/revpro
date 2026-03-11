@@ -649,10 +649,14 @@ export class Engine {
         queue: state.analytics.queue.slice(batch.length),
       },
     });
+    const hadClicks = batch.some((ev) => ev.name === 'recommendation:click');
     sendAnalyticsBatch(batch).then((ok) => {
       if (this.destroyed) return;
       const s = getStateFromStore(this.stateStore);
       if (ok) {
+        if (isDev && hadClicks) {
+          console.log('[Cart Pro V3] Analytics batch sent (included recommendation:click)');
+        }
         this.analyticsRetryCount = 0;
         this.setState({
           analytics: {
@@ -663,6 +667,9 @@ export class Engine {
         });
         if (s.analytics.queue.length >= 5) this.scheduleAnalyticsFlush();
       } else {
+        if (isDev && hadClicks) {
+          console.warn('[Cart Pro V3] Analytics batch failed (included recommendation:click) – will retry');
+        }
         this.setState({
           analytics: {
             ...s.analytics,

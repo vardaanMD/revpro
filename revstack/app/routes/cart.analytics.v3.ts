@@ -108,13 +108,6 @@ export async function action({ request }: ActionFunctionArgs) {
   }));
 
   const clickCount = validEvents.filter((e) => e.name === "recommendation:click").length;
-  if (process.env.NODE_ENV !== "production" || clickCount > 0) {
-    console.log("[analytics-v3] ingest", {
-      shop,
-      count: validEvents.length,
-      recommendationClicks: clickCount,
-    });
-  }
 
   await prisma.cartProEventV3.createMany({
     data,
@@ -209,14 +202,16 @@ export async function action({ request }: ActionFunctionArgs) {
       e.payload &&
       typeof (e.payload as Record<string, unknown>).productId !== "undefined"
   );
+  let clicksWritten = 0;
   for (const e of recommendationClicks) {
     const p = e.payload as Record<string, unknown>;
-    const productId = String(p.productId ?? "");
+    const productId = String(p.productId ?? "").trim();
     if (!productId) continue;
     const recommendedProductIds = Array.isArray(p.recommendedProductIds)
       ? (p.recommendedProductIds as unknown[]).map((id) => String(id)).filter(Boolean)
       : [];
-    const cartValue = Math.round(Number(e.cartSnapshot?.subtotal ?? 0));
+    const rawCart = Number(e.cartSnapshot?.subtotal ?? 0);
+    const cartValue = Number.isFinite(rawCart) ? Math.round(rawCart) : 0;
     // CrossSellEvent click for engagement metrics (impressions, clicks, CTR). Must await so UI sees clicks.
     try {
       await prisma.crossSellEvent.create({
@@ -227,6 +222,7 @@ export async function action({ request }: ActionFunctionArgs) {
           cartValue,
         },
       });
+      clicksWritten += 1;
     } catch (err) {
       logWarn({
         shop,
@@ -260,6 +256,14 @@ export async function action({ request }: ActionFunctionArgs) {
         meta: { error: err instanceof Error ? err.message : String(err) },
       });
     }
+  }
+
+  if (recommendationClicks.length > 0 || clicksWritten > 0) {
+    console.log("[analytics-v3] engagement", {
+      shop,
+      recommendationClicksReceived: recommendationClicks.length,
+      clicksWritten,
+    });
   }
 
   return new Response(JSON.stringify({ ok: true }), {
