@@ -141,8 +141,12 @@ export function createThemeConnector(
     const handler = (e: Event): void => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      engine.setState({ ui: { drawerOpen: true } });
-      engine.onDrawerOpened?.();
+      // Defer open so click handler returns immediately; avoids main-thread hang from sync store update + full re-render.
+      setTimeout(() => {
+        if (destroyed) return;
+        engine.setState({ ui: { drawerOpen: true } });
+        engine.onDrawerOpened?.();
+      }, 0);
     };
 
     const seen = new Set<Element>();
@@ -162,10 +166,13 @@ export function createThemeConnector(
   }
 
   const externalUpdateHandler = (): void => {
-    if (openOnExternal) {
+    if (!openOnExternal) return;
+    // Defer open so event handler returns immediately; avoids main-thread hang from sync store update + full re-render.
+    setTimeout(() => {
+      if (destroyed) return;
       engine.setState({ ui: { drawerOpen: true } });
       engine.onDrawerOpened?.();
-    }
+    }, 0);
   };
 
   engine.on('cart:external-update', externalUpdateHandler);
