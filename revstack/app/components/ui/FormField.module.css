@@ -4,10 +4,60 @@
   gap: var(--app-space-2);
 }
 
+.labelRow {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-2);
+}
+
 .label {
   font-size: var(--app-font-base);
   font-weight: var(--app-weight-medium);
   color: var(--p-color-text);
+}
+
+.infoWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.infoButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--app-font-sm);
+  color: var(--app-muted-text);
+  padding: 0;
+  line-height: 1;
+}
+
+.infoButton:hover {
+  color: var(--p-color-text);
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  background: var(--p-color-bg-surface, #fff);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-base);
+  box-shadow: var(--app-shadow-card-hover);
+  padding: var(--app-space-2) var(--app-space-3);
+  font-size: var(--app-font-sm);
+  color: var(--p-color-text);
+  white-space: normal;
+  width: 220px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.infoWrap:hover .tooltip,
+.infoButton:focus + .tooltip {
+  display: block;
 }
 
 .control {

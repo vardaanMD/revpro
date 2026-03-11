@@ -13,6 +13,7 @@ import { invalidateShopConfigCache } from "~/lib/shop-config.server";
 import { buildConfigV3FromOnboardingStep3 } from "~/lib/onboarding-wizard.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
 import onboardingStyles from "~/styles/onboarding.module.css";
+import { FormField } from "~/components/ui/FormField";
 
 /** Onboarding: on completion configV3 is persisted for snapshot v3. Cart drawer is always V3. */
 const WIZARD_STEP_WELCOME = 0;
@@ -189,8 +190,14 @@ export default function OnboardingWizardPage() {
           {step === WIZARD_STEP_WELCOME && (
             <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
               <s-stack direction="block" gap="base">
-                <s-heading>Welcome</s-heading>
-                <s-text tone="neutral">Complete the steps below to activate your cart experience.</s-text>
+                <s-heading>Welcome to RevPRO</s-heading>
+                <s-text tone="neutral">You'll be live in about 5 minutes. Here's what we'll set up:</s-text>
+                <s-stack direction="block" gap="small">
+                  <s-text tone="neutral">1. Enable the cart extension in your theme</s-text>
+                  <s-text tone="neutral">2. Verify the cart widget loads correctly</s-text>
+                  <s-text tone="neutral">3. Configure your free shipping goal and recommendation style</s-text>
+                  <s-text tone="neutral">4. Launch — your cart goes live immediately</s-text>
+                </s-stack>
                 <Form method="post">
                   <input type="hidden" name="intent" value="start_setup" />
                   <s-button type="submit" variant="primary" loading={isSubmitting}>
@@ -208,6 +215,11 @@ export default function OnboardingWizardPage() {
                 <s-text tone="neutral">
                   In the Theme Editor, go to <strong>App embeds</strong> and enable <strong>Cart Pro V3</strong> (the block named &quot;Cart Pro V3&quot;). Do not enable an older &quot;Cart Pro&quot; block—use the V3 embed so the latest cart runs on your storefront.
                 </s-text>
+                <s-box padding="small" borderWidth="base" borderRadius="base" background="base">
+                  <s-text tone="neutral">
+                    Why: The theme extension injects the cart widget into your storefront. Without it, RevPRO has nothing to display to customers.
+                  </s-text>
+                </s-box>
                 <s-stack direction="inline" gap="base">
                   <a
                     href={data.themeEditorUrl}
@@ -238,6 +250,13 @@ export default function OnboardingWizardPage() {
                 <s-text tone="neutral">
                   We'll run a test with a sample cart to confirm the decision engine returns recommendations.
                 </s-text>
+                <s-box padding="small" borderWidth="base" borderRadius="base" background="base">
+                  <s-stack direction="block" gap="small">
+                    <s-text tone="neutral">
+                      Tip: You can also test manually — open your store in a new tab, add any product to the cart, then return here and click "Test my cart".
+                    </s-text>
+                  </s-stack>
+                </s-box>
                 <Form method="post">
                   <input type="hidden" name="intent" value="step2_test" />
                   <s-button type="submit" variant="primary" loading={isSubmitting}>
@@ -256,37 +275,46 @@ export default function OnboardingWizardPage() {
               <s-stack direction="block" gap="base">
                 <s-heading>Configure basics</s-heading>
                 <s-text tone="neutral">
-                  Set a free shipping threshold (greater than 0) or change at least one setting.
+                  These two settings drive your cart's core experience. You can refine everything else in Settings later.
                 </s-text>
                 <Form method="post">
                   <input type="hidden" name="intent" value="step3_configure" />
                   <s-stack direction="block" gap="base">
-                    <label htmlFor="freeShippingThresholdDollars">
-                      <s-text>Free shipping threshold (USD)</s-text>
-                    </label>
-                    <input
+                    <FormField
+                      label="Free shipping threshold (USD)"
                       id="freeShippingThresholdDollars"
-                      name="freeShippingThresholdDollars"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      defaultValue={centsToDollars(data.freeShippingThresholdCents)}
-                      aria-invalid={!!(actionData?.success === false && actionData?.error)}
-                    />
-                    <label htmlFor="recommendationStrategy">
-                      <s-text>Recommendation strategy</s-text>
-                    </label>
-                    <select
-                      id="recommendationStrategy"
-                      name="recommendationStrategy"
-                      defaultValue={data.recommendationStrategy}
+                      helperText="Enter 0 to disable the free shipping bar"
+                      infoTip="The cart value at which you offer free shipping. This drives the progress bar customers see — e.g. 'Add $12 more for free shipping'."
                     >
-                      <option value="COLLECTION_MATCH">Collection match</option>
-                      <option value="MANUAL_COLLECTION">Manual collection</option>
-                      <option value="TAG_MATCH">Tag match</option>
-                      <option value="BEST_SELLING">Best selling</option>
-                      <option value="NEW_ARRIVALS">New arrivals</option>
-                    </select>
+                      <input
+                        id="freeShippingThresholdDollars"
+                        name="freeShippingThresholdDollars"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        defaultValue={centsToDollars(data.freeShippingThresholdCents)}
+                        aria-invalid={!!(actionData?.success === false && actionData?.error)}
+                        style={{ padding: "6px 8px", border: "1px solid var(--p-color-border, #c9cccf)", borderRadius: "6px", fontSize: "14px", width: "160px" }}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Recommendation strategy"
+                      id="recommendationStrategy"
+                      infoTip="How RevPRO selects products to show in the cart. 'Collection match' is a great default — it recommends products from the same collections as items already in the cart."
+                    >
+                      <select
+                        id="recommendationStrategy"
+                        name="recommendationStrategy"
+                        defaultValue={data.recommendationStrategy}
+                        style={{ padding: "6px 8px", border: "1px solid var(--p-color-border, #c9cccf)", borderRadius: "6px", fontSize: "14px", minWidth: "200px", background: "var(--p-color-bg-surface, #fff)" }}
+                      >
+                        <option value="COLLECTION_MATCH">Collection match — show products from the same collections</option>
+                        <option value="MANUAL_COLLECTION">Manual collection — you choose which collections</option>
+                        <option value="TAG_MATCH">Tag match — match by product tags</option>
+                        <option value="BEST_SELLING">Best selling — show your top sellers</option>
+                        <option value="NEW_ARRIVALS">New arrivals — show recently added products</option>
+                      </select>
+                    </FormField>
                     <s-button type="submit" variant="primary" loading={isSubmitting}>
                       Continue
                     </s-button>
@@ -302,8 +330,16 @@ export default function OnboardingWizardPage() {
           {step === WIZARD_STEP_LAUNCH && (
             <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
               <s-stack direction="block" gap="base">
-                <s-heading>Launch</s-heading>
-                <s-text tone="neutral">You're ready. Finish to access the dashboard.</s-text>
+                <s-heading>Ready to launch</s-heading>
+                <s-text tone="neutral">Your cart widget is configured and the extension is active. Hit launch to go live.</s-text>
+                <s-box padding="small" borderWidth="base" borderRadius="base" background="base">
+                  <s-stack direction="block" gap="small">
+                    <s-text tone="neutral">What happens next:</s-text>
+                    <s-text tone="neutral">— Your cart drawer becomes active on the storefront immediately</s-text>
+                    <s-text tone="neutral">— Metrics appear in Overview after your first customer interactions</s-text>
+                    <s-text tone="neutral">— Fine-tune colors, milestones, and more in Settings anytime</s-text>
+                  </s-stack>
+                </s-box>
                 <Form method="post">
                   <input type="hidden" name="intent" value="launch" />
                   <s-button type="submit" variant="primary" loading={isSubmitting}>

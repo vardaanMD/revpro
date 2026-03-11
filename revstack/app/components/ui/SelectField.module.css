@@ -1,3 +1,53 @@
+.labelRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.infoWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.infoButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--app-muted-text, #6d7175);
+  padding: 0;
+  line-height: 1;
+}
+
+.infoButton:hover {
+  color: var(--p-color-text);
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  background: var(--p-color-bg-surface, #fff);
+  border: 1px solid var(--p-color-border-subdued, #e1e3e5);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--p-color-text);
+  white-space: normal;
+  width: 220px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.infoWrap:hover .tooltip,
+.infoButton:focus + .tooltip {
+  display: block;
+}
+
 .select {
   display: block;
   margin-top: var(--app-space-1);

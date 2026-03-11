@@ -624,6 +624,7 @@ export default function SettingsPage() {
                 id="freeShippingThresholdDollars"
                 helperText="Spend amount in dollars (e.g. 50.00)"
                 error={fieldErrors.freeShippingThreshold}
+                infoTip="Cart value (in dollars) at which free shipping unlocks. This drives the progress bar customers see in the cart drawer."
               >
                 <input
                   id="freeShippingThresholdDollars"
@@ -642,6 +643,7 @@ export default function SettingsPage() {
                 id="baselineAovDollars"
                 helperText="Baseline AOV helps determine intelligent upsell timing."
                 error={fieldErrors.baselineAov}
+                infoTip="Your store's typical order size. Used to tune when upsell recommendations appear. Set to your actual average order value."
               >
                 <input
                   id="baselineAovDollars"
@@ -674,12 +676,14 @@ export default function SettingsPage() {
                     value={strategy}
                     options={[...RECOMMENDATION_STRATEGIES]}
                     onChange={setStrategy}
+                    infoTip="How products are chosen to recommend. Collection match uses the product's collections; Tag match uses product tags; Manual lets you specify collection IDs directly."
                   />
                   <FormField
                     label="Recommendation Limit"
                     id="recommendationLimit"
                     helperText="Number of recommendations to show (1–8)"
                     error={fieldErrors.recommendationLimit}
+                    infoTip="Max number of recommendations shown per cart session. Higher limits require Advanced or Growth plan."
                   >
                     <input
                       id="recommendationLimit"
@@ -705,6 +709,7 @@ export default function SettingsPage() {
                     label="Recommendations section title"
                     id="recommendationsHeading"
                     helperText="Heading above the cross-sell product list (e.g. You may also like)"
+                    infoTip="The heading text shown above the recommended products list inside the cart drawer."
                   >
                     <input
                       id="recommendationsHeading"
@@ -838,7 +843,7 @@ export default function SettingsPage() {
           <div className={settingsStyles.section}>
             {capabilities.allowUIConfig ? (
               <FormSection heading="Visual Customization">
-                <FormField label="Brand color" id="primaryColor" helperText="Primary brand color">
+                <FormField label="Brand color" id="primaryColor" helperText="Primary brand color" infoTip="Main brand color applied to buttons and primary UI elements in the cart drawer.">
                   <input
                     id="primaryColor"
                     type="color"
@@ -849,7 +854,7 @@ export default function SettingsPage() {
                     onChange={(e) => setPreviewPrimaryColor(e.target.value)}
                   />
                 </FormField>
-                <FormField label="Accent color" id="accentColor" helperText="Accent and CTAs">
+                <FormField label="Accent color" id="accentColor" helperText="Accent and CTAs" infoTip="Used for call-to-action buttons and highlights in the cart drawer.">
                   <input
                     id="accentColor"
                     type="color"
@@ -882,7 +887,7 @@ export default function SettingsPage() {
                     onChange={(e) => setPreviewBannerBackgroundColor(e.target.value)}
                   />
                 </FormField>
-                <FormField label="Border radius" id="borderRadius" helperText="0–32">
+                <FormField label="Border radius" id="borderRadius" helperText="0–32" infoTip="Controls corner rounding across the cart drawer (0 = square corners, 32 = fully rounded).">
                   <input
                     id="borderRadius"
                     type="number"
@@ -984,7 +989,7 @@ export default function SettingsPage() {
           </div>
 
           <s-button type="submit" variant="primary" disabled={isSubmitting} loading={isSubmitting}>
-            {isSubmitting ? "Saving…" : "Save Changes"}
+            {isSubmitting ? "Saving…" : showSuccessBanner ? "Saved ✓" : "Save Changes"}
           </s-button>
         </s-stack>
         </fieldset>

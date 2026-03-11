@@ -7,6 +7,7 @@ type FormFieldProps = {
   children: ReactNode;
   helperText?: string;
   error?: string;
+  infoTip?: string;
 };
 
 export function FormField({
@@ -15,13 +16,22 @@ export function FormField({
   children,
   helperText,
   error,
+  infoTip,
 }: FormFieldProps) {
   const fieldId = id ?? label.replace(/\s+/g, "-").toLowerCase();
   return (
     <div className={styles.field}>
-      <label className={styles.label} htmlFor={fieldId}>
-        {label}
-      </label>
+      <div className={styles.labelRow}>
+        <label className={styles.label} htmlFor={fieldId}>
+          {label}
+        </label>
+        {infoTip && (
+          <span className={styles.infoWrap}>
+            <button type="button" className={styles.infoButton} aria-label="More info" tabIndex={0}>ⓘ</button>
+            <span role="tooltip" className={styles.tooltip}>{infoTip}</span>
+          </span>
+        )}
+      </div>
       <div className={styles.control}>{children}</div>
       {helperText != null && helperText !== "" && !error && (
         <span className={styles.helper}>{helperText}</span>

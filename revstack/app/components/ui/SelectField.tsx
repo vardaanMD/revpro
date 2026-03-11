@@ -11,6 +11,7 @@ type SelectFieldProps = {
   value: string;
   options: SelectOption[];
   onChange?: (value: string) => void;
+  infoTip?: string;
 };
 
 export function SelectField({
@@ -19,10 +20,19 @@ export function SelectField({
   value,
   options,
   onChange,
+  infoTip,
 }: SelectFieldProps) {
   return (
     <s-stack direction="block" gap="small">
-      <label htmlFor={name}>{label}</label>
+      <div className={styles.labelRow}>
+        <label htmlFor={name}>{label}</label>
+        {infoTip && (
+          <span className={styles.infoWrap}>
+            <button type="button" className={styles.infoButton} aria-label="More info" tabIndex={0}>ⓘ</button>
+            <span role="tooltip" className={styles.tooltip}>{infoTip}</span>
+          </span>
+        )}
+      </div>
       <select
         id={name}
         name={name}

@@ -228,36 +228,42 @@ export default function DashboardIndex() {
         </s-section>
       )}
 
-      {retention &&
-        retention.daysSinceLastActive != null &&
-        retention.daysSinceLastActive >= 5 && (
-          <s-banner tone="info" dismissible={false}>
-            Here’s what happened while you were away — check your Snapshot and 7-day trend below.
-          </s-banner>
-        )}
-
       {onboardingJustCompleted && (
         <s-banner tone="success" dismissible={false}>
           Recommendations are live. Metrics will appear after customer interactions.
         </s-banner>
       )}
-      {!onboardingCompleted && !onboardingJustCompleted && (
-        <s-banner tone="warning" dismissible={false}>
-          Finish setup to see metrics.{" "}
-          <AppLink to="/app/onboarding">
-            <s-button variant="tertiary">Complete setup</s-button>
-          </AppLink>
-        </s-banner>
-      )}
-
-      {!isBillingActive && (
-        <s-banner tone="warning" dismissible={false}>
-          Your plan is inactive — activate to access recommendation settings and analytics.
-          <AppLink to="/app/upgrade">
-            <s-button variant="primary">Activate plan</s-button>
-          </AppLink>
-        </s-banner>
-      )}
+      {!onboardingJustCompleted && (() => {
+        const awayReminder = retention?.daysSinceLastActive != null && retention.daysSinceLastActive >= 5;
+        if (!isBillingActive) {
+          return (
+            <s-banner tone="warning" dismissible={false}>
+              Your plan is inactive — activate to access recommendation settings and analytics.
+              <AppLink to="/app/upgrade">
+                <s-button variant="primary">Activate plan</s-button>
+              </AppLink>
+            </s-banner>
+          );
+        }
+        if (!onboardingCompleted) {
+          return (
+            <s-banner tone="warning" dismissible={false}>
+              Finish setup to see metrics.{" "}
+              <AppLink to="/app/onboarding">
+                <s-button variant="tertiary">Complete setup</s-button>
+              </AppLink>
+            </s-banner>
+          );
+        }
+        if (awayReminder) {
+          return (
+            <s-banner tone="info" dismissible={false}>
+              Here’s what happened while you were away — check your Snapshot and 7-day trend below.
+            </s-banner>
+          );
+        }
+        return null;
+      })()}
 
       {firstMilestone === "100_decisions" && (
         <AchievementBanner
@@ -282,10 +288,30 @@ export default function DashboardIndex() {
         <s-section>
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
             <s-stack direction="block" gap="base">
-              <s-text tone="auto">
-                Recommendations are live. Data will appear after customer
-                interactions.
-              </s-text>
+              {!onboardingCompleted ? (
+                <>
+                  <s-text tone="auto">Complete your setup to activate recommendations.</s-text>
+                  <AppLink to="/app/onboarding">
+                    <s-button variant="primary">Continue setup</s-button>
+                  </AppLink>
+                </>
+              ) : !isBillingActive ? (
+                <>
+                  <s-text tone="auto">Activate a plan to enable recommendations and start seeing data.</s-text>
+                  <AppLink to="/app/upgrade">
+                    <s-button variant="primary">Activate plan</s-button>
+                  </AppLink>
+                </>
+              ) : (
+                <>
+                  <s-text tone="auto">
+                    Recommendations are live. Data will appear after your first customer interactions.
+                  </s-text>
+                  <s-text tone="subdued">
+                    To test: open your store in a new tab, add a product to the cart, and the widget will appear.
+                  </s-text>
+                </>
+              )}
             </s-stack>
           </s-box>
         </s-section>

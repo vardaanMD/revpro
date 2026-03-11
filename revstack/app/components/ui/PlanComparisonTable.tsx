@@ -32,7 +32,7 @@ export function PlanComparisonTable({
         {plans.map((plan) => {
           const isCurrent = currentPlan === plan.id;
           return (
-            <div key={plan.id} className={`${styles.planCard} ${plan.recommended ? styles.recommended : plan.mostPopular ? styles.mostPopular : ""}`.trim()}>
+            <div key={plan.id} className={`${styles.planCard} ${isCurrent ? styles.currentPlanCard : plan.recommended ? styles.recommended : plan.mostPopular ? styles.mostPopular : ""}`.trim()}>
             <s-box
               padding="large"
               borderWidth="base"

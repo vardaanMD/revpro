@@ -49,6 +49,11 @@
   box-shadow: var(--app-shadow-card), 0 0 0 1px var(--p-color-border-info, #2c6ecb);
 }
 
+.currentPlanCard {
+  border: 2px solid var(--p-color-border-emphasis, #303030);
+  box-shadow: var(--app-shadow-card), 0 0 0 1px var(--p-color-border-emphasis, #303030);
+}
+
 .planPrice {
   font-size: var(--app-font-metric);
   font-weight: var(--app-weight-bold);
