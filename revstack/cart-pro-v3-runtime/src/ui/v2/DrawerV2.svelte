@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { releaseBodyScroll } from '../../overflowScroll';
   import CartItems from './CartItems.svelte';
@@ -79,14 +79,17 @@
   }
 
   let cartProEl;
+  // Use tick() when opening so bind:this={cartProEl} is set before we set app container pointer-events (fixes Add button not receiving clicks).
   $: if (drawerOpen) {
-    if (typeof document !== 'undefined') {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-    }
-    setHostPointerEvents('auto');
-    setAppContainerPointerEvents('auto');
-    removeThemeDrawerClass();
+    tick().then(() => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+      }
+      setHostPointerEvents('auto');
+      setAppContainerPointerEvents('auto');
+      removeThemeDrawerClass();
+    });
   } else {
     releaseBodyScroll();
     setHostPointerEvents('none');

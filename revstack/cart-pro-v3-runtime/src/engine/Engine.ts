@@ -1647,9 +1647,10 @@ export class Engine {
           recommendedProductIds: recommendedProductIds.length > 0 ? recommendedProductIds : [productId],
         });
       }
-    } catch (_err) {
+    } catch (err) {
+      if (isDev) console.warn('[Cart Pro V3] addToCart failed', err);
       this.setState({ cart: cartSnapshot });
-      throw _err;
+      throw err;
     } finally {
       this.lastMutationAppliedAt = Date.now();
       this.internalMutationInProgress = false;
