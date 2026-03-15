@@ -58,7 +58,7 @@ function flushGroup(group: string, data: GroupData): void {
   }
 
   if (lines.length > 0) {
-    console.log(`[dev-metrics][${group}]\n${lines.join("\n")}`);
+    // Dev-only metrics; use structured logger if you need to emit in production
   }
 }
 

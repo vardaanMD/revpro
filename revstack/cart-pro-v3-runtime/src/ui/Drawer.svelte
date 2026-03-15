@@ -29,6 +29,7 @@
   $: rewards = $stateStore?.rewards ?? { tiers: [], unlockedTierIndex: null, showConfetti: false };
   $: upsell = $stateStore?.upsell ?? { standard: [], aiRecommendations: [], loading: false };
   $: checkout = $stateStore?.checkout ?? { enabled: false, overlayVisible: false, checkoutUrl: '' };
+  $: enableRewards = engine?.getConfig?.()?.featureFlags?.enableRewards ?? true;
 
   $: items = cart?.raw?.items ?? [];
   $: snapshotCurrency = engine?.getConfig?.()?.currency;
@@ -108,9 +109,7 @@
     }, CONFETTI_DURATION_MS);
   }
 
-  onMount(() => {
-    console.log('[CartPro V3] LEGACY Drawer.svelte mounted');
-  });
+  onMount(() => {});
 </script>
 
 <div id="cart-pro" class:open={$stateStore.ui.drawerOpen} role="presentation">
@@ -120,7 +119,9 @@
       <span id="cart-pro-title">Your Cart</span>
       <button id="cart-pro-close" type="button" aria-label="Close drawer" on:click={handleClose}>×</button>
     </div>
-    <Milestones {engine} {currency} />
+    {#if enableRewards}
+      <Milestones {engine} {currency} />
+    {/if}
     <CartItems {engine} items={items} {currency} onClose={handleClose} />
     <Recommendations {engine} standard={upsell.standard} aiRecommendations={upsell.aiRecommendations} loading={upsell.loading} {currency} />
     <div id="cart-pro-footer">

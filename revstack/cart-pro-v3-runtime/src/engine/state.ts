@@ -317,7 +317,12 @@ export function setState(
   store.update((s) => {
     const next = { ...s };
     if (partial.app != null) next.app = { ...s.app, ...partial.app };
-    if (partial.ui != null) next.ui = { ...s.ui, ...partial.ui };
+    if (partial.ui != null) {
+      const uiKeys = Object.keys(partial.ui) as (keyof typeof partial.ui)[];
+      const onlyDrawerOpen = uiKeys.length === 1 && uiKeys[0] === 'drawerOpen';
+      if (onlyDrawerOpen && partial.ui.drawerOpen === s.ui.drawerOpen) next.ui = s.ui;
+      else next.ui = { ...s.ui, ...partial.ui };
+    }
     if (partial.runtime != null) next.runtime = { ...s.runtime, ...partial.runtime };
     if (partial.cart != null) next.cart = { ...s.cart, ...partial.cart };
     if (partial.discount != null) {
@@ -351,7 +356,12 @@ export function updateState(
     const partial = updaterFn(s);
     const next = { ...s };
     if (partial.app != null) next.app = { ...s.app, ...partial.app };
-    if (partial.ui != null) next.ui = { ...s.ui, ...partial.ui };
+    if (partial.ui != null) {
+      const uiKeys = Object.keys(partial.ui) as (keyof typeof partial.ui)[];
+      const onlyDrawerOpen = uiKeys.length === 1 && uiKeys[0] === 'drawerOpen';
+      if (onlyDrawerOpen && partial.ui.drawerOpen === s.ui.drawerOpen) next.ui = s.ui;
+      else next.ui = { ...s.ui, ...partial.ui };
+    }
     if (partial.runtime != null) next.runtime = { ...s.runtime, ...partial.runtime };
     if (partial.cart != null) next.cart = { ...s.cart, ...partial.cart };
     if (partial.discount != null) {

@@ -13,6 +13,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import express, { type Request as ExpressRequest, type Response as ExpressResponse, type NextFunction } from "express";
 import compression from "compression";
+import helmet from "helmet";
 import morgan from "morgan";
 import { createRequestListener } from "@mjackson/node-fetch-server";
 import type { ServerBuild } from "react-router";
@@ -21,6 +22,7 @@ import { requestContext } from "./app/lib/request-context.server";
 import { runAppAuth } from "./app/run-app-auth.server";
 import { getRedis } from "./app/lib/redis.server";
 import { prisma } from "./app/lib/prisma.server";
+import { clearShopConfigCacheForShop } from "./app/lib/shop-config.server";
 import { logResilience, setLogSink } from "./app/lib/logger.server";
 import { AdminApi401Error } from "./app/lib/admin-api-errors.server";
 
@@ -54,9 +56,6 @@ function toRequest(req: express.Request): Request {
 }
 
 async function main() {
-  console.log("SERVER BOOT START", Date.now());
-  console.log("PORT env:", process.env.PORT, "NODE_ENV:", process.env.NODE_ENV);
-  let firstRequestHandled = false;
   process.on("unhandledRejection", (reason: unknown) => {
     logResilience({
       route: "runtime",
@@ -69,19 +68,13 @@ async function main() {
     });
   });
 
-  console.log("Process argv:", process.argv);
-
   const buildModule = await import(pathToFileURL(BUILD_PATH).href);
   const mode = process.env.NODE_ENV || "production";
 
   const port = Number(process.env.PORT ?? 3000);
   const app = express();
   app.disable("x-powered-by");
-  // Top-level request logger — before ANY middleware — to diagnose Railway 502
-  app.use((req: ExpressRequest, _res: ExpressResponse, next: NextFunction) => {
-    console.log("[REQ]", req.method, req.url);
-    next();
-  });
+  app.use(helmet({ contentSecurityPolicy: false })); // CSP conflicts with Shopify embedded app
   app.use(compression());
   app.use(
     path.posix.join(publicPath, "assets"),
@@ -94,10 +87,13 @@ async function main() {
     "/extensions-assets",
     express.static(path.join(process.cwd(), "extensions/cart-pro/assets"), { maxAge: "1h" })
   );
+  // Global body size limit: prevent memory exhaustion from oversized POSTs.
+  // Individual routes (e.g. cart.decision) enforce tighter limits after parsing.
+  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ limit: "1mb", extended: false }));
   app.use(morgan("tiny"));
 
   app.get("/health-direct", (_req: ExpressRequest, res: ExpressResponse) => {
-    console.log("health-direct hit");
     res.status(200).json({ ok: true });
   });
 
@@ -121,7 +117,6 @@ async function main() {
   });
 
   if (isRSCBuild(buildModule)) {
-    console.log("[revstack] build path: RSC (createRequestListener)");
     const originalFetch = buildModule.default.fetch;
     const wrappedFetch = async (request: Request): Promise<Response> => {
       const requestId = crypto.randomUUID();
@@ -145,61 +140,73 @@ async function main() {
         }
       });
     };
-    app.use(
-      (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-        if (!firstRequestHandled) {
-          firstRequestHandled = true;
-          console.log("FIRST REQUEST HANDLED", Date.now());
-        }
-        console.log("app.all reached:", req.method, req.url);
-        next();
-      },
-      createRequestListener(wrappedFetch)
-    );
+    app.use(createRequestListener(wrappedFetch));
   } else {
-    console.log("[revstack] build path: non-RSC (createRequestHandler)");
-    app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+    app.use(async (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
       const pathname = req.path || (req.url && req.url.split("?")[0]) || "";
       const requestId = crypto.randomUUID();
-      requestContext.run({ requestId }, () => {
-        if (pathname.startsWith("/app")) {
-          const request = toRequest(req);
-          runAppAuth(request)
-            .then((redirect) => {
-              if (redirect) {
-                res.status(redirect.status);
-                redirect.headers.forEach((v, k) => res.setHeader(k, v));
-                redirect.text().then((body) => res.end(body)).catch(next);
-              } else next();
-            })
-            .catch(next);
-        } else next();
-      });
+      try {
+        await requestContext.run({ requestId }, async () => {
+          if (pathname.startsWith("/app")) {
+            const request = toRequest(req);
+            const redirect = await runAppAuth(request);
+            if (redirect) {
+              res.status(redirect.status);
+              redirect.headers.forEach((v, k) => res.setHeader(k, v));
+              const body = await redirect.text();
+              res.end(body);
+              return;
+            }
+          }
+          next();
+        });
+      } catch (err) {
+        next(err);
+      }
     });
-    app.use(
-      (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-        if (!firstRequestHandled) {
-          firstRequestHandled = true;
-          console.log("FIRST REQUEST HANDLED", Date.now());
-        }
-        console.log("app.all reached:", req.method, req.url);
-        next();
-      },
-      createRequestHandler({ build: buildModule as unknown as ServerBuild, mode })
-    );
+    app.use(createRequestHandler({ build: buildModule as unknown as ServerBuild, mode }));
   }
 
   // Cold start mitigation: warm Redis so first request doesn't pay connection cost.
   // Also register log sink to buffer logs into a Redis ring buffer for the log viewer.
+  // Subscribe to config invalidation so all replicas clear local cache when one invalidates.
   try {
     const redis = getRedis();
     redis.ping().catch(() => {});
+
     const LOG_KEY = "revstack:logs:stream";
     const LOG_MAX = 1000;
+    let redisLogFailCount = 0;
+    let redisLogCircuitOpenUntil = 0;
+    const CIRCUIT_THRESHOLD = 3;
+    const CIRCUIT_COOLDOWN_MS = 60_000;
     setLogSink((payload) => {
+      if (Date.now() < redisLogCircuitOpenUntil) return;
       const str = JSON.stringify(payload);
-      redis.lpush(LOG_KEY, str).catch(() => {});
-      redis.ltrim(LOG_KEY, 0, LOG_MAX - 1).catch(() => {});
+      redis
+        .pipeline()
+        .lpush(LOG_KEY, str)
+        .ltrim(LOG_KEY, 0, LOG_MAX - 1)
+        .exec()
+        .then(() => {
+          redisLogFailCount = 0;
+        })
+        .catch(() => {
+          redisLogFailCount += 1;
+          if (redisLogFailCount >= CIRCUIT_THRESHOLD) {
+            redisLogCircuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+          }
+        });
+    });
+
+    // Subscriber must use a separate connection (Redis subscriber mode allows only sub commands).
+    const CONFIG_INVALIDATE_CHANNEL = "revstack:config:invalidate";
+    const sub = redis.duplicate();
+    sub.subscribe(CONFIG_INVALIDATE_CHANNEL);
+    sub.on("message", (channel: string, message: string) => {
+      if (channel === CONFIG_INVALIDATE_CHANNEL) {
+        clearShopConfigCacheForShop(message);
+      }
     });
   } catch {
     // REDIS_URL missing or connect failed — log sink simply stays null
@@ -211,13 +218,10 @@ async function main() {
   let attempts = 0;
   while (!connected && attempts < 10) {
     try {
-      console.log("[PRISMA] Connecting attempt", attempts + 1);
       await prisma.$queryRaw`SELECT 1`;
       connected = true;
-      console.log("[PRISMA] Connected");
     } catch (e) {
       attempts++;
-      console.log("[PRISMA] Failed attempt", attempts, (e as { code?: string })?.code);
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -226,29 +230,23 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("SERVER LISTEN START", Date.now());
-  const server = app.listen(port, "0.0.0.0", () => {
-    console.log("SERVER LISTEN READY", Date.now());
-    console.log("ENV PORT:", process.env.PORT);
-    console.log("Listening on:", server.address());
-    console.log(`[revstack] listening on port ${port}`);
-  });
+  const server = app.listen(port, "0.0.0.0", () => {});
   ["SIGTERM", "SIGINT"].forEach((signal) => {
     process.once(signal, () => {
-      console.log(`[SERVER] received ${signal}, closing`);
-      server?.close(console.error);
+      server.close(async () => {
+        try { await prisma.$disconnect(); } catch {}
+        try { getRedis().quit(); } catch {}
+        process.exit(0);
+      });
+      // Force exit after 5s if graceful shutdown stalls
+      setTimeout(() => process.exit(1), 5000).unref();
     });
   });
 
   process.on("uncaughtException", (err) => {
     console.error("[FATAL] uncaughtException:", err);
+    process.exit(1);
   });
-
-  // Heartbeat to confirm process stays alive
-  const heartbeat = setInterval(() => {
-    console.log("[HEARTBEAT]", new Date().toISOString());
-  }, 30_000);
-  heartbeat.unref();
 }
 
 main().catch((err) => {

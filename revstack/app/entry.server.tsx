@@ -1,6 +1,4 @@
 import "dotenv/config";
-console.log("ENTRY sees PORT:", process.env.PORT);
-console.log("Server boot starting...");
 import { PassThrough } from "stream";
 import { renderToPipeableStream } from "react-dom/server";
 import { ServerRouter } from "react-router";
@@ -17,9 +15,6 @@ export default async function handleRequest(
   responseHeaders: Headers,
   reactRouterContext: EntryContext
 ) {
-  if (process.env.NODE_ENV === "development") {
-    console.log("[entry.server] request", request.method, request.url, "Host:", request.headers.get("host"));
-  }
   addDocumentResponseHeaders(request, responseHeaders);
   const userAgent = request.headers.get("user-agent");
   const callbackName = isbot(userAgent ?? '')

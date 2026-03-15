@@ -247,6 +247,7 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     ? a.cartHeaderMessages.filter((m): m is string => typeof m === 'string' && m.trim() !== '').slice(0, 3).map((m) => m.trim())
     : undefined;
   const showHeaderBanner = typeof a.showHeaderBanner === 'boolean' ? a.showHeaderBanner : true;
+  const showStickyCartButton = typeof a.showStickyCartButton === 'boolean' ? a.showStickyCartButton : true;
   return {
     primaryColor,
     accentColor,
@@ -256,6 +257,7 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     emojiMode: typeof a.emojiMode === 'boolean' ? a.emojiMode : true,
     countdownDurationMs,
     showHeaderBanner,
+    showStickyCartButton,
     merchantCartDrawerSelector,
     cartHeaderMessages: (cartHeaderMessages?.length ?? 0) > 0 ? cartHeaderMessages : undefined,
     backgroundColor,

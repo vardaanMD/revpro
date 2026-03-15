@@ -8,7 +8,7 @@ const appRoot = path.resolve(__dirname, "..", "..");
 dotenv.config({ path: path.join(appRoot, ".env"), override: false });
 
 const REQUIRED_DEV = ["DATABASE_URL", "SHOPIFY_API_KEY", "SHOPIFY_API_SECRET"] as const;
-const REQUIRED_PROD = [...REQUIRED_DEV, "REDIS_URL"] as const;
+const REQUIRED_PROD = [...REQUIRED_DEV, "REDIS_URL", "SHOPIFY_APP_URL"] as const;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -28,10 +28,10 @@ function requireEnv(name: string): string {
 
 if (process.env.NODE_ENV === "production") {
   requireEnv("REDIS_URL");
+  requireEnv("SHOPIFY_APP_URL");
 }
 
-// App URL is set by Shopify CLI on `shopify app dev` (changes each run). Never require in .env for dev.
-// TEMPORARY: Startup validation removed — app can start without SHOPIFY_APP_URL (may be empty in prod).
+// App URL: required in production; in dev use env or fallback to localhost.
 const appUrlRaw =
   (process.env.SHOPIFY_APP_URL ?? process.env.HOST ?? process.env.RAILWAY_PUBLIC_DOMAIN ?? "").trim();
 const devFallback =

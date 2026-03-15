@@ -334,7 +334,7 @@ async function getAnalyticsMetricsUncached(
   let revenue: RevenueAnalytics;
   try {
     const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
-      SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
+      SELECT COALESCE(SUM("orderValue" - "refundedCents"), 0)::bigint AS revenue
       FROM "OrderInfluenceEvent"
       WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
     `;
@@ -353,10 +353,13 @@ async function getAnalyticsMetricsUncached(
   const showRate = total > 0 ? shown / total : 0;
   const addRate = shown > 0 ? added / shown : 0;
 
+  const dayRowMap = new Map<string, (typeof dayRows)[number]>();
+  for (const r of dayRows) dayRowMap.set(toDateKey(r.day), r);
+
   const trend: TrendPoint[] = [];
   for (let d = new Date(range.startDate); d <= range.endDate; d.setUTCDate(d.getUTCDate() + 1)) {
     const dateStr = toDateKey(d);
-    const row = dayRows.find((r) => toDateKey(r.day) === dateStr);
+    const row = dayRowMap.get(dateStr);
     const dayTotal = row ? Number(row.total) : 0;
     const dayShown = row ? Number(row.shown) : 0;
     const sumCart = row ? Number(row.sum_cart) : 0;
@@ -443,65 +446,44 @@ export async function getShopAnalyticsSummary(
   const normalized = normalizeShopDomain(shop);
 
   try {
-  const [totalResult, shownResult, avgResult, avgWithCrossSell, avgWithoutCrossSell, addedCount] =
-    await Promise.all([
-      prisma.decisionMetric.count({
-        where: { shopDomain: shop, createdAt: { gte: startDate } },
-      }),
-      prisma.decisionMetric.count({
-        where: {
-          shopDomain: shop,
-          hasCrossSell: true,
-          createdAt: { gte: startDate },
-        },
-      }),
-      prisma.decisionMetric.aggregate({
-        where: { shopDomain: shop, createdAt: { gte: startDate } },
-        _avg: { cartValue: true },
-        _count: { id: true },
-      }),
-      prisma.decisionMetric.aggregate({
-        where: {
-          shopDomain: shop,
-          hasCrossSell: true,
-          createdAt: { gte: startDate },
-        },
-        _avg: { cartValue: true },
-        _count: { id: true },
-      }),
-      prisma.decisionMetric.aggregate({
-        where: {
-          shopDomain: shop,
-          hasCrossSell: false,
-          createdAt: { gte: startDate },
-        },
-        _avg: { cartValue: true },
-        _count: { id: true },
-      }),
-      prisma.crossSellConversion.count({
-        where: { shopDomain: shop, createdAt: { gte: startDate } },
-      }),
-    ]);
+  // Single raw SQL query replaces 6 parallel Prisma queries — uses 1 DB connection instead of 6.
+  const [dmRow] = await prisma.$queryRaw<
+    {
+      total: bigint;
+      shown: bigint;
+      avg_cart: number | null;
+      avg_with: number | null;
+      avg_without: number | null;
+    }[]
+  >`
+    SELECT
+      COUNT(*)::bigint                                                     AS total,
+      COUNT(*) FILTER (WHERE "hasCrossSell" = true)::bigint                AS shown,
+      AVG("cartValue")                                                     AS avg_cart,
+      AVG("cartValue") FILTER (WHERE "hasCrossSell" = true)                AS avg_with,
+      AVG("cartValue") FILTER (WHERE "hasCrossSell" = false)               AS avg_without
+    FROM "DecisionMetric"
+    WHERE "shopDomain" = ${shop} AND "createdAt" >= ${startDate}
+  `;
 
-  const totalDecisions = totalResult;
-  const shown = shownResult;
+  const [convRow] = await prisma.$queryRaw<{ cnt: bigint }[]>`
+    SELECT COUNT(*)::bigint AS cnt
+    FROM "CrossSellConversion"
+    WHERE "shopDomain" = ${shop} AND "createdAt" >= ${startDate}
+  `;
+
+  const totalDecisions = Number(dmRow?.total ?? 0);
+  const shown = Number(dmRow?.shown ?? 0);
+  const addedCount = Number(convRow?.cnt ?? 0);
   const crossSellShowRate =
     totalDecisions > 0 ? shown / totalDecisions : 0;
   const crossSellAddRate =
     shown > 0 ? addedCount / shown : 0;
   const avgCartValue =
-    avgResult._count.id > 0 && avgResult._avg.cartValue != null
-      ? Math.round(avgResult._avg.cartValue)
-      : 0;
+    dmRow?.avg_cart != null ? Math.round(dmRow.avg_cart) : 0;
 
-  const withAvg =
-    avgWithCrossSell._count.id > 0 && avgWithCrossSell._avg.cartValue != null
-      ? avgWithCrossSell._avg.cartValue
-      : null;
-  const withoutAvg =
-    avgWithoutCrossSell._count.id > 0 && avgWithoutCrossSell._avg.cartValue != null
-      ? avgWithoutCrossSell._avg.cartValue
-      : null;
+  const withAvg = dmRow?.avg_with ?? null;
+  const withoutAvg = dmRow?.avg_without ?? null;
   const upliftProxy =
     withAvg != null && withoutAvg != null
       ? Math.round(withAvg - withoutAvg)

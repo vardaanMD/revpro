@@ -11,8 +11,6 @@ const catalogCache = new Map<
   { data: Product[]; expiresAt: number }
 >();
 
-const isDev = process.env.NODE_ENV !== "production";
-
 type AdminGraphQL = {
   graphql(
     query: string,
@@ -21,8 +19,8 @@ type AdminGraphQL = {
 };
 
 const PRODUCTS_QUERY = `#graphql
-  query getCatalogProducts($first: Int!) {
-    products(first: $first) {
+  query getCatalogProducts($first: Int!, $query: String) {
+    products(first: $first, query: $query) {
       edges {
         node {
           id
@@ -94,25 +92,15 @@ export async function getCatalogForShop(
   currency: string = "USD",
   request?: Request
 ): Promise<Product[]> {
-  console.log("[CATALOG WARM TRACE] getCatalogForShop called for:", shop);
   const cacheKey = `catalog:${shop}:${currency}`;
   const cached = catalogCache.get(cacheKey);
   const now = Date.now();
   if (cached && now < cached.expiresAt) {
-    if (isDev) {
-      // eslint-disable-next-line no-console
-      console.debug("[catalog] cache hit", { key: cacheKey });
-    }
     return cached.data;
   }
 
-  if (isDev) {
-    // eslint-disable-next-line no-console
-    console.debug("[catalog] cache miss", { key: cacheKey });
-  }
-
   const response = await admin.graphql(PRODUCTS_QUERY, {
-    variables: { first: 50 },
+    variables: { first: 50, query: "status:active" },
   });
 
   handleAdminApiResponse(response, shop, "catalog", request);
@@ -160,7 +148,6 @@ export async function getCatalogForShop(
     } as Product);
   }
 
-  console.log("[CATALOG WARM TRACE] GraphQL returned:", products.length);
   catalogCache.set(cacheKey, { data: products, expiresAt: now + CACHE_TTL_MS });
   return products;
 }

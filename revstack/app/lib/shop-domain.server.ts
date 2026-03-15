@@ -18,9 +18,5 @@ export function normalizeShopDomain(shop: string): string {
   return `${s.replace(/\.myshopify\.com$/i, "")}.myshopify.com`;
 }
 
-/** Dev-only: log if raw shop was not already canonical. Do not throw; do not run in production. */
-export function warnIfShopNotCanonical(raw: string, normalized: string): void {
-  if (process.env.NODE_ENV === "development" && raw !== normalized) {
-    console.warn("[revPRO] Shop domain was not canonical:", raw, "->", normalized);
-  }
-}
+/** No-op: normalization is applied; call for side-effect-free API compatibility. */
+export function warnIfShopNotCanonical(_raw: string, _normalized: string): void {}

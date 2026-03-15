@@ -1,10 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { data, type ActionFunctionArgs } from "react-router";
 import { getRequestId, getRateLimit } from "~/lib/request-context.server";
 import { logInternalError } from "~/lib/logger.server";
 
-function safeHandlerHeaders(): Record<string, string> {
+function safeHandlerHeaders(requestId: string | undefined): Record<string, string> {
   const headers: Record<string, string> = {};
-  const requestId = getRequestId();
   if (requestId) headers["X-Request-Id"] = requestId;
   const rateLimit = getRateLimit();
   if (rateLimit) {
@@ -22,7 +22,7 @@ export function withSafeHandler(
     try {
       return await actionFn(args);
     } catch (err: unknown) {
-      const requestId = getRequestId();
+      const requestId = getRequestId() ?? randomUUID();
       const path = new URL(args.request.url).pathname;
       const shop = new URL(args.request.url).searchParams.get("shop") ?? undefined;
       logInternalError({
@@ -31,8 +31,12 @@ export function withSafeHandler(
         shop,
         message: err instanceof Error ? err.message : "Internal error",
         meta: { name: err instanceof Error ? err.name : undefined },
+        error: err,
       });
-      return data({ error: "Internal error" }, { status: 500, headers: safeHandlerHeaders() });
+      return data(
+        { error: "Internal error" },
+        { status: 500, headers: safeHandlerHeaders(requestId) }
+      );
     }
   };
 }

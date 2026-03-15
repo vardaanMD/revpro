@@ -30,11 +30,6 @@ const shopify = shopifyApp({
       const rawShop = session.shop;
       const shop = normalizeShopDomain(rawShop);
       warnIfShopNotCanonical(rawShop, shop);
-      console.log("[CATALOG WARM] afterAuth warm start:", shop);
-      if (process.env.NODE_ENV === "development") {
-        // Session persisted by library; log only in dev
-        console.log("[afterAuth] Session persisted for shop:", shop);
-      }
       try {
         const { warmCatalogForShop } = await import("~/lib/catalog-warm.server");
         await warmCatalogForShop(shop);

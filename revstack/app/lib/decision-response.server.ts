@@ -21,6 +21,8 @@ export type DecisionResponse = {
   suppressCheckout: boolean;
   milestones: unknown[];
   enableCouponTease: boolean;
+  /** When false, storefront/preview must hide the milestone bar. Omitted or true = show when milestones exist. */
+  enableMilestones?: boolean;
   /** Only present when CART_PRO_DEBUG=1. */
   crossSellDebug?: CrossSellDebugEntry[];
 };

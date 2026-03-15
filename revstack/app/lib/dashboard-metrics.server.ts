@@ -262,7 +262,7 @@ async function getDashboardMetricsUncached(
   let revenue: RevenueMetrics;
   try {
     const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
-      SELECT COALESCE(SUM("orderValue"), 0)::bigint AS revenue
+      SELECT COALESCE(SUM("orderValue" - "refundedCents"), 0)::bigint AS revenue
       FROM "OrderInfluenceEvent"
       WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
     `;

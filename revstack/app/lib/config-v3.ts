@@ -17,6 +17,8 @@ export interface CartProConfigV3Appearance {
   cartHeaderMessages?: [string?, string?, string?] | string[];
   /** When true, show the rotating header message banner below "Your Cart". Default true. */
   showHeaderBanner?: boolean;
+  /** When true, show the sticky cart button (bottom-right). Default true. */
+  showStickyCartButton?: boolean;
   /** Drawer background color (behind cart content). */
   backgroundColor?: string;
   /** Background color for the header message banner section (below "Your Cart"). */
@@ -112,6 +114,7 @@ export const DEFAULT_CONFIG_V3 = Object.freeze({
     emojiMode: true,
     countdownDurationMs: 600000,
     showHeaderBanner: true,
+    showStickyCartButton: true,
     backgroundColor: "#ffffff",
     bannerBackgroundColor: "#16a34a",
   },
@@ -202,6 +205,7 @@ export function mergeWithDefaultV3(
       base.appearance.bannerBackgroundColor = a.bannerBackgroundColor.trim();
     }
     if (typeof a.showHeaderBanner === "boolean") base.appearance.showHeaderBanner = a.showHeaderBanner;
+    if (typeof a.showStickyCartButton === "boolean") base.appearance.showStickyCartButton = a.showStickyCartButton;
   }
 
   if (persisted.featureFlags && typeof persisted.featureFlags === "object" && !Array.isArray(persisted.featureFlags)) {

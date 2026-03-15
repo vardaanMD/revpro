@@ -261,7 +261,7 @@ export default function AnalyticsPage() {
 
         <s-section heading="Revenue from paid orders">
           <p className={analyticsStyles.sectionSubtext}>
-            Revenue from your store’s paid orders (we use the orders/paid webhook; permission is granted when you install the app). We don’t claim this is caused by the app.
+            Net revenue from paid orders (orders/paid webhook). Cancelled orders are excluded; refunds reduce this total. We don’t claim this is caused by the app.
           </p>
           <MetricSection>
             <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, currency)} contextLabel={`${rangeLabel} from paid orders`} />

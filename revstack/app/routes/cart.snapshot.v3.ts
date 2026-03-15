@@ -15,19 +15,33 @@ import {
   type CartProConfigV3,
 } from "~/lib/config-v3";
 import { getShopCurrency } from "~/lib/shop-currency.server";
-import { warmCatalogForShop } from "~/lib/catalog-warm.server";
+import { triggerAsyncCatalogWarm } from "~/lib/catalog-warm.server";
 import { prisma } from "~/lib/prisma.server";
 import {
-  buildCollectionAwareRecommendations,
+  buildCollectionAwareRecommendationsWithContext,
   buildV3SnapshotPayload,
 } from "~/lib/upsell-engine-v2/buildSnapshot";
 import { parseMilestonesForUI } from "~/lib/settings-validation.server";
+import { logWarn } from "~/lib/logger.server";
+
+/** In-memory cache for shopProduct count to avoid querying on every request. */
+const catalogCountCache = new Map<string, { count: number; ts: number }>();
+const CATALOG_COUNT_TTL_MS = 60_000; // 1 minute
+
+async function getShopProductCount(shop: string): Promise<number> {
+  const cached = catalogCountCache.get(shop);
+  if (cached && Date.now() - cached.ts < CATALOG_COUNT_TTL_MS) {
+    return cached.count;
+  }
+  const count = await prisma.shopProduct.count({ where: { shopDomain: shop } });
+  catalogCountCache.set(shop, { count, ts: Date.now() });
+  return count;
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
     await authenticate.public.appProxy(request);
-  } catch (err) {
-    console.error("[CartPro Snapshot V3] appProxy auth failed", err);
+  } catch {
     // Return safe fallback so storefront UI still loads
     return Response.json(safeFallbackSnapshot(), {
       headers: { "Cache-Control": "no-store" },
@@ -36,7 +50,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const shopRaw = new URL(request.url).searchParams.get("shop") ?? "";
   const shop = normalizeShopDomain(shopRaw);
-  console.log("[CATALOG WARM TRACE] shop:", shop);
   if (!shop || shop === "unknown") {
     return Response.json(safeFallbackSnapshot(), {
       headers: { "Cache-Control": "no-store" },
@@ -44,19 +57,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   try {
-    const count = await prisma.shopProduct.count({
-      where: { shopDomain: shop },
-    });
-    console.log("[CATALOG WARM TRACE] count before warm:", count);
+    const count = await getShopProductCount(shop);
+    // When catalog is empty, do not block snapshot on warm (CART_FIRST_LOAD_IMPROVEMENT_PLAN Task 1).
+    // Trigger warm in background so next request gets full recommendations.
     if (count === 0) {
-      console.log("[CATALOG WARM TRACE] calling warmCatalogForShop");
-      await warmCatalogForShop(shop);
+      triggerAsyncCatalogWarm(shop);
     }
-
-    const rows = await prisma.shopProduct.findMany({
-      where: { shopDomain: shop },
-    });
-    console.log("[CATALOG WARM TRACE] shopProduct rows:", rows);
 
     const shopConfig = await getShopConfig(shop);
     const billing = await getBillingContext(shop, shopConfig);
@@ -64,10 +70,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const config = mergeWithDefaultV3(
       shopConfig.configV3 as Partial<CartProConfigV3> | null
     );
+    const billingFlags = featureFlagsFromCapabilities(billing.capabilities);
     const configV3: CartProConfigV3 = {
       ...config,
       featureFlags: {
-        ...featureFlagsFromCapabilities(billing.capabilities),
+        ...billingFlags,
+        enableRewards: (config.featureFlags?.enableRewards ?? true) && billingFlags.enableRewards,
         enableCheckoutOverride: true,
       },
       checkout: {
@@ -81,22 +89,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     };
 
-    let collectionAware: Awaited<ReturnType<typeof buildCollectionAwareRecommendations>> = {
+    let collectionAware: Awaited<ReturnType<typeof buildCollectionAwareRecommendationsWithContext>> = {
       recommendationsByCollection: { default: [] },
       productToCollections: {},
     };
-    try {
-      collectionAware = await buildCollectionAwareRecommendations(shop);
-    } catch (err) {
-      console.log("[CartPro Snapshot V3] collection-aware recommendations build failed", err);
+    if (count > 0) {
+      try {
+        collectionAware = await buildCollectionAwareRecommendationsWithContext(shop, shopConfig, billing);
+      } catch {
+        // collection-aware recommendations build failed — use empty default
+      }
     }
 
     // Backward compat: clients that only read 'recommendations' get the same default list as before.
     const recommendations = collectionAware.recommendationsByCollection["default"] ?? [];
-
-    console.log("[CartPro Snapshot] freeShipping threshold:", configV3.freeShipping?.thresholdCents);
-    console.log("[CartPro Snapshot] teaseMessage:", configV3.discounts?.teaseMessage);
-    console.log("[CartPro Snapshot] recommendations count:", recommendations.length);
 
     // Cart drawer is always V3; payload always reports v3 for compatibility.
     const runtimeVersion = "v3";
@@ -132,7 +138,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     });
   } catch (err) {
-    console.error("[CartPro Snapshot V3] loader failed, returning fallback", err);
+    logWarn({
+      shop,
+      route: "cart.snapshot.v3",
+      message: "Snapshot failed, returning safe fallback",
+      meta: { error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined },
+    });
     return Response.json(safeFallbackSnapshot(), {
       headers: { "Cache-Control": "no-store" },
     });

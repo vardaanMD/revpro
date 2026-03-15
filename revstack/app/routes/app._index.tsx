@@ -387,7 +387,7 @@ export default function DashboardIndex() {
                 <s-text tone="auto">Revenue from paid orders</s-text>
               </div>
               <p className={dashboardStyles.sectionSubtext}>
-                Revenue from your store’s paid orders (orders/paid webhook; permission is granted when you install the app). We don’t claim this is caused by the app.
+                Net revenue from paid orders (orders/paid). Cancelled orders excluded; refunds reduce the total. We don’t claim this is caused by the app.
               </p>
               <MetricSection>
                 <StatCard label="Revenue (7 days)" value={formatCurrency(metrics.revenue.revenue7d, currency)} contextLabel="from paid orders" />

@@ -128,6 +128,13 @@ async function recordCatalogSuccess(shop: string): Promise<void> {
   }
 }
 
+// Lua: atomic INCR + EXPIRE on first count (no race between INCR and EXPIRE).
+const CIRCUIT_FAILURES_LUA = `
+  local c = redis.call('INCR', KEYS[1])
+  if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+  return c
+`;
+
 /**
  * Record Shopify Admin failure. If 3 in a row, open circuit for 60s.
  */
@@ -135,10 +142,12 @@ async function recordCatalogFailure(shop: string): Promise<void> {
   try {
     const redis = getRedis();
     const key = redisKey(shop, "catalog", "circuit", "failures");
-    const count = await redis.incr(key);
-    if (count === 1) {
-      await redis.expire(key, CIRCUIT_FAILURES_WINDOW_SECONDS);
-    }
+    const count = (await redis.eval(
+      CIRCUIT_FAILURES_LUA,
+      1,
+      key,
+      CIRCUIT_FAILURES_WINDOW_SECONDS
+    )) as number;
     if (count >= CIRCUIT_THRESHOLD) {
       await redis.set(redisKey(shop, "catalog", "circuit", "open"), "1", "EX", CIRCUIT_OPEN_TTL_SECONDS);
       logWarn({
@@ -159,7 +168,6 @@ async function recordCatalogFailure(shop: string): Promise<void> {
  * If circuit is open (3 consecutive failures), skips fetch and returns [].
  */
 export async function warmCatalogForShop(shop: string): Promise<Product[]> {
-  console.log("[CATALOG WARM TRACE] warmCatalogForShop ENTER", shop);
   if (await isCatalogCircuitOpen(shop)) {
     return [];
   }
@@ -169,21 +177,19 @@ export async function warmCatalogForShop(shop: string): Promise<Product[]> {
   try {
     const admin = await shopify.unauthenticated.admin(shop);
     const auth = admin?.admin ?? null;
-    console.log("[CATALOG WARM TRACE] admin client created");
     if (!auth) return [];
     products = await getCatalogForShop(auth, shop, currency);
-    console.log("[CATALOG WARM TRACE] products fetched:", products.length);
   } catch (err) {
     await recordCatalogFailure(shop);
     throw err;
   }
   await recordCatalogSuccess(shop);
-  console.log("[CATALOG WARM] fetched products:", products.length);
 
-  // DB write first: persist catalog to ShopProduct so V2 bootstrap never depends on Redis.
-  console.log("[CATALOG WARM TRACE] starting upserts");
+  // DB write: persist catalog to ShopProduct so V2 bootstrap never depends on Redis.
+  // Wrapped in a transaction so upserts + stale-product cleanup are atomic.
   const now = new Date();
-  for (const p of products) {
+  const fetchedIds = products.map((p) => p.id);
+  const upsertOps = products.map((p) => {
     const withCreatedAt = p as Product & { createdAt?: string };
     const createdAt = typeof withCreatedAt.createdAt === "string"
       ? new Date(withCreatedAt.createdAt)
@@ -201,17 +207,19 @@ export async function warmCatalogForShop(shop: string): Promise<Product[]> {
       createdAt,
       updatedAt: now,
     };
-    await prisma.shopProduct.upsert({
+    return prisma.shopProduct.upsert({
       where: { shopDomain_id: { shopDomain: shop, id: p.id } },
       update: fields,
       create: fields,
     });
-  }
-  const verifyCount = await prisma.shopProduct.count({
-    where: { shopDomain: shop },
   });
-  console.log("[CATALOG WARM TRACE] DB count after warm:", verifyCount);
-  console.log("[CATALOG WARM] DB count:", verifyCount);
+  // Remove products no longer in fetch (e.g. archived) so they don't appear in recommendations.
+  const deleteOp = fetchedIds.length > 0
+    ? prisma.shopProduct.deleteMany({
+        where: { shopDomain: shop, id: { notIn: fetchedIds } },
+      })
+    : prisma.shopProduct.deleteMany({ where: { shopDomain: shop } });
+  await prisma.$transaction([...upsertOps, deleteOp]);
 
   try {
     const redis = getRedis();

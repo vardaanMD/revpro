@@ -29,6 +29,8 @@ export interface CartProConfigV3Appearance {
   merchantCartDrawerSelector?: string;
   /** Up to 3 custom messages shown below "Your Cart" that rotate. */
   cartHeaderMessages?: string[];
+  /** When true, show the sticky cart button (bottom-right). Default true. */
+  showStickyCartButton?: boolean;
 }
 
 export interface CartProConfigV3FeatureFlags {
@@ -220,6 +222,8 @@ export interface ConfigAppearance {
   emojiMode: boolean;
   countdownDurationMs?: number;
   showHeaderBanner: boolean;
+  /** When true, show the sticky cart button (bottom-right). Default true. */
+  showStickyCartButton?: boolean;
   backgroundColor?: string;
   bannerBackgroundColor?: string;
   surfaceColor?: string;

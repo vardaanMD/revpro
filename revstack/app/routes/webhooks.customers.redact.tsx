@@ -1,3 +1,7 @@
+/**
+ * customers/redact webhook (GDPR).
+ * We do not store customer PII keyed by customer id; no data to delete. Acknowledge only.
+ */
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "~/shopify.server";
 

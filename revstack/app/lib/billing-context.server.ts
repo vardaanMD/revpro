@@ -29,14 +29,26 @@ function parsePlanFromConfig(configPlan: string | null | undefined): Plan {
 
 /**
  * Whitelist override: comma-separated shop domains from PAYWALL_WHITELIST.
- * If undefined or empty, no whitelist. Normalized domain match.
+ * Parsed once at module load; cached as a Set for O(1) lookups.
  */
-export function isWhitelisted(shop: string): boolean {
+let _whitelistSet: Set<string> | null = null;
+let _whitelistRaw: string | undefined;
+
+function getWhitelistSet(): Set<string> {
   const raw = process.env.PAYWALL_WHITELIST;
-  if (raw === undefined || raw === "") return false;
-  const domain = normalizeShopDomain(shop);
-  const list = raw.split(",").map((s) => normalizeShopDomain(s.trim())).filter(Boolean);
-  return list.includes(domain);
+  if (raw !== _whitelistRaw || _whitelistSet === null) {
+    _whitelistRaw = raw;
+    _whitelistSet = new Set(
+      (raw ?? "").split(",").map((s) => normalizeShopDomain(s.trim())).filter(Boolean)
+    );
+  }
+  return _whitelistSet;
+}
+
+export function isWhitelisted(shop: string): boolean {
+  const set = getWhitelistSet();
+  if (set.size === 0) return false;
+  return set.has(normalizeShopDomain(shop));
 }
 
 /**

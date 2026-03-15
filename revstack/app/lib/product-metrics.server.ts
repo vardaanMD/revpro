@@ -8,21 +8,24 @@ const ROLLING_DAYS = 30;
 
 /**
  * Records sold quantities for an order. Call from orders/paid webhook.
- * productId should be the Shopify product ID (numeric string from line_item.product_id or variant's product id).
+ * Idempotent: same (shopDomain, orderId, lineItemId) is skipped (skipDuplicates).
+ * Use Shopify line_item.id as lineItemId when present; otherwise orderId-index.
  */
 export async function recordOrderSales(
   shopDomain: string,
-  lineItems: Array<{ productId: string; quantity: number }>
+  orderId: string,
+  lineItems: Array<{ productId: string; quantity: number; lineItemId: string }>
 ): Promise<void> {
-  if (lineItems.length === 0) return;
-  const since = new Date(Date.now() - ROLLING_DAYS * 24 * 60 * 60 * 1000);
+  if (lineItems.length === 0 || !orderId) return;
   await prisma.productSaleEvent.createMany({
     data: lineItems.map((item) => ({
       shopDomain,
+      orderId,
+      lineItemId: item.lineItemId,
       productId: String(item.productId),
       quantity: Math.max(0, Math.floor(item.quantity)),
     })),
-    skipDuplicates: false,
+    skipDuplicates: true,
   });
 }
 

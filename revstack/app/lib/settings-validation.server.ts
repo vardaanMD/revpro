@@ -73,6 +73,8 @@ export const settingsFormSchema = z.object({
   couponTeaseMessage: z.string().optional(),
   /** When true, show the rotating header message banner below "Your Cart". */
   showHeaderBanner: z.boolean(),
+  /** When true, show the sticky cart button (bottom-right). */
+  showStickyCartButton: z.boolean(),
   /** When true, show the coupon tease message banner when no code is applied. */
   showTeaseMessage: z.boolean(),
 });
@@ -111,7 +113,8 @@ export function validateSettingsForm(formData: FormData): {
   const freeShippingDollars = formData.get("freeShippingThresholdDollars");
   const baselineAovDollars = formData.get("baselineAovDollars");
   const enableCrossSell = formData.get("enableCrossSell") === "on";
-  const enableMilestones = formData.get("enableMilestones") === "on";
+  // Use getAll + pop so when hidden (value="") and checkbox (value="on") share the same name, the checkbox wins when checked
+  const enableMilestones = (formData.getAll("enableMilestones").pop() ?? "") === "on";
   const enableCouponTease = formData.get("enableCouponTease") === "on";
   const milestonesJson = formData.get("milestonesJson");
   const recommendationStrategyRaw = formData.get("recommendationStrategy");
@@ -166,6 +169,7 @@ export function validateSettingsForm(formData: FormData): {
 
   // Use getAll + pop so when hidden (value="") and checkbox (value="on") share the same name, the checkbox wins when checked
   const showHeaderBanner = (formData.getAll("showHeaderBanner").pop() ?? "") === "on";
+  const showStickyCartButton = (formData.getAll("showStickyCartButton").pop() ?? "") === "on";
   const showTeaseMessage = (formData.getAll("showTeaseMessage").pop() ?? "") === "on";
 
   const raw = {
@@ -192,6 +196,7 @@ export function validateSettingsForm(formData: FormData): {
     recommendationsHeading,
     couponTeaseMessage,
     showHeaderBanner,
+    showStickyCartButton,
     showTeaseMessage,
   };
 

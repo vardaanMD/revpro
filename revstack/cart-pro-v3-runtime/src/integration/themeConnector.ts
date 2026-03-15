@@ -129,6 +129,20 @@ export function createThemeConnector(
     }
   }
 
+  /** Defer drawer open to next frame so click/event handler returns immediately; avoids main-thread hang. */
+  function scheduleOpen(): void {
+    const run = (): void => {
+      if (destroyed) return;
+      engine.setState({ ui: { drawerOpen: true } });
+      engine.onDrawerOpened?.();
+    };
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(run);
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
   function attachCartIconListeners(): void {
     if (typeof document === 'undefined') return;
 
@@ -141,12 +155,7 @@ export function createThemeConnector(
     const handler = (e: Event): void => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      // Defer open so click handler returns immediately; avoids main-thread hang from sync store update + full re-render.
-      setTimeout(() => {
-        if (destroyed) return;
-        engine.setState({ ui: { drawerOpen: true } });
-        engine.onDrawerOpened?.();
-      }, 0);
+      scheduleOpen();
     };
 
     const seen = new Set<Element>();
@@ -167,12 +176,7 @@ export function createThemeConnector(
 
   const externalUpdateHandler = (): void => {
     if (!openOnExternal) return;
-    // Defer open so event handler returns immediately; avoids main-thread hang from sync store update + full re-render.
-    setTimeout(() => {
-      if (destroyed) return;
-      engine.setState({ ui: { drawerOpen: true } });
-      engine.onDrawerOpened?.();
-    }, 0);
+    scheduleOpen();
   };
 
   engine.on('cart:external-update', externalUpdateHandler);

@@ -129,10 +129,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
   const shop = normalizeShopDomain(shopRaw);
   warnIfShopNotCanonical(shopRaw, shop);
 
-  if (process.env.NODE_ENV === "development") {
-    console.log("[DECISION SHOP]", shop);
-  }
-
   logInfo({
     shop,
     requestId,
@@ -141,10 +137,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
   });
 
   const runWithTiming = async (): Promise<ReturnType<typeof data>> => {
-    const __start = Date.now();
-    function t(label: string) {
-      console.log(`[DECISION TIMING] ${label}: ${Date.now() - __start}ms`);
-    }
     let ctxRateLimit: RateLimitResult = defaultRateLimitHeaders();
     const responseTime = () => Date.now() - startTime;
     const overTime = () => Date.now() - startTime > DECISION_TIMEOUT_MS;
@@ -199,7 +191,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
     };
 
     try {
-    try {
       if (request.method !== "POST") {
         logTiming();
         return data(
@@ -235,7 +226,16 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       let body: unknown;
       try {
         t0 = performance.now();
-        body = await request.json();
+        const buf = await request.arrayBuffer();
+        if (buf.byteLength > MAX_PAYLOAD_BYTES) {
+          timings.parse = performance.now() - t0;
+          logTiming();
+          return data(
+            { error: "Payload too large" },
+            { status: 400, headers: responseHeaders(requestId, responseTime(), ctxRateLimit) }
+          );
+        }
+        body = JSON.parse(new TextDecoder().decode(buf)) as unknown;
         timings.parse = performance.now() - t0;
       } catch (err) {
         logWarn({
@@ -279,23 +279,15 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
           { status: 400, headers: responseHeaders(requestId, responseTime(), ctxRateLimit) }
         );
       }
-      const cartJson = JSON.stringify(validatedCart);
-      if (cartJson.length > MAX_PAYLOAD_BYTES) {
-        timings.validation = performance.now() - t0;
-        logTiming();
-        return data(
-          { error: "Payload too large" },
-          { status: 400, headers: responseHeaders(requestId, responseTime(), ctxRateLimit) }
-        );
-      }
       timings.validation = performance.now() - t0;
 
       t0 = performance.now();
+      const cartJson = JSON.stringify(validatedCart);
       const cartHash = hashCartPayload(cartJson);
-      t("hash computed");
+
       const cached = getCachedDecision(shop, cartHash);
       timings.cacheLookup = performance.now() - t0;
-      t("memory cache checked");
+
       if (cached) {
         cacheHit = true;
         logTiming();
@@ -306,7 +298,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
 
       // 2) Check Redis decision cache (cross-replica)
       if (overTime()) {
-        console.warn("[DECISION SAFE PATH]", "overTime pre-cache");
         usedSafeDecision = true;
         logTiming();
         return data(safeDecisionResponse(), {
@@ -316,7 +307,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       t0 = performance.now();
       const redisCached = await getCachedDecisionFromRedis(shop, cartHash);
       timings.cacheLookup += performance.now() - t0;
-      t("redis cache checked");
+
       if (redisCached) {
         cacheHit = true;
         setMemoryCachedDecision(shop, cartHash, redisCached);
@@ -327,7 +318,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       }
 
       if (overTime()) {
-        console.warn("[DECISION SAFE PATH]", "overTime post-redis");
         usedSafeDecision = true;
         logTiming();
         return data(safeDecisionResponse(), {
@@ -338,6 +328,8 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       ctxRateLimit = await checkRateLimitWithQuota(shop);
       timings.rateLimit = performance.now() - rateLimitStart;
       recordTiming("decision", "rateLimit", timings.rateLimit);
+      const store = requestContext.getStore();
+      if (store) store.rateLimit = ctxRateLimit;
       if (!ctxRateLimit.allowed) {
         logWarn({
           shop,
@@ -359,10 +351,9 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         t0 = performance.now();
         config = await getShopConfig(shop);
         timings.config = performance.now() - t0;
-        t("config loaded");
+
         recordTiming("decision", "config", timings.config);
       } catch (err) {
-        console.warn("[DECISION SAFE PATH]", "config load failed");
         usedSafeDecision = true;
         logResilience({
           shop,
@@ -384,9 +375,8 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
 
       // Billing gate: before any catalog fetch, decision computation, or metric writes
       const billing = await getBillingContext(shop, config);
-      t("billing checked");
+
       if (!billing.isEntitled) {
-        console.warn("[DECISION SAFE PATH]", "billing not entitled");
         usedSafeDecision = true;
         logResilience({
           shop,
@@ -408,7 +398,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
 
       // Prebuilt index only; no Admin API, no catalog transform per request
       if (overTime()) {
-        console.warn("[DECISION SAFE PATH]", "overTime pre-catalog");
         usedSafeDecision = true;
         logTiming();
         return data(safeDecisionResponse(), {
@@ -418,10 +407,9 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       t0 = performance.now();
       const index = await getCatalogIndexFromRedis(shop);
       timings.catalog = performance.now() - t0;
-      t("catalog index loaded");
+
       recordTiming("decision", "catalog", timings.catalog);
       if (!index) {
-        console.warn("[DECISION SAFE PATH]", "no index");
         usedSafeDecision = true;
         triggerAsyncCatalogWarm(shop);
         catalogSource = "fallback";
@@ -440,7 +428,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       catalogSource = "index";
 
       if (overTime()) {
-        console.warn("[DECISION SAFE PATH]", "overTime post-catalog");
         usedSafeDecision = true;
         logTiming();
         return data(safeDecisionResponse(), {
@@ -460,7 +447,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
             headers: responseHeaders(requestId, responseTime(), ctxRateLimit),
           });
         }
-        console.warn("[DECISION SAFE PATH]", "lock contention");
         usedSafeDecision = true;
         logWarn({
           shop,
@@ -475,7 +461,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       }
 
       if (overTime()) {
-        console.warn("[DECISION SAFE PATH]", "overTime post-lock");
         usedSafeDecision = true;
         logTiming();
         return data(safeDecisionResponse(), {
@@ -522,7 +507,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         ? config.recommendationStrategy
         : "COLLECTION_MATCH";
       // Select/slice from prebuilt index only; no catalog transform per request
-      t("before decision compute");
+
       t0 = performance.now();
       let strategyCatalog = resolveStrategyCatalogFromIndex(
         index,
@@ -568,7 +553,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         debug: cartProDebug,
       });
       timings.engine = performance.now() - t0;
-      t("after decision compute");
+
       recordTiming("decision", "engine", timings.engine);
 
       const milestonesRaw =
@@ -602,7 +587,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         ...(decision.crossSellDebug != null ? { crossSellDebug: decision.crossSellDebug } : {}),
       };
     } catch (err) {
-      console.warn("[DECISION SAFE PATH]", "decision build failed");
       usedSafeDecision = true;
       logWarn({
         shop,
@@ -617,7 +601,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
     t0 = performance.now();
     await setCachedDecision(shop, cartHash, response);
     timings.cacheSet = performance.now() - t0;
-    t("cache written");
+
 
     // Double-layer safety: never write metrics when not entitled (guards against refactor moving logic)
     const tDbWrite = performance.now();
@@ -625,25 +609,22 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       if (response.crossSell.length > 0) {
         const cartValue = validatedCart.total_price;
         t0 = performance.now();
-        for (const product of response.crossSell) {
-          prisma.crossSellEvent
-            .create({
-              data: {
-                shopDomain: shop,
-                productId: product.id,
-                eventType: "impression",
-                cartValue,
-              },
-            })
-            .catch((err) => {
-              logWarn({
-                shop,
-                requestId,
-                route: DECISION_ROUTE,
-                message: "CrossSellEvent create failed",
-                meta: { error: err instanceof Error ? err.message : String(err) },
-              });
-            });
+        const impressionData = response.crossSell.map((product) => ({
+          shopDomain: shop,
+          productId: product.id,
+          eventType: "impression" as const,
+          cartValue,
+        }));
+        try {
+          await prisma.crossSellEvent.createMany({ data: impressionData });
+        } catch (err) {
+          logWarn({
+            shop,
+            requestId,
+            route: DECISION_ROUTE,
+            message: "CrossSellEvent createMany failed",
+            meta: { error: err instanceof Error ? err.message : String(err) },
+          });
         }
         timings.crossSellWrite = performance.now() - t0;
       }
@@ -652,23 +633,22 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       const isV3Runtime = request.headers.get("X-Cart-Pro-Runtime") === "v3";
       const tMetricStart = performance.now();
       if (!isV3Runtime) {
-        prisma.decisionMetric
-          .create({
-            data: {
-              shopDomain: shop,
-              hasCrossSell: response.crossSell.length > 0,
-              cartValue: validatedCart.total_price,
-            },
-          })
-          .catch((err) => {
-            logWarn({
-              shop,
-              requestId,
-              route: DECISION_ROUTE,
-              message: "DecisionMetric create failed (fire-and-forget)",
-              meta: { error: err instanceof Error ? err.message : String(err) },
-            });
+        const metricData = {
+          shopDomain: shop,
+          hasCrossSell: response.crossSell.length > 0,
+          cartValue: validatedCart.total_price,
+        };
+        try {
+          await prisma.decisionMetric.create({ data: metricData });
+        } catch (err) {
+          logWarn({
+            shop,
+            requestId,
+            route: DECISION_ROUTE,
+            message: "DecisionMetric create failed",
+            meta: { error: err instanceof Error ? err.message : String(err) },
           });
+        }
       }
       timings.decisionMetricWrite = performance.now() - tMetricStart;
     }
@@ -692,12 +672,11 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       },
     });
     logTiming();
-    t("returning response");
+
     return data(response, {
       headers: responseHeaders(requestId, Date.now() - startTime, ctxRateLimit),
     });
     } catch (err: unknown) {
-      console.warn("[DECISION SAFE PATH]", "request failed");
       usedSafeDecision = true;
       const responseTimeMs = Date.now() - startTime;
       logWarn({
@@ -715,24 +694,6 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       return data(safeDecisionResponse(), {
         status: 200,
         headers: responseHeaders(requestId, responseTimeMs, defaultRateLimitHeaders()),
-      });
-    }
-    } catch (error: unknown) {
-      console.warn("[DECISION SAFE PATH]", "decision failed");
-      logWarn({
-        shop,
-        requestId,
-        route: DECISION_ROUTE,
-        message: "Decision failed, returning SAFE_DECISION",
-        meta: { error: error instanceof Error ? error.message : String(error) },
-      });
-      return data(safeDecisionResponse(), {
-        status: 200,
-        headers: responseHeaders(
-          requestId,
-          Date.now() - startTime,
-          defaultRateLimitHeaders()
-        ),
       });
     }
   };

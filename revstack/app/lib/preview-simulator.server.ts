@@ -33,6 +33,8 @@ export type PreviewUI = {
   cartHeaderMessages?: string[];
   /** V3: when false, header message banner is hidden */
   showHeaderBanner?: boolean;
+  /** V3: when false, sticky cart button is hidden */
+  showStickyCartButton?: boolean;
   /** V3: when false, coupon tease message banner is hidden */
   showTeaseMessage?: boolean;
   /** V3: coupon tease message text */
@@ -228,6 +230,7 @@ export async function generatePreviewDecision(
     milestones: capabilities.allowMilestones ? filteredMilestones : [],
     enableCouponTease:
       capabilities.allowCouponTease && config.enableCouponTease,
+    enableMilestones: capabilities.allowMilestones && config.enableMilestones,
   };
 
   return {

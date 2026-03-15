@@ -10,6 +10,7 @@ import { prisma } from "~/lib/prisma.server";
 import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import type { AnalyticsEventV3 } from "~/types/analytics-v3";
 import { logWarn } from "~/lib/logger.server";
+import { checkRateLimitWithQuota } from "~/lib/rate-limit.server";
 
 function isValidEvent(raw: unknown): raw is AnalyticsEventV3 {
   if (!raw || typeof raw !== "object") return false;
@@ -26,6 +27,8 @@ function isValidEvent(raw: unknown): raw is AnalyticsEventV3 {
   if (typeof snap.subtotal !== "number") return false;
   return true;
 }
+
+const MAX_ANALYTICS_BODY_BYTES = 100 * 1024; // 100 KB
 
 export async function action({ request }: ActionFunctionArgs) {
   if (request.method !== "POST") {
@@ -60,9 +63,29 @@ export async function action({ request }: ActionFunctionArgs) {
     });
   }
 
+  const rateLimit = await checkRateLimitWithQuota(shop);
+  if (!rateLimit.allowed) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "X-RateLimit-Limit": `${rateLimit.limit}`,
+        "X-RateLimit-Remaining": `${rateLimit.remaining}`,
+        "X-RateLimit-Reset": `${Math.ceil(rateLimit.resetAt / 1000)}`,
+      },
+    });
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    const buf = await request.arrayBuffer();
+    if (buf.byteLength > MAX_ANALYTICS_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ error: "Payload too large", maxBytes: MAX_ANALYTICS_BODY_BYTES }),
+        { status: 413, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    body = JSON.parse(new TextDecoder().decode(buf)) as unknown;
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), {
       status: 400,
@@ -109,10 +132,18 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const clickCount = validEvents.filter((e) => e.name === "recommendation:click").length;
 
-  await prisma.cartProEventV3.createMany({
-    data,
-    skipDuplicates: true,
-  });
+  try {
+    await prisma.cartProEventV3.createMany({
+      data,
+      skipDuplicates: true,
+    });
+  } catch (err) {
+    logWarn({
+      shop,
+      message: "analytics-v3 CartProEventV3 createMany failed",
+      meta: { error: err instanceof Error ? err.message : String(err) },
+    });
+  }
 
   // Write to DecisionMetric / CrossSellConversion so admin Analytics page shows V3 events.
   const decisionMetrics = validEvents
@@ -143,7 +174,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const p = e.payload as Record<string, unknown>;
       return {
         shopDomain: shop,
-        productId: String(p.variantId),
+        productId: String(p.productId ?? p.variantId),
         cartValue: Math.round(Number(e.cartSnapshot?.subtotal ?? 0)),
       };
     });
@@ -233,22 +264,16 @@ export async function action({ request }: ActionFunctionArgs) {
     const revproSessionId = e.sessionId?.trim();
     if (!revproSessionId) continue;
     try {
-      const existing = await prisma.revproClickSession.findUnique({
-        where: { shopDomain_revproSessionId: { shopDomain: shop, revproSessionId } },
-      });
-      const clickedIds = existing
-        ? [...(Array.isArray(existing.clickedProductIds) ? (existing.clickedProductIds as string[]) : []), productId]
-        : [productId];
-      await prisma.revproClickSession.upsert({
-        where: { shopDomain_revproSessionId: { shopDomain: shop, revproSessionId } },
-        create: {
-          shopDomain: shop,
-          revproSessionId,
-          clickedProductIds: clickedIds,
-          recommendedProductIds,
-        },
-        update: { clickedProductIds: clickedIds },
-      });
+      // Atomic upsert: INSERT with ON CONFLICT appends productId to the JSONB array
+      // without a prior read, eliminating the read-modify-write race.
+      const clickedJson = JSON.stringify([productId]);
+      const recommendedJson = JSON.stringify(recommendedProductIds);
+      await prisma.$executeRaw`
+        INSERT INTO "RevproClickSession" ("shopDomain", "revproSessionId", "clickedProductIds", "recommendedProductIds", "createdAt")
+        VALUES (${shop}, ${revproSessionId}, ${clickedJson}::jsonb, ${recommendedJson}::jsonb, NOW())
+        ON CONFLICT ("shopDomain", "revproSessionId")
+        DO UPDATE SET "clickedProductIds" = "RevproClickSession"."clickedProductIds" || ${clickedJson}::jsonb
+      `;
     } catch (err) {
       logWarn({
         shop,
@@ -256,14 +281,6 @@ export async function action({ request }: ActionFunctionArgs) {
         meta: { error: err instanceof Error ? err.message : String(err) },
       });
     }
-  }
-
-  if (recommendationClicks.length > 0 || clicksWritten > 0) {
-    console.log("[analytics-v3] engagement", {
-      shop,
-      recommendationClicksReceived: recommendationClicks.length,
-      clicksWritten,
-    });
   }
 
   return new Response(JSON.stringify({ ok: true }), {

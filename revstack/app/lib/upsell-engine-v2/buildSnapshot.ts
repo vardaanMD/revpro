@@ -4,6 +4,8 @@
  */
 import type { Product } from "@revpro/decision-engine";
 import type { CartSnapshot } from "@revpro/decision-engine";
+import type { ShopConfig } from "@prisma/client";
+import type { BillingContext } from "~/lib/billing-context.server";
 import { getShopConfig } from "~/lib/shop-config.server";
 import { getShopCurrency } from "~/lib/shop-currency.server";
 import { getBillingContext } from "~/lib/billing-context.server";
@@ -285,7 +287,6 @@ export async function buildBootstrapSnapshotV2(
 
   const strategy = { limit: config.recommendationLimit };
   const limit = Math.max(strategy.limit ?? 4, 4);
-  console.log("[CartPro V3] strategy.limit:", strategy.limit, "effective limit:", limit);
   const effectiveLimit = Math.min(limit, capabilities.maxCrossSell);
 
   const sliced = strategyCatalog.slice(0, effectiveLimit);
@@ -371,6 +372,60 @@ export type CollectionAwareRecommendations = {
 };
 
 /**
+ * Computes the "default" bucket of recommendations from an existing catalog index.
+ * Same strategy/limit/capabilities logic as getHydratedRecommendationsForShop but without DB.
+ * Used by buildCollectionAwareRecommendationsWithContext to avoid a second findMany.
+ */
+function getDefaultBucketFromIndex(
+  index: CatalogIndexSerialized,
+  config: ShopConfig,
+  capabilities: BillingContext["capabilities"]
+): HydratedRecommendation[] {
+  const manualCollectionIds = Array.isArray(config.manualCollectionIds)
+    ? (config.manualCollectionIds as string[])
+    : [];
+  const effectiveStrategy = capabilities.allowStrategySelection
+    ? config.recommendationStrategy
+    : "COLLECTION_MATCH";
+
+  const strategyCatalog: Product[] = resolveStrategyCatalogFromIndex(
+    index,
+    effectiveStrategy,
+    EMPTY_CART,
+    manualCollectionIds
+  );
+
+  const limit = Math.max(typeof config.recommendationLimit === "number" ? config.recommendationLimit : 4, 4);
+  const effectiveLimit = Math.min(limit, capabilities.maxCrossSell);
+  const sliced = strategyCatalog.slice(0, effectiveLimit);
+
+  const validProducts = sliced.filter((p) => {
+    const variantId = Number((p as { variantId?: string | number }).variantId);
+    if (!variantId || variantId <= 0) return false;
+    if (!p.title || p.title.trim().length === 0) return false;
+    if (!p.handle || p.handle.trim().length === 0) return false;
+    if ((p as { inStock?: boolean }).inStock === false) return false;
+    return true;
+  });
+
+  return validProducts.map((p) => {
+    const variantId = Number((p as { variantId?: string | number }).variantId);
+    const priceCents = typeof p.price?.amount === "number" ? p.price.amount : 0;
+    return {
+      id: p.id,
+      variantId,
+      title: p.title,
+      imageUrl: p.imageUrl ?? null,
+      price: {
+        amount: priceCents,
+        compare_at_amount: null,
+      },
+      handle: p.handle ?? "",
+    };
+  });
+}
+
+/**
  * Returns hydrated recommendations from ShopProduct for a shop.
  * Uses same DB + strategy/limit logic as V2 but returns only the product list.
  * Used by snapshot v3 so it does not depend on buildBootstrapSnapshotV2.
@@ -404,7 +459,6 @@ export async function getHydratedRecommendationsForShop(
 
   const strategy = { limit: config.recommendationLimit };
   const limit = Math.max(strategy.limit ?? 4, 4);
-  console.log("[CartPro V3] strategy.limit:", strategy.limit, "effective limit:", limit);
   const effectiveLimit = Math.min(limit, capabilities.maxCrossSell);
 
   const sliced = strategyCatalog.slice(0, effectiveLimit);
@@ -418,14 +472,6 @@ export async function getHydratedRecommendationsForShop(
     if ((p as { inStock?: boolean }).inStock === false) return false;
     return true;
   });
-
-  console.log(
-    "[CartPro V3] Hydrated recommendations:",
-    validProducts.length,
-    "of",
-    sliced.length,
-    "valid"
-  );
 
   return validProducts.map((p) => {
     const variantId = Number((p as { variantId?: string | number }).variantId);
@@ -515,6 +561,69 @@ export async function buildCollectionAwareRecommendations(
 
   const defaultRecs = await getHydratedRecommendationsForShop(shop);
   recommendationsByCollection["default"] = defaultRecs;
+
+  return {
+    recommendationsByCollection,
+    productToCollections,
+  };
+}
+
+/**
+ * Builds collection-aware recommendations with pre-fetched config and billing (single findMany).
+ * Use from snapshot route when config and billing are already loaded to avoid duplicate DB work.
+ * Same output shape as buildCollectionAwareRecommendations(shop).
+ */
+export async function buildCollectionAwareRecommendationsWithContext(
+  shop: string,
+  config: ShopConfig,
+  billing: BillingContext
+): Promise<CollectionAwareRecommendations> {
+  const rows = await prisma.shopProduct.findMany({ where: { shopDomain: shop } });
+  if (rows.length === 0) {
+    return {
+      recommendationsByCollection: { default: [] },
+      productToCollections: {},
+    };
+  }
+
+  const currency = getShopCurrency(config);
+  const index = buildCatalogIndexFromDbRows(rows, currency);
+  const { productsById, collectionMap } = index;
+
+  const productToCollections: Record<string, string[]> = {};
+  for (const [productId, lite] of Object.entries(productsById)) {
+    productToCollections[productId] = Array.isArray(lite.collections) ? lite.collections : [];
+  }
+
+  const recommendationsByCollection: Record<string, HydratedRecommendation[]> = {};
+
+  const collectionIdsByProductCount = Object.entries(collectionMap)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, MAX_COLLECTIONS_IN_SNAPSHOT)
+    .map(([cid]) => cid);
+
+  for (const collectionId of collectionIdsByProductCount) {
+    const productIds = collectionMap[collectionId] ?? [];
+    const hydrated: HydratedRecommendation[] = [];
+    for (const pid of productIds) {
+      if (hydrated.length >= COLLECTION_RECOS_PER_BUCKET) break;
+      const lite = productsById[pid];
+      if (!lite || !lite.inStock) continue;
+      if (!lite.title?.trim() || !lite.handle?.trim()) continue;
+      const variantId = Number(lite.variantId);
+      if (!Number.isFinite(variantId) || variantId <= 0) continue;
+      hydrated.push(productLiteToHydratedRecommendation(lite, index.currency));
+    }
+    if (hydrated.length > 0) {
+      recommendationsByCollection[collectionId] = hydrated;
+    }
+  }
+
+  recommendationsByCollection["default"] = getDefaultBucketFromIndex(
+    index,
+    config,
+    billing.capabilities
+  );
 
   return {
     recommendationsByCollection,

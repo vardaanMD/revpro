@@ -60,6 +60,7 @@
   // Feature flags — default true while config not yet loaded so sections don't flash-hide on init.
   $: enableUpsell = engine?.getConfig?.()?.featureFlags?.enableUpsell ?? true;
   $: enableDiscounts = engine?.getConfig?.()?.featureFlags?.enableDiscounts ?? true;
+  $: enableRewards = engine?.getConfig?.()?.featureFlags?.enableRewards ?? true;
   /** Up to 3 custom header messages that rotate (from config.appearance.cartHeaderMessages). */
   $: cartHeaderMessages = engine?.getConfig?.()?.appearance?.cartHeaderMessages ?? [];
   $: showHeaderBanner = engine?.getConfig?.()?.appearance?.showHeaderBanner !== false;
@@ -80,8 +81,27 @@
     }
   }
 
+  /** Set drawer transition via helper so reactive block never touches drawerEl (avoids $$invalidate loop). */
+  function setDrawerTransition(value) {
+    if (typeof document === 'undefined') return;
+    const host = document.getElementById(HOST_ID);
+    const root = host?.shadowRoot;
+    const el = root?.getElementById('cart-pro-drawer');
+    if (el) el.style.transition = value;
+  }
+
+  /** Set drawer transform via helper so reactive block never touches drawerEl (avoids $$invalidate loop). */
+  function setDrawerTransform(value) {
+    if (typeof document === 'undefined') return;
+    const host = document.getElementById(HOST_ID);
+    const root = host?.shadowRoot;
+    const el = root?.getElementById('cart-pro-drawer');
+    if (el) el.style.transform = value;
+  }
+
   let cartProEl;
   // Use tick() when opening so bind:this={cartProEl} is set before we set app container pointer-events (fixes Add button not receiving clicks).
+  // Only call helpers — never reference drawerEl in this block (kills $$invalidate loop).
   $: if (drawerOpen) {
     tick().then(() => {
       if (typeof document !== 'undefined') {
@@ -91,10 +111,8 @@
       setHostPointerEvents('auto');
       setAppContainerPointerEvents('auto');
       removeThemeDrawerClass();
-      if (drawerEl) {
-        drawerEl.style.transition = '';
-        drawerEl.style.transform = '';
-      }
+      setDrawerTransition('');
+      setDrawerTransform('');
     });
   } else {
     releaseBodyScroll();
@@ -122,6 +140,12 @@
     releaseBodyScroll();
     setHostPointerEvents('none');
     removeThemeDrawerClass();
+    // Ensure drawer state closes even if parent listener fails.
+    try {
+      engine?.setState?.({ ui: { drawerOpen: false } });
+    } catch (_) {
+      // ignore; parent close handler will still run if wired
+    }
     dispatch('close');
   }
 
@@ -143,6 +167,12 @@
   let lastDragOffset = 0;
   let isDragging = false;
 
+  /** Treat taps on buttons/links as normal clicks, not swipe gestures. */
+  function isInteractiveTarget(node) {
+    if (!node || typeof node.closest !== 'function') return false;
+    return !!node.closest('button, a, input, textarea, select, [role="button"]');
+  }
+
   function getClientX(e) {
     if (e.type.startsWith('touch')) return e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0;
     return e.clientX ?? 0;
@@ -150,10 +180,12 @@
 
   function onSwipeStart(e) {
     if (!drawerEl || !$stateStore?.ui?.drawerOpen) return;
+    const target = e.target;
+    if (target && isInteractiveTarget(target)) return;
     isDragging = true;
     dragStartX = getClientX(e);
     lastDragOffset = 0;
-    drawerEl.style.transition = 'none';
+    setDrawerTransition('none');
     if (e.type === 'mousedown') {
       const up = (e2) => { onSwipeEnd(); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
       const move = (e2) => onSwipeMove(e2);
@@ -167,20 +199,26 @@
     const x = getClientX(e);
     const deltaX = x - dragStartX;
     const offset = Math.max(0, deltaX);
+    // Small jitter should still allow a tap to register; only treat as swipe after a few px.
+    if (offset <= 5) {
+      lastDragOffset = 0;
+      setDrawerTransform('');
+      return;
+    }
     lastDragOffset = offset;
-    drawerEl.style.transform = `translateX(${offset}px)`;
-    if (offset > 0 && e.cancelable) e.preventDefault();
+    setDrawerTransform(`translateX(${offset}px)`);
+    if (offset > 5 && e.cancelable) e.preventDefault();
   }
 
   function onSwipeEnd() {
     if (!isDragging || !drawerEl) return;
     isDragging = false;
-    drawerEl.style.transition = '';
+    setDrawerTransition('');
     if (lastDragOffset >= SWIPE_CLOSE_THRESHOLD_PX) {
-      drawerEl.style.transform = '';
+      setDrawerTransform('');
       handleClose();
     } else {
-      drawerEl.style.transform = 'translateX(0)';
+      setDrawerTransform('translateX(0)');
     }
     lastDragOffset = 0;
   }
@@ -213,10 +251,25 @@
       el.className = 'rewards-confetti-piece';
       // Very small random delay (0–0.3s) so confetti starts almost instantly on milestone unlock.
       el.style.setProperty('--delay', `${Math.random() * 0.3}s`);
-      /* Spread across the right side (drawer width): 72%–100% so it fills the cart. */
-      el.style.setProperty('--left', `${72 + Math.random() * 28}%`);
-      /* Slight horizontal drift as it falls. */
-      el.style.setProperty('--x', `${(Math.random() - 0.5) * 12}vw`);
+      /**
+       * Position each piece horizontally within the actual drawer bounds so it fills the cart,
+       * not just a narrow band on the far right of the viewport.
+       */
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth || 0 : 0;
+      const rect = drawerEl && typeof drawerEl.getBoundingClientRect === 'function' ? drawerEl.getBoundingClientRect() : null;
+      let leftPx = 0;
+      if (rect && viewportWidth > 0) {
+        const clampedLeft = Math.max(0, rect.left);
+        const clampedRight = Math.min(viewportWidth, rect.right);
+        const width = Math.max(0, clampedRight - clampedLeft);
+        leftPx = width > 0 ? clampedLeft + Math.random() * width : viewportWidth * Math.random();
+      } else if (viewportWidth > 0) {
+        // Fallback: right half of the viewport.
+        leftPx = viewportWidth * (0.5 + Math.random() * 0.5);
+      }
+      el.style.setProperty('--left', `${leftPx}px`);
+      /* Slight horizontal drift as it falls (within the drawer width). */
+      el.style.setProperty('--x', `${(Math.random() - 0.5) * 24}px`);
       el.style.background = colors[i % colors.length];
       container.appendChild(el);
     }
@@ -229,7 +282,6 @@
   }
 
   onMount(() => {
-    console.log('[CartPro V3] DrawerV2 mounted');
     const messages = engine?.getConfig?.()?.appearance?.cartHeaderMessages ?? [];
     if (Array.isArray(messages) && messages.length > 1) {
       const len = messages.length;
@@ -255,8 +307,23 @@
     >
       <span class="cp-drawer-handle" aria-hidden="true"></span>
       <div class="cp-header-row">
+        <button
+          type="button"
+          class="cp-header-back"
+          aria-label="Close drawer"
+          on:click={handleClose}
+        >
+          &lt;
+        </button>
         <span id="cart-pro-title">Your Cart</span>
-        <button id="cart-pro-close" type="button" aria-label="Close drawer" on:click={handleClose}>×</button>
+        <button
+          id="cart-pro-close"
+          type="button"
+          aria-label="Close drawer"
+          on:click={handleClose}
+        >
+          ×
+        </button>
       </div>
     </div>
     {#if hasHeaderMessages && currentHeaderMessage}
@@ -265,7 +332,9 @@
       </div>
     {/if}
     {#if contentReady}
-      <Milestones {engine} {currency} />
+      {#if enableRewards}
+        <Milestones {engine} {currency} />
+      {/if}
       <div id="cart-pro-scroll" class="cp-drawer-scroll">
         <CartItems {engine} items={items} {currency} onClose={handleClose} />
         {#if enableUpsell}
@@ -309,6 +378,9 @@
     flex-direction: column;
     align-items: stretch;
   }
+  .cp-header-back {
+    display: none;
+  }
   .cp-drawer-handle {
     width: 36px;
     height: 4px;
@@ -321,7 +393,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    width: 100%;
     min-height: 0;
+  }
+  @media (max-width: 768px) {
+    .cp-header-row {
+      justify-content: space-between;
+    }
   }
   @media (min-width: 769px) {
     .cp-drawer-handle {
@@ -385,7 +463,7 @@
     overflow: hidden;
     isolation: isolate;
   }
-  /* Confetti: start above viewport so we only see falling; left from JS (--left) fills the right side. */
+  /* Confetti: start above viewport so we only see falling; left from JS (--left) is positioned across the drawer width. */
   :global(.rewards-confetti-piece) {
     position: absolute;
     left: var(--left, 85%);

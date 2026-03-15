@@ -50,21 +50,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const layoutStart = performance.now();
   const url = new URL(request.url);
   const pathname = url.pathname;
-  const reqTag = `[PERF][${request.method} ${pathname}]`;
-  const logPerf = process.env.NODE_ENV === "development";
 
   // 1) Authenticate (or use request context when set by custom server for GET /app/*)
   const ctx = getAppLayoutFromContext();
   let shop: string;
   let config: Awaited<ReturnType<typeof getShopConfig>>;
   if (ctx) {
-    if (logPerf) console.log(`${reqTag} layout: using CONTEXT (no auth/getShopConfig)`);
     shop = ctx.shop;
     config = ctx.config;
     recordTiming("adminLayout", "auth", 0);
     recordTiming("adminLayout", "config", 0);
   } else {
-    if (logPerf) console.log(`${reqTag} layout: FALLBACK authenticate.admin + getShopConfig`);
     const tAuthStart = performance.now();
     let auth: Awaited<ReturnType<typeof authenticate.admin>>;
     try {
@@ -89,7 +85,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
     const authMs = performance.now() - tAuthStart;
     recordTiming("adminLayout", "auth", authMs);
-    if (logPerf) console.log(`${reqTag} layout: authenticate.admin end ${authMs}ms`);
     const rawShop = auth.session.shop;
     shop = normalizeShopDomain(rawShop);
     warnIfShopNotCanonical(rawShop, shop);
@@ -112,7 +107,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
     const configMs = performance.now() - tConfigStart;
     recordTiming("adminLayout", "config", configMs);
-    if (logPerf) console.log(`${reqTag} layout: getShopConfig end ${configMs}ms`);
     setAppLayoutInContext(shop, config, {
       session: auth.session,
       admin: auth.admin as import("~/lib/request-context.server").AppLayoutAuth["admin"],
@@ -139,21 +133,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const onboardingCompleted = config.onboardingCompleted;
 
-  if (process.env.NODE_ENV === "development") {
-    console.log("[SHOP CONTEXT]", shop);
-  }
-
   // 2) Billing gate: before dashboard/premium access, require entitlement; exempt billing/upgrade paths
   if (!billing.isEntitled && !pathMatches(pathname, BILLING_EXEMPT_PATHS)) {
     const redirectUrl = `/app/billing${url.search}`;
-    if (logPerf) console.log(`${reqTag} layout: redirect to ${redirectUrl} (billing required)`);
     throw new Response(null, { status: 302, headers: { Location: redirectUrl } });
   }
 
   // 3) Onboarding gate: if entitled but onboarding not complete, only allow onboarding or billing
   if (billing.isEntitled && !onboardingCompleted && !pathMatches(pathname, ONBOARDING_EXEMPT_PATHS)) {
     const redirectUrl = `/app/onboarding${url.search}`;
-    if (logPerf) console.log(`${reqTag} layout: redirect to ${redirectUrl} (onboarding incomplete)`);
     throw new Response(null, { status: 302, headers: { Location: redirectUrl } });
   }
 

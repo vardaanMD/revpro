@@ -44,8 +44,6 @@ const APPEARANCE_FALLBACKS = {
  * Variables are applied to the resolved host (#cart-pro-root or #revstack-v3-root) and cascade into shadow DOM.
  */
 export function applyAppearanceVariables(host: HTMLElement, config: RawCartProConfig | null | undefined): void {
-  console.log('[CartPro V3] Applied appearance:', config?.appearance);
-
   const a = config?.appearance;
   const primary =
     typeof a?.primaryColor === 'string' && a.primaryColor.trim()
@@ -75,8 +73,6 @@ export function applyAppearanceVariables(host: HTMLElement, config: RawCartProCo
   host.style.setProperty('--cp-radius', `${radius}px`);
   host.style.setProperty('--cp-bg', background);
   host.style.setProperty('--cp-banner-bg', bannerBg);
-
-  console.log('[CartPro V3] Appearance variables applied to host:', host?.id);
 }
 
 /**
@@ -90,16 +86,13 @@ function bootstrapConfig(engine: Engine, host: HTMLElement): boolean {
     const config = globalSnapshot ?? (cached ? (JSON.parse(cached) as RawCartProConfig) : null);
 
     if (config) {
-      console.log('[CartPro] Bootstrapping config authority');
       applyAppearanceVariables(host, config);
       engine.loadConfig(config);
       saveBodyOverflowOnce();
-      console.log('[CartPro] Config loaded into engine', (engine as { getConfig?: () => unknown }).getConfig?.());
       return true;
     }
     return false;
-  } catch (err) {
-    console.warn('[CartPro] Config bootstrap failed', err);
+  } catch (_err) {
     return false;
   }
 }
@@ -246,7 +239,6 @@ export function mountCartProV3(componentCss: string): void {
   const style = document.createElement('style');
   style.textContent = componentCss ?? '';
   shadow.appendChild(style);
-  console.log('[CartPro] CSS injected length:', style.textContent?.length);
 
   const appContainer = document.createElement('div');
   appContainer.id = 'cart-pro-v3-app';
@@ -255,7 +247,6 @@ export function mountCartProV3(componentCss: string): void {
   shadow.appendChild(appContainer);
 
   const doMount = (): void => {
-    console.log('[CartPro] App mounting into shadow root:', shadow);
     new App({ target: appContainer, props: { engine } });
     injectHideOtherCartsStyle();
   };
@@ -271,11 +262,9 @@ export function mountCartProV3(componentCss: string): void {
     const waitForConfig = (): void => {
       const snapshot = getGlobalSnapshot();
       if (snapshot) {
-        console.log('[CartPro] Late config detected');
         applyAppearanceVariables(host, snapshot);
         engine.loadConfig(snapshot);
         saveBodyOverflowOnce();
-        console.log('[CartPro] Config loaded into engine', (engine as { getConfig?: () => unknown }).getConfig?.());
         if (!mounted) { mounted = true; doMount(); }
         return;
       }
@@ -283,8 +272,6 @@ export function mountCartProV3(componentCss: string): void {
       if (attempts < maxAttempts) {
         setTimeout(waitForConfig, 50);
       } else if (!mounted) {
-        // Config never arrived after 2s — mount anyway with defaults so cart is still usable
-        console.warn('[CartPro] Config not found after 2s, mounting with defaults');
         mounted = true;
         doMount();
       }

@@ -34,8 +34,11 @@ function checkRateLimitInMemory(shop: string): RateLimitResult {
   }
   entry.count += 1;
 
-  const allowed = entry.count <= LIMIT;
-  const remaining = allowed ? LIMIT - entry.count : 0;
+  // Conservative: halve limit for in-memory fallback since it's per-instance,
+  // not shared across replicas. Prevents effective rate doubling with 2+ replicas.
+  const FALLBACK_LIMIT = Math.ceil(LIMIT / 2);
+  const allowed = entry.count <= FALLBACK_LIMIT;
+  const remaining = allowed ? FALLBACK_LIMIT - entry.count : 0;
   const resetAtMs = currentWindowStart + windowMs;
 
   return {
@@ -46,16 +49,21 @@ function checkRateLimitInMemory(shop: string): RateLimitResult {
   };
 }
 
+// Lua script: atomic INCR + EXPIRE. If the key is new (count == 1), sets TTL.
+// Prevents orphaned keys with no TTL if process crashes between INCR and EXPIRE.
+const RATE_LIMIT_LUA = `
+  local c = redis.call('INCR', KEYS[1])
+  if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+  return c
+`;
+
 async function checkRateLimitWithRedis(shop: string): Promise<RateLimitResult> {
   const redis = getRedis();
   const now = Math.floor(Date.now() / 1000);
   const window = String(Math.floor(now / WINDOW_SECONDS));
   const key = redisKey(shop, "ratelimit", window);
 
-  const count = await redis.incr(key);
-  if (count === 1) {
-    await redis.expire(key, WINDOW_SECONDS);
-  }
+  const count = (await redis.eval(RATE_LIMIT_LUA, 1, key, WINDOW_SECONDS)) as number;
 
   const allowed = count <= LIMIT;
   const remaining = allowed ? LIMIT - count : 0;
@@ -71,12 +79,11 @@ async function checkRateLimitWithRedis(shop: string): Promise<RateLimitResult> {
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Redis timeout")), ms)
-    ),
-  ]);
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Redis timeout")), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer!));
 }
 
 let lastRedisFailureLogAt = 0;

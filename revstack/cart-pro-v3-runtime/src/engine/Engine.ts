@@ -410,7 +410,6 @@ export class Engine {
         });
         preloadRecommendationImages(legacyList);
       }
-      console.log('[CartPro V3] Hydrated snapshot recommendations:', this.stateStore);
     } catch (err) {
       const fallback = normalizeConfig({});
       this.config = Object.freeze(fallback) as NormalizedEngineConfig;
@@ -600,12 +599,6 @@ export class Engine {
     this.updateState((s) => ({
       analytics: { ...s.analytics, queue: [...s.analytics.queue, event] },
     }));
-    const qLen = getStateFromStore(this.stateStore).analytics.queue.length;
-    if (isDev && qLen >= ANALYTICS_QUEUE_SOFT_CAP_WARN) {
-      console.warn(
-        `[Cart Pro V3] Analytics queue size (${qLen}) at or above soft cap (${ANALYTICS_QUEUE_SOFT_CAP_WARN}). Flush may be delayed.`
-      );
-    }
     this.scheduleAnalyticsFlush();
   }
 
@@ -654,9 +647,6 @@ export class Engine {
       if (this.destroyed) return;
       const s = getStateFromStore(this.stateStore);
       if (ok) {
-        if (isDev && hadClicks) {
-          console.log('[Cart Pro V3] Analytics batch sent (included recommendation:click)');
-        }
         this.analyticsRetryCount = 0;
         this.setState({
           analytics: {
@@ -667,9 +657,6 @@ export class Engine {
         });
         if (s.analytics.queue.length >= 5) this.scheduleAnalyticsFlush();
       } else {
-        if (isDev && hadClicks) {
-          console.warn('[Cart Pro V3] Analytics batch failed (included recommendation:click) – will retry');
-        }
         this.setState({
           analytics: {
             ...s.analytics,
@@ -688,12 +675,6 @@ export class Engine {
   }
 
   enqueueEffect(asyncFn: () => Promise<void>): void {
-    const len = this.effectQueue.getQueueLength();
-    if (isDev && len >= EFFECT_QUEUE_CAP_WARN) {
-      console.warn(
-        `[Cart Pro V3] Effect queue length (${len}) at or above cap warning (${EFFECT_QUEUE_CAP_WARN}). Consider reducing cart mutation frequency.`
-      );
-    }
     this.effectQueue.enqueue(asyncFn);
   }
 
@@ -1404,7 +1385,6 @@ export class Engine {
         });
       }
     } catch (err) {
-      if (isDev) console.warn('[Cart Pro V3] addToCart failed', err);
       this.setState({ cart: cartSnapshot });
       throw err;
     } finally {

@@ -1,8 +1,11 @@
 import type { ShopConfig } from "@prisma/client";
 import { prisma } from "~/lib/prisma.server";
+import { getRedis } from "~/lib/redis.server";
 import { DEFAULT_SHOP_CONFIG } from "./default-config.server";
 import { normalizeShopDomain } from "./shop-domain.server";
 import { logResilience } from "~/lib/logger.server";
+
+const CONFIG_INVALIDATE_CHANNEL = "revstack:config:invalidate";
 
 type CacheEntry = {
   data: ShopConfig;
@@ -23,34 +26,36 @@ function isPrismaMissingColumnError(err: unknown): boolean {
 
 export async function getShopConfig(shop: string): Promise<ShopConfig> {
   const domain = normalizeShopDomain(shop);
-  const t0 = process.env.NODE_ENV === "development" ? Date.now() : 0;
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[PERF] getShopConfig called domain=${domain}`);
-  }
   const cached = cache.get(domain);
   // Version check removed on cache hit: if cached config exists and TTL not expired, return it immediately without any Prisma query. Invalidation is handled by invalidateShopConfigCache when config is updated.
   if (cached && Date.now() - cached.ts < TTL) {
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[PERF] getShopConfig cache HIT ${Date.now() - t0}ms (no Prisma)`);
-    }
     return cached.data;
   }
 
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[PERF] getShopConfig cache MISS, fetching from Prisma...`);
-  }
   try {
     let config = await prisma.shopConfig.findUnique({
       where: { shopDomain: domain },
     });
 
     if (!config) {
-      config = await prisma.shopConfig.create({
-        data: {
-          shopDomain: domain,
-          ...DEFAULT_SHOP_CONFIG,
-        },
-      });
+      try {
+        config = await prisma.shopConfig.create({
+          data: {
+            shopDomain: domain,
+            ...DEFAULT_SHOP_CONFIG,
+          },
+        });
+      } catch (createErr) {
+        // P2002: unique constraint violation — concurrent request already created it.
+        if ((createErr as { code?: string }).code === "P2002") {
+          config = await prisma.shopConfig.findUnique({
+            where: { shopDomain: domain },
+          });
+          if (!config) throw createErr; // truly unexpected
+        } else {
+          throw createErr;
+        }
+      }
     }
 
     cache.set(domain, {
@@ -59,13 +64,9 @@ export async function getShopConfig(shop: string): Promise<ShopConfig> {
       version: config.version,
     });
 
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[PERF] getShopConfig end ${Date.now() - t0}ms (Prisma)`);
-    }
     return config;
   } catch (err) {
     if (isPrismaMissingColumnError(err)) {
-      console.warn("configV3 column missing — fallback used");
       return getFallbackShopConfig(shop);
     }
     throw err;
@@ -73,13 +74,28 @@ export async function getShopConfig(shop: string): Promise<ShopConfig> {
 }
 
 /**
+ * Clears the in-memory config cache for a single shop. Used by Redis subscriber
+ * so other replicas (e.g. multi-region) clear their cache when one instance invalidates.
+ */
+export function clearShopConfigCacheForShop(shop: string): void {
+  const domain = normalizeShopDomain(shop);
+  cache.delete(domain);
+}
+
+/**
  * NOTE:
  * Shop config invalidation does NOT clear decision cache.
  * Decision cache depends only on cart hash, not config.
+ * Publishes to Redis so other instances clear their local cache (multi-region).
  */
 export function invalidateShopConfigCache(shop: string): void {
   const domain = normalizeShopDomain(shop);
   cache.delete(domain);
+  try {
+    getRedis().publish(CONFIG_INVALIDATE_CHANNEL, domain);
+  } catch {
+    // REDIS_URL missing or publish failed — other replicas keep stale cache until TTL
+  }
 }
 
 /**

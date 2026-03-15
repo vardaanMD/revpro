@@ -117,6 +117,7 @@ function buildConfigV3FromForm(
       ? formData.couponTeaseMessage.trim()
       : "Apply coupon at checkout to unlock savings";
   if (typeof formData.showHeaderBanner === "boolean") base.appearance.showHeaderBanner = formData.showHeaderBanner;
+  if (typeof formData.showStickyCartButton === "boolean") base.appearance.showStickyCartButton = formData.showStickyCartButton;
   if (typeof formData.showTeaseMessage === "boolean") base.discounts.showTeaseMessage = formData.showTeaseMessage;
 
   // Cart drawer is always V3; no runtime toggle.
@@ -228,6 +229,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       recommendationsHeading: upsellV3?.recommendationsHeading ?? "You may also like",
       couponTeaseMessage: discountsV3?.teaseMessage ?? "Apply coupon at checkout to unlock savings",
       showHeaderBanner: appearanceV3.showHeaderBanner !== false,
+      showStickyCartButton: appearanceV3.showStickyCartButton !== false,
       showTeaseMessage: discountsV3?.showTeaseMessage !== false,
     },
     capabilities: billing.capabilities,
@@ -340,7 +342,7 @@ const RECOMMENDATION_STRATEGIES = [
 type MilestoneRow = { spendDollars: string; label: string };
 
 function toMilestoneRows(milestones: { amount: number; label: string }[]): MilestoneRow[] {
-  if (milestones.length === 0) return [{ spendDollars: "", label: "" }];
+  if (milestones.length === 0) return [];
   return milestones.map((m) => ({
     spendDollars: (m.amount / 100).toFixed(2),
     label: m.label,
@@ -369,6 +371,7 @@ function mergePreviewRenderState(
     bannerBackgroundColor?: string;
     cartHeaderMessages?: string[];
     showHeaderBanner: boolean;
+    showStickyCartButton: boolean;
     showTeaseMessage: boolean;
     couponTeaseMessage: string;
   },
@@ -403,6 +406,7 @@ function mergePreviewRenderState(
         ? state.cartHeaderMessages
         : (initial?.ui?.cartHeaderMessages ?? []),
       showHeaderBanner: state.showHeaderBanner,
+      showStickyCartButton: state.showStickyCartButton,
       showTeaseMessage: state.showTeaseMessage,
       couponTeaseMessage: state.couponTeaseMessage,
     },
@@ -411,6 +415,7 @@ function mergePreviewRenderState(
       crossSell,
       freeShippingRemaining,
       enableCouponTease: state.enableCouponTease,
+      enableMilestones: state.enableMilestones,
       milestones,
     },
   };
@@ -450,6 +455,7 @@ export default function SettingsPage() {
   const [previewEnableMilestones, setPreviewEnableMilestones] = useState(config.enableMilestones);
   const [previewEnableCouponTease, setPreviewEnableCouponTease] = useState(config.enableCouponTease);
   const [previewShowHeaderBanner, setPreviewShowHeaderBanner] = useState(config.showHeaderBanner !== false);
+  const [previewShowStickyCartButton, setPreviewShowStickyCartButton] = useState(config.showStickyCartButton !== false);
   const previewShowTeaseMessage = true;
 
   useEffect(() => {
@@ -527,6 +533,7 @@ export default function SettingsPage() {
             .map((m) => (typeof m === "string" ? m.trim() : ""))
             .filter((m) => m.length > 0),
           showHeaderBanner: previewShowHeaderBanner,
+          showStickyCartButton: previewShowStickyCartButton,
           showTeaseMessage: previewShowTeaseMessage,
           couponTeaseMessage: config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings",
         },
@@ -548,6 +555,7 @@ export default function SettingsPage() {
       previewBackgroundColor,
       previewBannerBackgroundColor,
       previewShowHeaderBanner,
+      previewShowStickyCartButton,
       previewShowTeaseMessage,
       config.cartHeaderMessage1,
       config.cartHeaderMessage2,
@@ -561,10 +569,7 @@ export default function SettingsPage() {
     setMilestoneRows((prev) => [...prev, { spendDollars: "", label: "" }]);
   };
   const removeMilestone = (index: number) => {
-    setMilestoneRows((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return next.length === 0 ? [{ spendDollars: "", label: "" }] : next;
-    });
+    setMilestoneRows((prev) => prev.filter((_, i) => i !== index));
   };
   const updateMilestone = (index: number, field: "spendDollars" | "label", value: string) => {
     setMilestoneRows((prev) =>
@@ -767,6 +772,8 @@ export default function SettingsPage() {
               heading="Reward Milestones"
               description="Incentives customers unlock as cart value increases."
             >
+              {/* Hidden ensures we receive the key when checkbox is unchecked (browsers omit unchecked checkboxes) */}
+              <input type="hidden" name="enableMilestones" value="" />
               <s-checkbox
                 name="enableMilestones"
                 label="Enable Milestones"
@@ -774,6 +781,7 @@ export default function SettingsPage() {
                 value="on"
                 onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableMilestones((e.currentTarget as HTMLInputElement).checked)}
               />
+              {previewEnableMilestones && (
               <div className={settingsStyles.milestoneEditor}>
                 <s-text tone="neutral">Spend threshold (dollars) → Reward label</s-text>
                 {milestoneRows.map((row, index) => (
@@ -815,6 +823,7 @@ export default function SettingsPage() {
                   Add Milestone
                 </s-button>
               </div>
+              )}
               {fieldErrors.milestones && (
                 <p className={settingsStyles.inlineError} role="alert">
                   {fieldErrors.milestones}
@@ -858,6 +867,21 @@ export default function SettingsPage() {
                 </div>
               )}
             </FormSection>
+            </div>
+          </div>
+
+          <div className={settingsStyles.cardRow}>
+            <div className={`${settingsStyles.card} ${settingsStyles.cardFull}`}>
+              <FormSection heading="Cart button" description="Show a sticky cart button on the storefront so customers can open the cart from any page.">
+                <input type="hidden" name="showStickyCartButton" value="" />
+                <s-checkbox
+                  name="showStickyCartButton"
+                  label="Show sticky cart button"
+                  defaultChecked={config.showStickyCartButton !== false}
+                  value="on"
+                  onChange={(e: React.FormEvent<HTMLElement>) => setPreviewShowStickyCartButton((e.currentTarget as HTMLInputElement).checked)}
+                />
+              </FormSection>
             </div>
           </div>
 
@@ -1008,6 +1032,7 @@ export default function SettingsPage() {
                 <input type="hidden" name="cartHeaderMessage2" value={config.cartHeaderMessage2 || ""} />
                 <input type="hidden" name="cartHeaderMessage3" value={config.cartHeaderMessage3 || ""} />
                 <input type="hidden" name="showHeaderBanner" value={config.showHeaderBanner !== false ? "on" : ""} />
+                <input type="hidden" name="showStickyCartButton" value={config.showStickyCartButton !== false ? "on" : ""} />
               </FormSection>
             )}
             </div>

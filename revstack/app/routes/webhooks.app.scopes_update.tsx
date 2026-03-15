@@ -12,9 +12,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, session, topic, shop: rawShop } = await authenticate.webhook(request);
   const shop = normalizeShopDomain(rawShop);
   warnIfShopNotCanonical(rawShop, shop);
-  if (process.env.NODE_ENV === "development" && rawShop !== shop) {
-    console.warn("[WEBHOOK SHOP NORMALIZED]", rawShop, "→", shop);
-  }
   const webhookId = getWebhookId(request);
 
   if (webhookId) {

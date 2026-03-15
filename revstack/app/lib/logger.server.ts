@@ -93,7 +93,7 @@ export function logError(params: {
 
 /**
  * Log internal errors (e.g. in safe-handler).
- * Never include stack traces in production responses.
+ * Include stack in logs when error is passed (never in HTTP response body).
  */
 export function logInternalError(params: {
   shop?: string;
@@ -102,8 +102,17 @@ export function logInternalError(params: {
   route?: string;
   message: string;
   meta?: Record<string, unknown>;
+  error?: unknown;
 }): void {
-  write("error", params);
+  const meta = { ...params.meta };
+  if (params.error instanceof Error) {
+    meta.name = params.error.name;
+    if (params.error.stack) meta.stack = params.error.stack;
+  }
+  write("error", {
+    ...params,
+    meta: Object.keys(meta).length ? meta : undefined,
+  });
 }
 
 /**

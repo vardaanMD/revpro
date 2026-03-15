@@ -1,6 +1,7 @@
 {% comment %}
   Cart Pro — theme app extension block. Always loads the V3 runtime.
-  Fetches snapshot from /apps/cart-pro/snapshot/v3, applies config, then loads cart-pro-v3.js.
+  Loads cart-pro-v3.js in parallel with snapshot fetch (CART_FIRST_LOAD_IMPROVEMENT_PLAN Task 3).
+  When snapshot resolves, applies config to window.__CART_PRO_SNAPSHOT__; runtime picks it up via mount polling or late apply.
   Enable in Theme customizer > App embeds.
 {% endcomment %}
 {% schema %}
@@ -34,44 +35,37 @@
     }
   }
 
+  function fetchSnapshotThenApply() {
+    fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Snapshot response ' + r.status);
+        var ct = r.headers.get('Content-Type') || '';
+        if (ct.indexOf('application/json') === -1) throw new Error('Snapshot response is not JSON');
+        return r.json();
+      })
+      .then(function(config) {
+        if (config) applySnapshot(config);
+      })
+      .catch(function(err) {
+        console.error('[CartPro] Snapshot load failed', err);
+      });
+  }
+
   try {
     var cached = sessionStorage.getItem(CACHE_KEY);
     if (cached) {
       var parsed = JSON.parse(cached);
       if (parsed && typeof parsed === 'object') {
         applySnapshot(parsed);
-        fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
-          .then(function(r) {
-            if (!r.ok) throw new Error('Snapshot response ' + r.status);
-            var ct = r.headers.get('Content-Type') || '';
-            if (ct.indexOf('application/json') === -1) throw new Error('Snapshot response is not JSON');
-            return r.json();
-          })
-          .then(function(config) {
-            if (config) applySnapshot(config);
-          })
-          .catch(function() {});
+        fetchSnapshotThenApply();
         loadV3();
         return;
       }
     }
   } catch (e) {}
 
-  fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
-    .then(function(r) {
-      if (!r.ok) throw new Error('Snapshot response ' + r.status);
-      var ct = r.headers.get('Content-Type') || '';
-      if (ct.indexOf('application/json') === -1) throw new Error('Snapshot response is not JSON');
-      return r.json();
-    })
-    .then(function(config) {
-      if (config) applySnapshot(config);
-      loadV3();
-    })
-    .catch(function(err) {
-      console.error('[CartPro] Snapshot load failed', err);
-      loadV3();
-    });
+  loadV3();
+  fetchSnapshotThenApply();
 
 })();
 </script>

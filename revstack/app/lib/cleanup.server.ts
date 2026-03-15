@@ -18,31 +18,52 @@ import { prisma } from "~/lib/prisma.server";
 import { logError } from "~/lib/logger.server";
 
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const BATCH_LIMIT = 10_000;
 let lastCleanupAt: number | null = null;
 let cleanupInProgress = false;
 
 /**
+ * Batched delete by date column using Prisma only (no raw SQL).
+ * Selects up to BATCH_LIMIT ids, then deleteMany; repeats until no rows.
+ * Avoids $executeRawUnsafe and keeps identifiers out of user control.
+ */
+async function batchDeleteByDate<K extends string>(
+  delegate: { findMany: (args: { where: Record<string, unknown>; take: number; select: { id: true } }) => Promise<{ id: string }[]>; deleteMany: (args: { where: { id: { in: string[] } } }) => Promise<unknown> },
+  dateColumn: K,
+  cutoff: Date
+): Promise<void> {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const rows = await delegate.findMany({
+      where: { [dateColumn]: { lt: cutoff } } as { [key in K]: { lt: Date } },
+      take: BATCH_LIMIT,
+      select: { id: true },
+    });
+    if (rows.length === 0) break;
+    await delegate.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } });
+  }
+}
+
+/**
  * Retention: DecisionMetric 90d, WebhookEvent 30d,
- * CrossSellEvent 90d, CrossSellConversion 90d.
+ * CrossSellEvent 90d, CrossSellConversion 90d, CartProEventV3 90d,
+ * ProductSaleEvent 90d (BEST_SELLING uses 30d window; 90d keeps buffer),
+ * OrderInfluenceEvent 1y (revenue analytics).
  */
 async function cleanupOldData(): Promise<void> {
   try {
     const now = Date.now();
     const ninetyDaysAgo = new Date(now - 90 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const oneYearAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
 
-    await prisma.decisionMetric.deleteMany({
-      where: { createdAt: { lt: ninetyDaysAgo } },
-    });
-    await prisma.webhookEvent.deleteMany({
-      where: { createdAt: { lt: thirtyDaysAgo } },
-    });
-    await prisma.crossSellEvent.deleteMany({
-      where: { createdAt: { lt: ninetyDaysAgo } },
-    });
-    await prisma.crossSellConversion.deleteMany({
-      where: { createdAt: { lt: ninetyDaysAgo } },
-    });
+    await batchDeleteByDate(prisma.decisionMetric, "createdAt", ninetyDaysAgo);
+    await batchDeleteByDate(prisma.webhookEvent, "createdAt", thirtyDaysAgo);
+    await batchDeleteByDate(prisma.crossSellEvent, "createdAt", ninetyDaysAgo);
+    await batchDeleteByDate(prisma.crossSellConversion, "createdAt", ninetyDaysAgo);
+    await batchDeleteByDate(prisma.cartProEventV3, "timestamp", ninetyDaysAgo);
+    await batchDeleteByDate(prisma.productSaleEvent, "soldAt", ninetyDaysAgo);
+    await batchDeleteByDate(prisma.orderInfluenceEvent, "createdAt", oneYearAgo);
   } catch (err) {
     logError({
       message: "Retention cleanup failed",

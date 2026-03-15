@@ -129,7 +129,7 @@ const ROTATE_INTERVAL_MS = 4000;
 
 export function CartPreview({ ui, decision, capabilities, enableCrossSellOverride, currency: currencyProp }: CartPreviewProps) {
   const currency = (currencyProp && currencyProp.trim().length >= 2) ? currencyProp.trim() : DEFAULT_PREVIEW_CURRENCY;
-  const { crossSell, freeShippingRemaining, milestones, enableCouponTease } = decision;
+  const { crossSell, freeShippingRemaining, milestones, enableCouponTease, enableMilestones } = decision;
   const showConfetti = ui.showConfetti !== false;
   const containerRef = useRef<HTMLDivElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -162,9 +162,9 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
   const milestoneList = (milestones as MilestoneItem[]).filter(
     (m): m is MilestoneItem => m && typeof m.amount === "number" && typeof m.label === "string"
   );
-  /* Show milestones when allowed; use placeholder data in preview if none configured */
-  const effectiveMilestones = milestoneList.length > 0 ? milestoneList : (capabilities.allowMilestones ? [{ amount: 5000, label: "Free gift" }] : []);
-  const showMilestones = capabilities.allowMilestones && effectiveMilestones.length > 0;
+  /* Only show milestones when enabled and we have at least one; no placeholder so "remove all" shows nothing */
+  const effectiveMilestones = milestoneList;
+  const showMilestones = (enableMilestones !== false) && capabilities.allowMilestones && effectiveMilestones.length > 0;
   /* When enableCrossSellOverride is provided (settings preview), use it; otherwise use capability. */
   const showCrossSell = enableCrossSellOverride !== undefined ? enableCrossSellOverride : capabilities.allowCrossSell;
   const recsToShow = crossSell.length > 0 ? crossSell : getPlaceholderRecs(currency);

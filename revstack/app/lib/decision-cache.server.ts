@@ -92,9 +92,6 @@ export function getCachedDecision(
   const key = cacheKey(shop, cartHash);
   const entry = cache.get(key);
   if (!entry) {
-    if (process.env.NODE_ENV === "development") {
-      console.log("[DecisionCache] memory miss", { shop });
-    }
     return null;
   }
   if (Date.now() > entry.expiresAt) {
@@ -104,9 +101,6 @@ export function getCachedDecision(
   const cached = entry.response;
   if (!Array.isArray(cached.crossSell) || typeof cached.freeShippingRemaining !== "number") {
     return null;
-  }
-  if (process.env.NODE_ENV === "development") {
-    console.log("[DecisionCache] memory hit", { shop });
   }
   return cached as DecisionResponse;
 }
@@ -123,17 +117,11 @@ export async function getCachedDecisionFromRedis(
     const redis = getRedis();
     const raw = await redis.get(redisDecisionKey(shop, cartHash));
     if (raw == null || raw === "") {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[DecisionCache] Redis miss", { shop });
-      }
       return null;
     }
     const parsed = JSON.parse(raw) as CachedDecisionPayload;
     if (!Array.isArray(parsed.crossSell) || typeof parsed.freeShippingRemaining !== "number") {
       return null;
-    }
-    if (process.env.NODE_ENV === "development") {
-      console.log("[DecisionCache] Redis hit", { shop });
     }
     return parsed as DecisionResponse;
   } catch (err) {

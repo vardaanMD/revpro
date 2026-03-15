@@ -27,9 +27,19 @@ api_version = "2024-10"
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
+  # PCD: requires Protected Customer Data approval — uncomment after approval (revenue analytics)
+  # [[webhooks.subscriptions]]
+  # topics = [ "orders/paid", "orders/cancelled" ]
+  # uri = "/webhooks/orders"
+
+  # [[webhooks.subscriptions]]
+  # topics = [ "refunds/create" ]
+  # uri = "/webhooks/refunds"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products write_app_proxy"
+# read_orders required for webhooks: orders/paid, orders/cancelled, refunds/create
+scopes = "write_products write_app_proxy read_orders"
 
 [auth]
 redirect_urls = [ "https://revpro-production.up.railway.app/auth/callback" ]
