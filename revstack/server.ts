@@ -87,10 +87,18 @@ async function main() {
     "/extensions-assets",
     express.static(path.join(process.cwd(), "extensions/cart-pro/assets"), { maxAge: "1h" })
   );
-  // Global body size limit: prevent memory exhaustion from oversized POSTs.
-  // Individual routes (e.g. cart.decision) enforce tighter limits after parsing.
-  app.use(express.json({ limit: "1mb" }));
-  app.use(express.urlencoded({ limit: "1mb", extended: false }));
+  // Body parsing: skip for /cart/* so React Router actions can read the raw body (request.arrayBuffer()).
+  // express.json() consumes the stream once; cart.decision and cart.analytics.v3 would then get empty body → 400.
+  app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+    const pathname = req.path || (req.url && req.url.split("?")[0]) || "";
+    if (pathname.startsWith("/cart/")) {
+      return next();
+    }
+    express.json({ limit: "1mb" })(req, res, (err?: unknown) => {
+      if (err) return next(err);
+      express.urlencoded({ limit: "1mb", extended: false })(req, res, next);
+    });
+  });
   app.use(morgan("tiny"));
 
   app.get("/health-direct", (_req: ExpressRequest, res: ExpressResponse) => {
