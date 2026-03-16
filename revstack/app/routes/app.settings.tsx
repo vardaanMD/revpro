@@ -313,6 +313,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   invalidateShopConfigCache(shop);
   const url = new URL(request.url);
   url.searchParams.set("saved", "1");
+  logResilience({
+    shop,
+    route: "app.settings",
+    message: "Settings saved; redirecting after save",
+    meta: {
+      redirectTo: url.toString(),
+      originalUrl: request.url,
+    },
+  });
   return redirect(url.pathname + "?" + url.searchParams.toString());
 };
 

@@ -6,6 +6,9 @@
 <div id="cart-pro-root"></div>
 <script>
 (function() {
+  if (window.__CART_PRO_EMBED_INIT__) return;
+  window.__CART_PRO_EMBED_INIT__ = true;
+
   var CACHE_KEY = 'cart-pro-v3-config';
   var SCRIPT_URL = 'revpro-production.up.railway.app/extensions-assets/cart-pro-v3.js';
   function loadV3() {

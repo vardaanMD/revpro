@@ -165,7 +165,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
     let usedSafeDecision = false;
     let catalogSource: "index" | "fallback" = "fallback";
 
-    const logTiming = (): void => {
+    const logTiming = (extraMeta?: Record<string, unknown>): void => {
       timings.total = performance.now() - requestStartPerf;
       recordTotal("decision", timings.total);
       timings.cacheTime =
@@ -180,6 +180,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         configMs: Math.round(timings.config),
         catalogMs: Math.round(timings.catalog),
         engineMs: Math.round(timings.engine),
+        ...extraMeta,
       };
       logInfo({
         shop,
@@ -659,19 +660,12 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
     void triggerCleanupIfNeeded();
     timings.cleanup = performance.now() - t0;
 
-    logResilience({
-      shop,
-      requestId,
-      route: DECISION_ROUTE,
-      message: "Decision request end",
-      meta: {
-        billingState: billing.billingStatus,
-        isEntitled: billing.isEntitled,
-        decisionExecuted: !usedSafeDecision,
-        fallbackUsed: usedSafeDecision,
-      },
+    logTiming({
+      billingState: billing.billingStatus,
+      isEntitled: billing.isEntitled,
+      decisionExecuted: !usedSafeDecision,
+      fallbackUsed: usedSafeDecision,
     });
-    logTiming();
 
     return data(response, {
       headers: responseHeaders(requestId, Date.now() - startTime, ctxRateLimit),

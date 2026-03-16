@@ -2,6 +2,7 @@
   Cart Pro — theme app extension block. Always loads the V3 runtime.
   Loads cart-pro-v3.js in parallel with snapshot fetch (CART_FIRST_LOAD_IMPROVEMENT_PLAN Task 3).
   When snapshot resolves, applies config to window.__CART_PRO_SNAPSHOT__; runtime picks it up via mount polling or late apply.
+  __CART_PRO_EMBED_INIT__ guard prevents double-run when block is rendered multiple times or script re-executes (e.g. Turbo).
   Enable in Theme customizer > App embeds.
 {% endcomment %}
 {% schema %}
@@ -15,6 +16,8 @@
 <div id="cart-pro-root"></div>
 <script>
 (function() {
+  if (window.__CART_PRO_EMBED_INIT__) return;
+  window.__CART_PRO_EMBED_INIT__ = true;
 
   var CACHE_KEY = 'cart-pro-v3-config';
 
