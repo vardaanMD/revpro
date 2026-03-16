@@ -1,0 +1,46 @@
+{% comment %}
+  White-label cart embed — for ONE merchant only. Copy into their theme as a snippet and include in layout (e.g. theme.liquid before </body>).
+  Do NOT enable "Cart Pro V3" in App embeds for this store.
+  Replace YOUR_APP_ORIGIN below with your app's public URL App must be installed for /apps/cart-pro/* proxy.
+{% endcomment %}
+<div id="cart-pro-root"></div>
+<script>
+(function() {
+  var CACHE_KEY = 'cart-pro-v3-config';
+  var SCRIPT_URL = 'revpro-production.up.railway.app/extensions-assets/cart-pro-v3.js';
+  function loadV3() {
+    var script = document.createElement('script');
+    script.src = SCRIPT_URL;
+    script.defer = true;
+    document.body.appendChild(script);
+  }
+  function applySnapshot(config) {
+    window.__CART_PRO_SNAPSHOT__ = config;
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(config)); } catch (e) {}
+    if (typeof window.__CART_PRO_RELOAD_CONFIG__ === 'function') window.__CART_PRO_RELOAD_CONFIG__(config);
+  }
+  function fetchSnapshotThenApply() {
+    fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Snapshot ' + r.status);
+        return r.json();
+      })
+      .then(function(config) { if (config) applySnapshot(config); })
+      .catch(function(err) { console.error('[Cart] Snapshot failed', err); });
+  }
+  try {
+    var cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (parsed && typeof parsed === 'object') {
+        applySnapshot(parsed);
+        fetchSnapshotThenApply();
+        loadV3();
+        return;
+      }
+    }
+  } catch (e) {}
+  loadV3();
+  fetchSnapshotThenApply();
+})();
+</script>

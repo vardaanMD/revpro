@@ -258,20 +258,6 @@
   color: var(--app-muted-text);
 }
 
-.removeMilestone {
-  padding: var(--app-space-1) var(--app-space-2);
-  font-size: var(--app-font-sm);
-  color: var(--p-color-text-critical, #d72c0d);
-  background: transparent;
-  border: none;
-  border-radius: var(--app-radius-base);
-  cursor: pointer;
-}
-
-.removeMilestone:hover {
-  background: var(--p-color-bg-fill-critical-subdued, #fef1f0);
-}
-
 .v3PreviewHint {
   font-size: var(--app-font-sm);
   color: var(--app-muted-text);

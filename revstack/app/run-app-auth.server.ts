@@ -10,6 +10,7 @@ import { getShopConfig, getFallbackShopConfig } from "~/lib/shop-config.server";
 import { setAppLayoutInContext } from "~/lib/request-context.server";
 import type { AppLayoutAuth } from "~/lib/request-context.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
+import { isAdminDisabled } from "~/lib/admin-disabled.server";
 import { logResilience } from "~/lib/logger.server";
 
 /** Build search string for redirect (preserve shop, host, embedded params). */
@@ -53,6 +54,10 @@ export async function runAppAuth(request: Request): Promise<Response | null> {
   const rawShop = session.shop;
   const shop = normalizeShopDomain(rawShop);
   warnIfShopNotCanonical(rawShop, shop);
+
+  if (isAdminDisabled(shop)) {
+    return new Response(null, { status: 404 });
+  }
 
   let config: Awaited<ReturnType<typeof getShopConfig>>;
   try {

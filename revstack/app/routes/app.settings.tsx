@@ -13,6 +13,7 @@ import { ensureShopCurrencySynced, getShopCurrency } from "~/lib/shop-currency.s
 import { getAppLayoutFromContext } from "~/lib/request-context.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
 import { getBillingContext } from "~/lib/billing-context.server";
+import { DEFAULT_SHOP_CONFIG } from "~/lib/default-config.server";
 import { validateSettingsForm, parseMilestonesJson, parseManualCollectionIds, parseMilestonesForUI } from "~/lib/settings-validation.server";
 import type { SettingsFormData } from "~/lib/settings-validation.server";
 import { type CartProConfigV3, mergeWithDefaultV3 } from "~/lib/config-v3";
@@ -166,7 +167,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     typeof config.milestonesJson === "string"
       ? config.milestonesJson
       : JSON.stringify(config.milestonesJson as unknown, null, 2);
-  const milestones = parseMilestonesForUI(config.milestonesJson);
+  const milestonesParsed = parseMilestonesForUI(config.milestonesJson);
+  const defaultTiers = DEFAULT_SHOP_CONFIG.milestonesJson as { amount: number; label: string }[];
+  const FIXED_MILESTONE_COUNT = 3;
+  const milestones = (() => {
+    const list = [...milestonesParsed];
+    while (list.length < FIXED_MILESTONE_COUNT) {
+      list.push(defaultTiers[list.length] ?? { amount: 2000, label: "10% OFF" });
+    }
+    return list.slice(0, FIXED_MILESTONE_COUNT);
+  })();
 
   let initialPreviewRenderState: PreviewRenderState | null = null;
   try {
@@ -565,12 +575,6 @@ export default function SettingsPage() {
     ]
   );
 
-  const addMilestone = () => {
-    setMilestoneRows((prev) => [...prev, { spendDollars: "", label: "" }]);
-  };
-  const removeMilestone = (index: number) => {
-    setMilestoneRows((prev) => prev.filter((_, i) => i !== index));
-  };
   const updateMilestone = (index: number, field: "spendDollars" | "label", value: string) => {
     setMilestoneRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
@@ -809,19 +813,8 @@ export default function SettingsPage() {
                       data-1p-ignore
                       aria-label="Reward label"
                     />
-                    <button
-                      type="button"
-                      className={settingsStyles.removeMilestone}
-                      onClick={() => removeMilestone(index)}
-                      aria-label="Remove milestone"
-                    >
-                      Remove
-                    </button>
                   </div>
                 ))}
-                <s-button type="button" variant="secondary" onClick={addMilestone}>
-                  Add Milestone
-                </s-button>
               </div>
               )}
               {fieldErrors.milestones && (
