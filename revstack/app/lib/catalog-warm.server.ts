@@ -273,8 +273,13 @@ export async function warmCatalogForShop(shop: string, accessToken?: string): Pr
  * Triggers catalog warm in the background. Does not await.
  * Use when index is missing so the next request can hit a warm index.
  */
-export function triggerAsyncCatalogWarm(shop: string): void {
-  warmCatalogForShop(shop).catch(() => {
+export function triggerAsyncCatalogWarm(shop: string, accessToken?: string): void {
+  // For single-site: if no token passed, fall back to SINGLE_SITE_ACCESS_TOKEN env var
+  // when the shop matches SINGLE_SITE_SHOP, so catalog self-heals without a cron.
+  const token = accessToken ?? (
+    process.env.SINGLE_SITE_SHOP === shop ? process.env.SINGLE_SITE_ACCESS_TOKEN : undefined
+  );
+  warmCatalogForShop(shop, token).catch(() => {
     // Fire-and-forget; failures logged by warmCatalogForShop or caller
   });
 }
