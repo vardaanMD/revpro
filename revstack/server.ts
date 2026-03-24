@@ -91,7 +91,7 @@ async function main() {
   // express.json() consumes the stream once; cart.decision and cart.analytics.v3 would then get empty body → 400.
   app.use((req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     const pathname = req.path || (req.url && req.url.split("?")[0]) || "";
-    if (pathname.startsWith("/cart/") || pathname === "/api/seed-catalog" || pathname === "/api/cart-decision") {
+    if (pathname.startsWith("/cart/") || pathname === "/api/seed-catalog" || pathname === "/api/cart-decision" || pathname === "/api/setup-config") {
       return next();
     }
     express.json({ limit: "1mb" })(req, res, (err?: unknown) => {
