@@ -101,6 +101,16 @@ async function main() {
   });
   app.use(morgan("tiny"));
 
+  // Handle CORS preflight for cart decision endpoint before any auth middleware
+  app.options("/apps/cart-pro/decision", (_req: ExpressRequest, res: ExpressResponse) => {
+    res.set({
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, X-Cart-Pro-Runtime",
+    });
+    res.status(204).end();
+  });
+
   app.get("/health-direct", (_req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).json({ ok: true });
   });
