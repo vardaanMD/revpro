@@ -102,7 +102,6 @@ async function main() {
   app.use(morgan("tiny"));
 
   // Single-site direct decision endpoint — outside /apps/ to bypass Shopify framework auth intercept.
-  // OPTIONS preflight + POST rewrite to the cart.decision React Router route.
   const DECISION_CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -111,13 +110,6 @@ async function main() {
   app.options("/api/cart-decision", (_req: ExpressRequest, res: ExpressResponse) => {
     res.set(DECISION_CORS).status(204).end();
   });
-  app.post("/api/cart-decision", (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-    // Rewrite to the real route so React Router dispatches to cart.decision action
-    req.url = "/apps/cart-pro/decision";
-    res.set(DECISION_CORS);
-    next();
-  });
-  // Keep old OPTIONS handler for any direct /apps/ calls
   app.options("/apps/cart-pro/decision", (_req: ExpressRequest, res: ExpressResponse) => {
     res.set(DECISION_CORS).status(204).end();
   });
