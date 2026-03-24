@@ -18,16 +18,9 @@ export async function action({ request }: ActionFunctionArgs) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const adminToken = (body as Record<string, unknown>)?.adminToken;
-  if (!adminToken || typeof adminToken !== "string") {
-    return Response.json({ error: "adminToken required" }, { status: 400 });
+  const adminToken = new URL(request.url).searchParams.get("adminToken");
+  if (!adminToken) {
+    return Response.json({ error: "adminToken query param required" }, { status: 400 });
   }
 
   const products = await warmCatalogForShop(singleSiteShop, adminToken);
