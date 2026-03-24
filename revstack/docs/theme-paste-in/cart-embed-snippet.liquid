@@ -78,7 +78,7 @@
   };
 
   var script = document.createElement('script');
-  script.src = 'https://revpro-production.up.railway.app/extensions-assets/cart-pro-v3.js';
+  script.src = {{ 'cart-pro-v3.js' | asset_url | json }};
   script.defer = true;
   document.body.appendChild(script);
 })();
