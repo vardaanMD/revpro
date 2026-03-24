@@ -602,7 +602,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         ? crossSellRaw.slice(0, effectiveLimit)
         : [];
 
-      // Only attach crossSellDebug when defined; avoid undefined properties in response payload.
+      // Only attach crossSellDebug/decisionLog when defined; avoid undefined properties in response payload.
       response = {
         crossSell,
         freeShippingRemaining: decision.freeShippingRemaining ?? 0,
@@ -610,6 +610,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
         milestones: capabilities.allowMilestones ? filteredMilestones : [],
         enableCouponTease: capabilities.allowCouponTease && config.enableCouponTease,
         ...(decision.crossSellDebug != null ? { crossSellDebug: decision.crossSellDebug } : {}),
+        ...(cartProDebug && Array.isArray(decision.decisionLog) ? { decisionLog: decision.decisionLog } : {}),
       };
     } catch (err) {
       usedSafeDecision = true;

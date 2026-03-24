@@ -25,4 +25,6 @@ export type DecisionResponse = {
   enableMilestones?: boolean;
   /** Only present when CART_PRO_DEBUG=1. */
   crossSellDebug?: CrossSellDebugEntry[];
+  /** Only present when CART_PRO_DEBUG=1. Decision log from engine (reason for empty crossSell). */
+  decisionLog?: unknown[];
 };

@@ -152,10 +152,14 @@ const HIDE_OTHER_CARTS_SELECTORS = [
   '.background-overlay',
 ];
 
-function injectHideOtherCartsStyle(): void {
-  if (document.getElementById('cart-pro-v3-hide-style')) return;
+function injectHideOtherCartsStyle(merchantSelector?: string): void {
+  // Remove existing style so it can be rebuilt with merchant selector.
+  const existing = document.getElementById('cart-pro-v3-hide-style');
+  if (existing) existing.remove();
 
-  const elementSelectors = HIDE_OTHER_CARTS_SELECTORS.map((s) => `${s}:not(html):not(body)`).join(',\n    ');
+  const extraSelectors = merchantSelector ? [merchantSelector] : [];
+  const allSelectors = [...HIDE_OTHER_CARTS_SELECTORS, ...extraSelectors];
+  const elementSelectors = allSelectors.map((s) => `${s}:not(html):not(body)`).join(',\n    ');
   const style = document.createElement('style');
   style.id = 'cart-pro-v3-hide-style';
   style.textContent = `
@@ -248,7 +252,8 @@ export function mountCartProV3(componentCss: string): void {
 
   const doMount = (): void => {
     new App({ target: appContainer, props: { engine } });
-    injectHideOtherCartsStyle();
+    const merchantSelector = engine.getConfig()?.appearance?.merchantCartDrawerSelector as string | undefined;
+    injectHideOtherCartsStyle(merchantSelector);
   };
 
   if (configLoaded) {

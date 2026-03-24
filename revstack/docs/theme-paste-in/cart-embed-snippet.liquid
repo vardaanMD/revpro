@@ -1,13 +1,15 @@
 {% comment %}
   Custom cart embed — paste into theme as snippet, include in layout (e.g. theme.liquid before </body>).
-  No Shopify app install required. Widget loads from Railway and calls the decision endpoint directly.
+  No Shopify app install required. Widget loads from Shopify CDN and calls the decision endpoint directly.
 
   Setup:
   1. Set SINGLE_SITE_TOKEN and SINGLE_SITE_SHOP env vars on Railway and redeploy.
   2. Replace REPLACE_WITH_SINGLE_SITE_TOKEN below with that token value.
-  3. Add products to the `recommendations` array (variantId in cents, price.amount in cents).
+  3. Upload cart-pro-v3.js to Shopify theme assets.
   4. Render this snippet in layout/theme.liquid before </body>: {% render 'custom-cart' %}
   5. Do NOT enable "Cart Pro V3" in App embeds.
+  6. To suppress your theme's native cart drawer, inspect the drawer element in DevTools and
+     set merchantCartDrawerSelector below (e.g. "#cart-notification", ".cart-drawer", etc.)
 {% endcomment %}
 <div id="cart-pro-root"></div>
 <script>
@@ -18,7 +20,7 @@
   window.__CART_PRO_SNAPSHOT__ = {
     version: "3.0.0",
     runtimeVersion: "v3",
-    currency: "USD",
+    currency: {{ cart.currency.iso_code | default: 'USD' | json }},
 
     // Direct backend connection — no Shopify app proxy needed
     directApi: {
@@ -37,7 +39,11 @@
       emojiMode: false,
       showHeaderBanner: false,
       cartHeaderMessages: [],
-      showStickyCartButton: true
+      showStickyCartButton: true,
+      // Set this to suppress your theme's native cart drawer. Inspect the drawer
+      // element in browser DevTools to find the right selector.
+      // Examples: "#cart-notification", ".cart-drawer", "[id*='cart-drawer']"
+      merchantCartDrawerSelector: ""
     },
 
     featureFlags: {
@@ -67,12 +73,7 @@
     },
 
     // Static fallback recommendations shown before/when decision API responds.
-    // Add products here. variantId: Shopify variant ID (number). price.amount: in cents.
-    recommendations: [
-      // Example:
-      // { variantId: 12345678901234, title: "Product Name", imageUrl: "https://...", price: { amount: 2999 }, handle: "product-handle" }
-    ],
-
+    recommendations: [],
     recommendationsByCollection: {},
     productToCollections: {}
   };

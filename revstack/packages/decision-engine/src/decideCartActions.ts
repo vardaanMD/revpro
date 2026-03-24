@@ -240,14 +240,21 @@ function decideCrossSell(
   switch (effectiveStrategy) {
     case "COLLECTION_MATCH": {
       if (cartContext.cartCollections.size === 0) {
+        // No collection data — fall back to any in-stock product not already in cart.
+        const anyInStock = catalog.filter(
+          (p) => p.inStock && !cartContext.cartProductIds.has(p.id)
+        );
+        eligible = scoreCandidates(anyInStock);
+        eligible.sort(compareScoreThenId);
+        selected = eligible.slice(0, MAX_CROSS_SELL_ITEMS).map((s) => s.product);
         decisions.push({
           decisionType: "CROSS_SELL",
           reason: DecisionReason.CROSS_SELL_NO_COLLECTION_MATCH,
           message:
-            "Skipped cross-sell recommendation because no collections could be derived from cart items.",
-          context: { cartItemCount: cart.items.length },
+            "No collections on cart items; showing in-stock products as fallback.",
+          context: { cartItemCount: cart.items.length, selectedCount: selected.length },
         });
-        return { crossSell: [], decisions };
+        break;
       }
       const withOverlap = catalog.filter((p) => {
         if (!p.inStock || cartContext.cartProductIds.has(p.id)) return false;
