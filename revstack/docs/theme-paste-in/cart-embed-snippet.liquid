@@ -1,7 +1,13 @@
 {% comment %}
-  White-label cart embed — for ONE merchant only. Copy into their theme as a snippet and include in layout (e.g. theme.liquid before </body>).
-  Do NOT enable "Cart Pro V3" in App embeds for this store.
-  Replace YOUR_APP_ORIGIN below with your app's public URL App must be installed for /apps/cart-pro/* proxy.
+  Custom cart embed — paste into theme as snippet, include in layout (e.g. theme.liquid before </body>).
+  No Shopify app install required. Widget loads from Railway and calls the decision endpoint directly.
+
+  Setup:
+  1. Set SINGLE_SITE_TOKEN and SINGLE_SITE_SHOP env vars on Railway and redeploy.
+  2. Replace REPLACE_WITH_SINGLE_SITE_TOKEN below with that token value.
+  3. Add products to the `recommendations` array (variantId in cents, price.amount in cents).
+  4. Render this snippet in layout/theme.liquid before </body>: {% render 'custom-cart' %}
+  5. Do NOT enable "Cart Pro V3" in App embeds.
 {% endcomment %}
 <div id="cart-pro-root"></div>
 <script>
@@ -9,41 +15,71 @@
   if (window.__CART_PRO_EMBED_INIT__) return;
   window.__CART_PRO_EMBED_INIT__ = true;
 
-  var CACHE_KEY = 'cart-pro-v3-config';
-  var SCRIPT_URL = 'revpro-production.up.railway.app/extensions-assets/cart-pro-v3.js';
-  function loadV3() {
-    var script = document.createElement('script');
-    script.src = SCRIPT_URL;
-    script.defer = true;
-    document.body.appendChild(script);
-  }
-  function applySnapshot(config) {
-    window.__CART_PRO_SNAPSHOT__ = config;
-    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(config)); } catch (e) {}
-    if (typeof window.__CART_PRO_RELOAD_CONFIG__ === 'function') window.__CART_PRO_RELOAD_CONFIG__(config);
-  }
-  function fetchSnapshotThenApply() {
-    fetch('/apps/cart-pro/snapshot/v3', { credentials: 'same-origin' })
-      .then(function(r) {
-        if (!r.ok) throw new Error('Snapshot ' + r.status);
-        return r.json();
-      })
-      .then(function(config) { if (config) applySnapshot(config); })
-      .catch(function(err) { console.error('[Cart] Snapshot failed', err); });
-  }
-  try {
-    var cached = sessionStorage.getItem(CACHE_KEY);
-    if (cached) {
-      var parsed = JSON.parse(cached);
-      if (parsed && typeof parsed === 'object') {
-        applySnapshot(parsed);
-        fetchSnapshotThenApply();
-        loadV3();
-        return;
-      }
-    }
-  } catch (e) {}
-  loadV3();
-  fetchSnapshotThenApply();
+  window.__CART_PRO_SNAPSHOT__ = {
+    version: "3.0.0",
+    runtimeVersion: "v3",
+    currency: "USD",
+
+    // Direct backend connection — no Shopify app proxy needed
+    directApi: {
+      url: "https://revpro-production.up.railway.app/apps/cart-pro/decision",
+      token: "6e3d9b2fa4de2eb788d2cbc4a916f3f7983fcf244c4053d869dd1f77976e5106"
+    },
+
+    appearance: {
+      primaryColor: "#333333",
+      accentColor: "#16a34a",
+      borderRadius: 12,
+      backgroundColor: "#ffffff",
+      bannerBackgroundColor: "#16a34a",
+      showConfetti: false,
+      countdownEnabled: false,
+      emojiMode: false,
+      showHeaderBanner: false,
+      cartHeaderMessages: [],
+      showStickyCartButton: true
+    },
+
+    featureFlags: {
+      enableUpsell: true,
+      enableRewards: false,
+      enableDiscounts: false,
+      enableFreeGifts: false,
+      enableCheckoutOverride: false,
+      enableAnalytics: false
+    },
+
+    rewards: { tiers: [], milestones: [] },
+    discounts: { allowStacking: false, whitelist: [] },
+    freeGifts: { rules: [] },
+
+    upsell: {
+      standardRules: [],
+      ai: { enabled: false },
+      recommendationsHeading: "You might also like"
+    },
+
+    checkout: { mode: "default", overlay: { enabled: false } },
+    analytics: { enabled: false },
+
+    freeShipping: {
+      enabled: false
+    },
+
+    // Static fallback recommendations shown before/when decision API responds.
+    // Add products here. variantId: Shopify variant ID (number). price.amount: in cents.
+    recommendations: [
+      // Example:
+      // { variantId: 12345678901234, title: "Product Name", imageUrl: "https://...", price: { amount: 2999 }, handle: "product-handle" }
+    ],
+
+    recommendationsByCollection: {},
+    productToCollections: {}
+  };
+
+  var script = document.createElement('script');
+  script.src = 'https://revpro-production.up.railway.app/extensions-assets/cart-pro-v3.js';
+  script.defer = true;
+  document.body.appendChild(script);
 })();
 </script>

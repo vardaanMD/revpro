@@ -877,6 +877,12 @@ export class Engine {
         lastUnlockedTierIndex: isNewTierUnlock ? newUnlockedIndex : rewards.lastUnlockedTierIndex,
         showConfetti: isNewTierUnlock,
       };
+      if (isNewTierUnlock && newUnlockedIndex !== null) {
+        const tier = rewards.tiers[newUnlockedIndex];
+        if (tier?.rewardType === 'discount' && tier.discountCode) {
+          this.applyDiscount(tier.discountCode);
+        }
+      }
     }
 
     // Discount reconciliation
@@ -977,6 +983,12 @@ export class Engine {
         lastUnlockedTierIndex: isNewTierUnlock ? newUnlockedIndex : rewards.lastUnlockedTierIndex,
         showConfetti: isNewTierUnlock,
       };
+      if (isNewTierUnlock && newUnlockedIndex !== null) {
+        const tier = rewards.tiers[newUnlockedIndex];
+        if (tier?.rewardType === 'discount' && tier.discountCode) {
+          this.applyDiscount(tier.discountCode);
+        }
+      }
     }
 
     // Discount reconciliation (inline to avoid extra setState)
@@ -1227,16 +1239,27 @@ export class Engine {
     if (this.config && !this.config.featureFlags.enableFreeGifts) return;
     const state = getStateFromStore(this.stateStore);
     const { config } = state.freeGifts;
-    if (config.length === 0) return;
+
+    // Merge milestone gift rules (variantId + thresholdCents) into the free gift pipeline
+    const milestoneGiftRules = (state.rewards.tiers ?? [])
+      .filter((t) => t.rewardType === 'gift' && t.variantId)
+      .map((t) => ({
+        variantId: Number(t.variantId),
+        minSubtotalCents: t.thresholdCents,
+        maxQuantity: 1,
+      }));
+    const combinedConfig = [...config, ...milestoneGiftRules];
+
+    if (combinedConfig.length === 0) return;
 
     const freeGiftStart =
       typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
     this.setState({ freeGifts: { syncing: true } });
     try {
       const cartRaw = state.cart.raw;
-      const expectedMap = computeExpectedGifts(cartRaw, config);
+      const expectedMap = computeExpectedGifts(cartRaw, combinedConfig);
       const giftVariantIds =
-        this.config?.freeGifts.giftVariantIds ?? getGiftVariantIds(config);
+        this.config?.freeGifts.giftVariantIds ?? getGiftVariantIds(combinedConfig);
       const { toAdd, toRemove } = diffGifts(cartRaw, expectedMap, giftVariantIds);
 
       if (toAdd.length === 0 && toRemove.length === 0) {

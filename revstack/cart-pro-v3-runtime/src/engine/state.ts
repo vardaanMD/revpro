@@ -105,6 +105,9 @@ export interface DiscountState {
 export interface RewardsTier {
   thresholdCents: number;
   label: string;
+  rewardType?: 'discount' | 'gift' | 'freeShipping';
+  discountCode?: string;
+  variantId?: string;
 }
 
 export interface RewardsState {

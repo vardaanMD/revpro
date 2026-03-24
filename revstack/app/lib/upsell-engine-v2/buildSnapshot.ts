@@ -23,6 +23,8 @@ export type V3SnapshotMilestone = {
   icon?: string | null;
   label?: string | null;
   rewardType?: string | null;
+  discountCode?: string | null;
+  variantId?: string | null;
 };
 
 /**
@@ -48,6 +50,8 @@ export function transformTiersToMilestones(tiers: unknown[]): V3SnapshotMileston
       icon: typeof o.icon === "string" ? o.icon : undefined,
       label: typeof o.label === "string" ? o.label : undefined,
       rewardType,
+      discountCode: typeof o.discountCode === "string" ? o.discountCode : undefined,
+      variantId: typeof o.variantId === "string" ? o.variantId : undefined,
     };
   });
 }

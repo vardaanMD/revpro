@@ -6,6 +6,9 @@
 export interface RewardTier {
   thresholdCents: number;
   label: string;
+  rewardType?: 'discount' | 'gift' | 'freeShipping';
+  discountCode?: string;
+  variantId?: string;
 }
 
 /**

@@ -358,13 +358,22 @@ const RECOMMENDATION_STRATEGIES = [
   { value: "NEW_ARRIVALS", label: "New arrivals" },
 ] as const;
 
-type MilestoneRow = { spendDollars: string; label: string };
+type MilestoneRow = {
+  spendDollars: string;
+  label: string;
+  rewardType: 'none' | 'discount' | 'gift';
+  discountCode: string;
+  variantId: string;
+};
 
-function toMilestoneRows(milestones: { amount: number; label: string }[]): MilestoneRow[] {
+function toMilestoneRows(milestones: { amount: number; label: string; rewardType?: string; discountCode?: string; variantId?: string }[]): MilestoneRow[] {
   if (milestones.length === 0) return [];
   return milestones.map((m) => ({
     spendDollars: (m.amount / 100).toFixed(2),
     label: m.label,
+    rewardType: (m.rewardType === 'discount' || m.rewardType === 'gift') ? m.rewardType : 'none',
+    discountCode: m.discountCode ?? '',
+    variantId: m.variantId ?? '',
   }));
 }
 
@@ -516,6 +525,9 @@ export default function SettingsPage() {
     const arr = valid.map((r) => ({
       amount: Math.round(parseFloat(r.spendDollars) * 100),
       label: r.label.trim(),
+      ...(r.rewardType !== 'none' && { rewardType: r.rewardType }),
+      ...(r.rewardType === 'discount' && r.discountCode.trim() && { discountCode: r.discountCode.trim() }),
+      ...(r.rewardType === 'gift' && r.variantId.trim() && { variantId: r.variantId.trim() }),
     }));
     return JSON.stringify(arr);
   }, [milestoneRows]);
@@ -584,7 +596,7 @@ export default function SettingsPage() {
     ]
   );
 
-  const updateMilestone = (index: number, field: "spendDollars" | "label", value: string) => {
+  const updateMilestone = (index: number, field: "spendDollars" | "label" | "rewardType" | "discountCode" | "variantId", value: string) => {
     setMilestoneRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
     );
@@ -822,6 +834,38 @@ export default function SettingsPage() {
                       data-1p-ignore
                       aria-label="Reward label"
                     />
+                    <select
+                      className={settingsStyles.milestoneInput}
+                      value={row.rewardType}
+                      onChange={(e) => updateMilestone(index, "rewardType", e.target.value)}
+                      aria-label="Reward type"
+                    >
+                      <option value="none">Display only</option>
+                      <option value="discount">Discount code</option>
+                      <option value="gift">Free gift</option>
+                    </select>
+                    {row.rewardType === 'discount' && (
+                      <input
+                        type="text"
+                        placeholder="Discount code (e.g. SAVE10)"
+                        className={settingsStyles.milestoneInput}
+                        value={row.discountCode}
+                        onChange={(e) => updateMilestone(index, "discountCode", e.target.value)}
+                        data-1p-ignore
+                        aria-label="Discount code"
+                      />
+                    )}
+                    {row.rewardType === 'gift' && (
+                      <input
+                        type="text"
+                        placeholder="Variant ID (e.g. 44123456789)"
+                        className={settingsStyles.milestoneInput}
+                        value={row.variantId}
+                        onChange={(e) => updateMilestone(index, "variantId", e.target.value)}
+                        data-1p-ignore
+                        aria-label="Gift variant ID"
+                      />
+                    )}
                   </div>
                 ))}
               </div>

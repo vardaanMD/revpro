@@ -76,20 +76,30 @@ export async function fetchDecisionCrossSell(cartRaw: any): Promise<FetchDecisio
     return { items: [], ok: true };
   }
 
-  const url = typeof window !== 'undefined'
-    ? `${window.location.origin}${DECISION_ENDPOINT}`
-    : DECISION_ENDPOINT;
+  const directApi = typeof window !== 'undefined'
+    ? (window as any).__CART_PRO_SNAPSHOT__?.directApi as { url?: string; token?: string } | undefined
+    : undefined;
+  const url = directApi?.url ?? (
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${DECISION_ENDPOINT}`
+      : DECISION_ENDPOINT
+  );
   const body = buildDecisionBody(cartRaw);
+
+  const fetchHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'X-Cart-Pro-Runtime': 'v3',
+  };
+  if (directApi?.token) {
+    fetchHeaders['Authorization'] = `Bearer ${directApi.token}`;
+  }
 
   try {
     const res = await fetch(url, {
       method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-Cart-Pro-Runtime': 'v3',
-      },
+      credentials: directApi?.url ? 'omit' : 'same-origin',
+      headers: fetchHeaders,
       body: JSON.stringify(body),
     });
     if (!res.ok) return { items: [], ok: false };

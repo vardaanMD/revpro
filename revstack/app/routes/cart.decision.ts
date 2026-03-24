@@ -92,12 +92,19 @@ function transformValidatedCartToSnapshot(validated: CartSchema): { cart: CartSn
   return { cart };
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, X-Cart-Pro-Runtime",
+};
+
 function responseHeaders(
   requestId: string,
   responseTimeMs: number,
   rateLimit: RateLimitResult
 ): Record<string, string> {
   return {
+    ...CORS_HEADERS,
     "X-Request-Id": requestId,
     "X-Response-Time": `${responseTimeMs}`,
     "X-RateLimit-Limit": `${rateLimit.limit}`,
@@ -122,11 +129,25 @@ const DECISION_ROUTE = "cart.decision";
 const DECISION_TIMEOUT_MS = 300;
 
 async function cartDecisionAction({ request }: ActionFunctionArgs) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   const requestId = crypto.randomUUID();
   const startTime = Date.now();
   const requestStartPerf = performance.now();
-  const shopRaw = new URL(request.url).searchParams.get("shop") ?? "unknown";
-  const shop = normalizeShopDomain(shopRaw);
+
+  const singleSiteToken = process.env.SINGLE_SITE_TOKEN;
+  const singleSiteShop = process.env.SINGLE_SITE_SHOP;
+  const isSingleSite = !!(
+    singleSiteToken &&
+    singleSiteShop &&
+    request.headers.get("Authorization") === `Bearer ${singleSiteToken}`
+  );
+
+  let shopRaw = new URL(request.url).searchParams.get("shop") ?? "unknown";
+  if (isSingleSite) shopRaw = singleSiteShop;
+  let shop = normalizeShopDomain(shopRaw);
   warnIfShopNotCanonical(shopRaw, shop);
 
   logInfo({
@@ -203,7 +224,10 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       let t0 = performance.now();
       let proxyOk: boolean;
       let replayOk: boolean;
-      if (
+      if (isSingleSite) {
+        proxyOk = true;
+        replayOk = true;
+      } else if (
         process.env.NODE_ENV === "development" &&
         process.env.DEV_SKIP_PROXY === "1"
       ) {

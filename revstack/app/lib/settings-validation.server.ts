@@ -4,6 +4,9 @@ import { logWarn } from "~/lib/logger.server";
 const milestoneSchema = z.object({
   amount: z.number().min(0),
   label: z.string().min(1),
+  rewardType: z.enum(['none', 'discount', 'gift', 'freeShipping']).optional(),
+  discountCode: z.string().optional(),
+  variantId: z.string().optional(),
 });
 
 const milestonesArraySchema = z.array(milestoneSchema);

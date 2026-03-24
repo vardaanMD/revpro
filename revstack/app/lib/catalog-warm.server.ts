@@ -162,12 +162,32 @@ async function recordCatalogFailure(shop: string): Promise<void> {
 }
 
 /**
+ * Creates an AdminGraphQL-compatible adapter from a bare Shopify access token.
+ * Used for single-site installs where no app session exists.
+ */
+function makeAdminFromToken(shop: string, accessToken: string) {
+  return {
+    async graphql(query: string, options?: { variables?: Record<string, unknown> }) {
+      return fetch(`https://${shop}/admin/api/2024-10/graphql.json`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        body: JSON.stringify({ query, variables: options?.variables }),
+      });
+    },
+  };
+}
+
+/**
  * Fetches catalog from Shopify Admin, writes to Redis (catalog:${shop}),
  * builds and stores catalog_index:${shop}, returns snapshot.
  * Uses shopify.unauthenticated.admin(shop) for the GraphQL client.
+ * If accessToken is provided, uses it directly (for single-site installs without app session).
  * If circuit is open (3 consecutive failures), skips fetch and returns [].
  */
-export async function warmCatalogForShop(shop: string): Promise<Product[]> {
+export async function warmCatalogForShop(shop: string, accessToken?: string): Promise<Product[]> {
   if (await isCatalogCircuitOpen(shop)) {
     return [];
   }
@@ -175,8 +195,9 @@ export async function warmCatalogForShop(shop: string): Promise<Product[]> {
   const config = await getShopConfig(shop);
   const currency = getShopCurrency(config);
   try {
-    const admin = await shopify.unauthenticated.admin(shop);
-    const auth = admin?.admin ?? null;
+    const auth = accessToken
+      ? makeAdminFromToken(shop, accessToken)
+      : (await shopify.unauthenticated.admin(shop))?.admin ?? null;
     if (!auth) return [];
     products = await getCatalogForShop(auth, shop, currency);
   } catch (err) {
