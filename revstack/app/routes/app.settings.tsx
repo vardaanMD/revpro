@@ -660,55 +660,12 @@ export default function SettingsPage() {
         <div className={previewPanelStyles.formColumn}>
       <Form id="settings-form" method="post" onSubmit={handleSubmit}>
         <input type="hidden" name="milestonesJson" value={milestonesJsonValue} />
+        <input type="hidden" name="baselineAovDollars" value={centsToDollars(config.baselineAovCents)} />
         <fieldset disabled={isSubmitting} className={settingsStyles.fieldsetReset}>
         <div className={settingsStyles.cardsGrid}>
           <div className={settingsStyles.cardRow}>
-            <div className={settingsStyles.card}>
-            <FormSection
-              heading="Thresholds"
-              description="Free shipping and baseline cart value used for recommendations and free shipping bar."
-            >
-              <FormField
-                label="Free Shipping Threshold"
-                id="freeShippingThresholdDollars"
-                helperText="Spend amount in dollars (e.g. 50.00)"
-                error={fieldErrors.freeShippingThreshold}
-                infoTip="Cart value (in dollars) at which free shipping unlocks. This drives the progress bar customers see in the cart drawer."
-              >
-                <input
-                  id="freeShippingThresholdDollars"
-                  type="number"
-                  name="freeShippingThresholdDollars"
-                  min={0}
-                  step={0.01}
-                  defaultValue={centsToDollars(config.freeShippingThresholdCents)}
-                  className={settingsStyles.numberInput}
-                  aria-invalid={!!fieldErrors.freeShippingThreshold}
-                  onChange={(e) => setPreviewThresholdCents(Math.round(parseFloat(e.target.value || "0") * 100))}
-                />
-              </FormField>
-              <FormField
-                label="Baseline AOV"
-                id="baselineAovDollars"
-                helperText="Baseline AOV helps determine intelligent upsell timing."
-                error={fieldErrors.baselineAov}
-                infoTip="Your store's typical order size. Used to tune when upsell recommendations appear. Set to your actual average order value."
-              >
-                <input
-                  id="baselineAovDollars"
-                  type="number"
-                  name="baselineAovDollars"
-                  min={0}
-                  step={0.01}
-                  defaultValue={centsToDollars(config.baselineAovCents)}
-                  className={settingsStyles.numberInput}
-                  aria-invalid={!!fieldErrors.baselineAov}
-                />
-              </FormField>
-            </FormSection>
-            </div>
-            <div className={settingsStyles.card}>
-            <FormSection heading="Cross-Sell Controls">
+            <div className={`${settingsStyles.card} ${settingsStyles.cardFull}`}>
+            <FormSection heading="Product Recommendations">
               <s-checkbox
                 name="enableCrossSell"
                 label="Enable Cross-Sell"
@@ -797,6 +754,25 @@ export default function SettingsPage() {
               heading="Reward Milestones"
               description="Incentives customers unlock as cart value increases."
             >
+              <FormField
+                label="Free Shipping Threshold"
+                id="freeShippingThresholdDollars"
+                helperText="Spend amount in dollars (e.g. 50.00)"
+                error={fieldErrors.freeShippingThreshold}
+                infoTip="Cart value at which free shipping unlocks. Drives the 🚚 milestone on the progress bar."
+              >
+                <input
+                  id="freeShippingThresholdDollars"
+                  type="number"
+                  name="freeShippingThresholdDollars"
+                  min={0}
+                  step={0.01}
+                  defaultValue={centsToDollars(config.freeShippingThresholdCents)}
+                  className={settingsStyles.numberInput}
+                  aria-invalid={!!fieldErrors.freeShippingThreshold}
+                  onChange={(e) => setPreviewThresholdCents(Math.round(parseFloat(e.target.value || "0") * 100))}
+                />
+              </FormField>
               {/* Hidden ensures we receive the key when checkbox is unchecked (browsers omit unchecked checkboxes) */}
               <input type="hidden" name="enableMilestones" value="" />
               <s-checkbox
@@ -880,50 +856,52 @@ export default function SettingsPage() {
                   {fieldErrors.milestones}
                 </p>
               )}
-              {capabilities.allowCouponTease ? (
-                <>
-                  <s-checkbox
-                    name="enableCouponTease"
-                    label="Enable Coupon Tease"
-                    defaultChecked={config.enableCouponTease}
-                    value="on"
-                    onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableCouponTease((e.currentTarget as HTMLInputElement).checked)}
-                  />
-                  <FormField
-                    label="Coupon tease message"
-                    id="couponTeaseMessage"
-                    helperText="Message shown when no discount code is applied"
-                  >
-                    <input
-                      id="couponTeaseMessage"
-                      type="text"
-                      name="couponTeaseMessage"
-                      placeholder="Apply coupon at checkout to unlock savings"
-                      defaultValue={config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings"}
-                      className={settingsStyles.textInput}
-                      aria-label="Coupon tease message"
-                    />
-                  </FormField>
-                  <input type="hidden" name="showTeaseMessage" value="on" />
-                </>
-              ) : (
-                <div className={settingsStyles.lockedInline}>
-                  <s-text tone="neutral">Enable Coupon Tease</s-text>
-                  <span className={settingsStyles.lockHint}>
-                    <s-text tone="neutral">Next stage: Advanced plan</s-text>
-                  </span>
-                  <input type="hidden" name="enableCouponTease" value="" />
-                  <input type="hidden" name="couponTeaseMessage" value={config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings"} />
-                  <input type="hidden" name="showTeaseMessage" value={config.showTeaseMessage !== false ? "on" : ""} />
-                </div>
-              )}
             </FormSection>
             </div>
           </div>
 
           <div className={settingsStyles.cardRow}>
             <div className={`${settingsStyles.card} ${settingsStyles.cardFull}`}>
-              <FormSection heading="Cart button" description="Show a sticky cart button on the storefront so customers can open the cart from any page.">
+              <FormSection heading="Cart Behaviour">
+                <div className={settingsStyles.section}>
+                  {capabilities.allowCouponTease ? (
+                    <>
+                      <s-checkbox
+                        name="enableCouponTease"
+                        label="Enable Coupon Tease"
+                        defaultChecked={config.enableCouponTease}
+                        value="on"
+                        onChange={(e: React.FormEvent<HTMLElement>) => setPreviewEnableCouponTease((e.currentTarget as HTMLInputElement).checked)}
+                      />
+                      <FormField
+                        label="Coupon tease message"
+                        id="couponTeaseMessage"
+                        helperText="Message shown in the cart when no discount code is applied"
+                      >
+                        <input
+                          id="couponTeaseMessage"
+                          type="text"
+                          name="couponTeaseMessage"
+                          placeholder="Apply coupon at checkout to unlock savings"
+                          defaultValue={config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings"}
+                          className={settingsStyles.textInput}
+                          aria-label="Coupon tease message"
+                        />
+                      </FormField>
+                      <input type="hidden" name="showTeaseMessage" value="on" />
+                    </>
+                  ) : (
+                    <div className={settingsStyles.lockedInline}>
+                      <s-text tone="neutral">Enable Coupon Tease</s-text>
+                      <span className={settingsStyles.lockHint}>
+                        <s-text tone="neutral">Next stage: Advanced plan</s-text>
+                      </span>
+                      <input type="hidden" name="enableCouponTease" value="" />
+                      <input type="hidden" name="couponTeaseMessage" value={config.couponTeaseMessage ?? "Apply coupon at checkout to unlock savings"} />
+                      <input type="hidden" name="showTeaseMessage" value={config.showTeaseMessage !== false ? "on" : ""} />
+                    </div>
+                  )}
+                </div>
                 <input type="hidden" name="showStickyCartButton" value="" />
                 <s-checkbox
                   name="showStickyCartButton"
@@ -939,65 +917,69 @@ export default function SettingsPage() {
           <div className={settingsStyles.cardRow}>
             <div className={`${settingsStyles.card} ${settingsStyles.cardFull}`}>
             {capabilities.allowUIConfig ? (
-              <FormSection heading="Visual Customization">
-                <div className={settingsStyles.colorRow}>
-                <FormField label="Brand color" id="primaryColor" helperText="Primary brand color" infoTip="Main brand color applied to buttons and primary UI elements in the cart drawer.">
-                  <input
-                    id="primaryColor"
-                    type="color"
-                    name="primaryColor"
-                    defaultValue={config.primaryColor || "#111111"}
-                    className={settingsStyles.colorInput}
-                    aria-label="Brand color"
-                    onChange={(e) => setPreviewPrimaryColor(e.target.value)}
-                  />
-                </FormField>
-                <FormField label="Accent color" id="accentColor" helperText="Accent and CTAs" infoTip="Used for call-to-action buttons and highlights in the cart drawer.">
-                  <input
-                    id="accentColor"
-                    type="color"
-                    name="accentColor"
-                    defaultValue={config.accentColor || "#16a34a"}
-                    className={settingsStyles.colorInput}
-                    aria-label="Accent color"
-                    onChange={(e) => setPreviewAccentColor(e.target.value)}
-                  />
-                </FormField>
-                <FormField label="Drawer background" id="backgroundColor" helperText="Cart drawer background color">
-                  <input
-                    id="backgroundColor"
-                    type="color"
-                    name="backgroundColor"
-                    defaultValue={config.backgroundColor || "#ffffff"}
-                    className={settingsStyles.colorInput}
-                    aria-label="Drawer background color"
-                    onChange={(e) => setPreviewBackgroundColor(e.target.value)}
-                  />
-                </FormField>
-                <FormField label="Message banner background" id="bannerBackgroundColor" helperText="Background for the rotating message section below “Your cart”">
-                  <input
-                    id="bannerBackgroundColor"
-                    type="color"
-                    name="bannerBackgroundColor"
-                    defaultValue={config.bannerBackgroundColor || "#16a34a"}
-                    className={settingsStyles.colorInput}
-                    aria-label="Message banner background color"
-                    onChange={(e) => setPreviewBannerBackgroundColor(e.target.value)}
-                  />
-                </FormField>
+              <FormSection heading="Appearance">
+                <div className={settingsStyles.section}>
+                  <s-text tone="subdued">Branding</s-text>
+                  <div className={settingsStyles.colorRow}>
+                  <FormField label="Brand color" id="primaryColor" helperText="Primary brand color" infoTip="Main brand color applied to buttons and primary UI elements in the cart drawer.">
+                    <input
+                      id="primaryColor"
+                      type="color"
+                      name="primaryColor"
+                      defaultValue={config.primaryColor || "#111111"}
+                      className={settingsStyles.colorInput}
+                      aria-label="Brand color"
+                      onChange={(e) => setPreviewPrimaryColor(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Accent color" id="accentColor" helperText="Accent and CTAs" infoTip="Used for call-to-action buttons and highlights in the cart drawer.">
+                    <input
+                      id="accentColor"
+                      type="color"
+                      name="accentColor"
+                      defaultValue={config.accentColor || "#16a34a"}
+                      className={settingsStyles.colorInput}
+                      aria-label="Accent color"
+                      onChange={(e) => setPreviewAccentColor(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Drawer background" id="backgroundColor" helperText="Cart drawer background color">
+                    <input
+                      id="backgroundColor"
+                      type="color"
+                      name="backgroundColor"
+                      defaultValue={config.backgroundColor || "#ffffff"}
+                      className={settingsStyles.colorInput}
+                      aria-label="Drawer background color"
+                      onChange={(e) => setPreviewBackgroundColor(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Message banner background" id="bannerBackgroundColor" helperText='Background for the rotating message section below "Your cart"'>
+                    <input
+                      id="bannerBackgroundColor"
+                      type="color"
+                      name="bannerBackgroundColor"
+                      defaultValue={config.bannerBackgroundColor || "#16a34a"}
+                      className={settingsStyles.colorInput}
+                      aria-label="Message banner background color"
+                      onChange={(e) => setPreviewBannerBackgroundColor(e.target.value)}
+                    />
+                  </FormField>
+                  </div>
+                  <FormField label="Border radius" id="borderRadius" helperText="0–32" infoTip="Controls corner rounding across the cart drawer (0 = square corners, 32 = fully rounded).">
+                    <input
+                      id="borderRadius"
+                      type="number"
+                      name="borderRadius"
+                      min={0}
+                      max={32}
+                      defaultValue={String(config.borderRadius)}
+                      className={settingsStyles.numberInput}
+                      onChange={(e) => setPreviewBorderRadius(parseInt(e.target.value, 10) || 0)}
+                    />
+                  </FormField>
                 </div>
-                <FormField label="Border radius" id="borderRadius" helperText="0–32" infoTip="Controls corner rounding across the cart drawer (0 = square corners, 32 = fully rounded).">
-                  <input
-                    id="borderRadius"
-                    type="number"
-                    name="borderRadius"
-                    min={0}
-                    max={32}
-                    defaultValue={String(config.borderRadius)}
-                    className={settingsStyles.numberInput}
-                    onChange={(e) => setPreviewBorderRadius(parseInt(e.target.value, 10) || 0)}
-                  />
-                </FormField>
+                <s-text tone="subdued">Behaviour</s-text>
                 <s-checkbox
                   name="emojiMode"
                   label="Emoji mode"
@@ -1031,7 +1013,7 @@ export default function SettingsPage() {
                 <FormField
                   label="Header messages"
                   id="cartHeaderMessages"
-                  helperText="Up to 3 short messages shown under “Your cart”. They rotate automatically."
+                  helperText='Up to 3 short messages shown under "Your cart". They rotate automatically.'
                 >
                   <div className={settingsStyles.stackVertical}>
                     <input
@@ -1062,7 +1044,7 @@ export default function SettingsPage() {
                 </FormField>
               </FormSection>
             ) : (
-              <FormSection heading="Visual Customization">
+              <FormSection heading="Appearance">
                 <div className={settingsStyles.lockedBlock}>
                   <span className={settingsStyles.lockHint}>
                     <s-text tone="neutral">Next stage: Advanced plan</s-text>
@@ -1083,7 +1065,6 @@ export default function SettingsPage() {
                 <input type="hidden" name="cartHeaderMessage2" value={config.cartHeaderMessage2 || ""} />
                 <input type="hidden" name="cartHeaderMessage3" value={config.cartHeaderMessage3 || ""} />
                 <input type="hidden" name="showHeaderBanner" value={config.showHeaderBanner !== false ? "on" : ""} />
-                <input type="hidden" name="showStickyCartButton" value={config.showStickyCartButton !== false ? "on" : ""} />
               </FormSection>
             )}
             </div>
