@@ -808,64 +808,68 @@ export default function SettingsPage() {
               />
               {previewEnableMilestones && (
               <div className={settingsStyles.milestoneEditor}>
-                <s-text tone="neutral">Spend threshold (dollars) → Reward label</s-text>
                 {milestoneRows.map((row, index) => (
                   <div key={index} className={settingsStyles.milestoneRow}>
-                    <span className={settingsStyles.milestoneSpendWrap}>
-                      <span className={settingsStyles.milestoneSpendPrefix}>$</span>
+                    <div className={settingsStyles.milestoneRowTop}>
+                      <span className={settingsStyles.milestoneSpendWrap}>
+                        <span className={settingsStyles.milestoneSpendPrefix}>$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          className={settingsStyles.milestoneInput}
+                          value={row.spendDollars}
+                          onChange={(e) => updateMilestone(index, "spendDollars", e.target.value)}
+                          data-1p-ignore
+                          aria-label="Spend amount (dollars)"
+                        />
+                      </span>
+                      <span className={settingsStyles.milestoneArrow} aria-hidden>→</span>
                       <input
                         type="text"
-                        inputMode="decimal"
-                        placeholder="0.00"
+                        placeholder="Label shown to customer (e.g. 10% OFF)"
                         className={settingsStyles.milestoneInput}
-                        value={row.spendDollars}
-                        onChange={(e) => updateMilestone(index, "spendDollars", e.target.value)}
+                        value={row.label}
+                        onChange={(e) => updateMilestone(index, "label", e.target.value)}
                         data-1p-ignore
-                        aria-label="Spend amount (dollars)"
+                        aria-label="Reward label"
+                        style={{ flex: '1 1 160px' }}
                       />
-                    </span>
-                    <span className={settingsStyles.milestoneArrow} aria-hidden>→</span>
-                    <input
-                      type="text"
-                      placeholder="Reward label"
-                      className={settingsStyles.milestoneInput}
-                      value={row.label}
-                      onChange={(e) => updateMilestone(index, "label", e.target.value)}
-                      data-1p-ignore
-                      aria-label="Reward label"
-                    />
-                    <select
-                      className={settingsStyles.milestoneInput}
-                      value={row.rewardType}
-                      onChange={(e) => updateMilestone(index, "rewardType", e.target.value)}
-                      aria-label="Reward type"
-                    >
-                      <option value="none">Display only</option>
-                      <option value="discount">Discount code</option>
-                      <option value="gift">Free gift</option>
-                    </select>
-                    {row.rewardType === 'discount' && (
-                      <input
-                        type="text"
-                        placeholder="Discount code (e.g. SAVE10)"
-                        className={settingsStyles.milestoneInput}
-                        value={row.discountCode}
-                        onChange={(e) => updateMilestone(index, "discountCode", e.target.value)}
-                        data-1p-ignore
-                        aria-label="Discount code"
-                      />
-                    )}
-                    {row.rewardType === 'gift' && (
-                      <input
-                        type="text"
-                        placeholder="Variant ID (e.g. 44123456789)"
-                        className={settingsStyles.milestoneInput}
-                        value={row.variantId}
-                        onChange={(e) => updateMilestone(index, "variantId", e.target.value)}
-                        data-1p-ignore
-                        aria-label="Gift variant ID"
-                      />
-                    )}
+                    </div>
+                    <div className={settingsStyles.milestoneRewardRow}>
+                      <select
+                        className={`${settingsStyles.milestoneInput} ${settingsStyles.milestoneRewardSelect}`}
+                        value={row.rewardType}
+                        onChange={(e) => updateMilestone(index, "rewardType", e.target.value)}
+                        aria-label="Reward type"
+                      >
+                        <option value="none">Display only — no automatic reward</option>
+                        <option value="discount">Auto-apply a discount code</option>
+                        <option value="gift">Auto-add a free gift to cart</option>
+                      </select>
+                      {row.rewardType === 'discount' && (
+                        <input
+                          type="text"
+                          placeholder="Discount code (create in Shopify Admin › Discounts first)"
+                          className={`${settingsStyles.milestoneInput} ${settingsStyles.milestoneRewardDetail}`}
+                          value={row.discountCode}
+                          onChange={(e) => updateMilestone(index, "discountCode", e.target.value)}
+                          data-1p-ignore
+                          aria-label="Discount code"
+                        />
+                      )}
+                      {row.rewardType === 'gift' && (
+                        <input
+                          type="text"
+                          placeholder="Variant ID — from Shopify Admin › Products › [product] › variant URL"
+                          className={`${settingsStyles.milestoneInput} ${settingsStyles.milestoneRewardDetail}`}
+                          value={row.variantId}
+                          onChange={(e) => updateMilestone(index, "variantId", e.target.value)}
+                          data-1p-ignore
+                          aria-label="Gift variant ID"
+                        />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

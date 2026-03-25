@@ -900,13 +900,17 @@ export class Engine {
   /**
    * Schedule a single debounced decision call; when it returns, set snapshotRecommendations once.
    * Phase 3: reused after addToCart (silent apply) so list can update once after user stops adding.
+   * When no timer is pending (first call), fires immediately (0ms) to minimize perceived latency.
    */
   private scheduleDecisionUpdate(raw: any): void {
     if (this.destroyed || (raw?.items?.length ?? 0) === 0) return;
+    const alreadyPending = !!this.decisionDebounceTimer;
     if (this.decisionDebounceTimer) {
       clearTimeout(this.decisionDebounceTimer);
       this.decisionDebounceTimer = null;
     }
+    // First call: fire immediately (next tick). Subsequent rapid calls: debounce.
+    const delay = alreadyPending ? DECISION_DEBOUNCE_MS : 0;
     this.decisionDebounceTimer = setTimeout(() => {
       this.decisionDebounceTimer = null;
       if (this.destroyed) return;

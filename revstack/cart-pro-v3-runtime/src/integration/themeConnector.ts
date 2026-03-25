@@ -28,6 +28,9 @@ const DEFAULT_OTHER_CART_SELECTORS = [
   '.cart-drawer',
   '#monster-upsell-cart',
   '#shopify-section-cart-drawer',
+  '#shopify-section-mini-cart',
+  '.mini-cart',
+  '.drawer__overlay',
   '[id*="cart-drawer"][class*="drawer"]',
 ];
 

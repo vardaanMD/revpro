@@ -29,8 +29,8 @@
     },
 
     appearance: {
-      primaryColor: "#333333",
-      accentColor: "#16a34a",
+      primaryColor: "#000000",
+      accentColor: "#000000",
       borderRadius: 12,
       backgroundColor: "#ffffff",
       bannerBackgroundColor: "#16a34a",
@@ -39,7 +39,7 @@
       emojiMode: false,
       showHeaderBanner: false,
       cartHeaderMessages: [],
-      showStickyCartButton: true,
+      showStickyCartButton: false,
       // Set this to suppress your theme's native cart drawer. Inspect the drawer
       // element in browser DevTools to find the right selector.
       // Examples: "#cart-notification", ".cart-drawer", "[id*='cart-drawer']"
@@ -89,5 +89,46 @@
   script.src = {{ 'cart-pro-v3.js' | asset_url | json }};
   script.defer = true;
   document.body.appendChild(script);
+
+  // Wonderland override: hide free-shipping unlocked/savings text in the hardcoded cart.
+  function hideFreeShippingUnlockedText() {
+    var host = document.getElementById('cart-pro-root') || document.getElementById('revstack-v3-root');
+    var root = host && host.shadowRoot;
+    if (!root) return false;
+
+    var shippingMsg = root.getElementById('cart-pro-shipping-msg');
+    if (shippingMsg) {
+      shippingMsg.style.display = 'none';
+      shippingMsg.textContent = '';
+    }
+
+    var savingsMsg = root.getElementById('cart-pro-savings');
+    if (savingsMsg) {
+      savingsMsg.style.display = 'none';
+      savingsMsg.textContent = '';
+    }
+
+    return true;
+  }
+
+  var attempts = 0;
+  var maxAttempts = 80; // ~20s at 250ms; stops polling after initial mount window.
+  var pollId = setInterval(function() {
+    attempts += 1;
+    var ready = hideFreeShippingUnlockedText();
+    if (ready || attempts >= maxAttempts) {
+      clearInterval(pollId);
+      if (ready) {
+        var host = document.getElementById('cart-pro-root') || document.getElementById('revstack-v3-root');
+        var root = host && host.shadowRoot;
+        if (root && typeof MutationObserver !== 'undefined') {
+          var observer = new MutationObserver(function() {
+            hideFreeShippingUnlockedText();
+          });
+          observer.observe(root, { childList: true, subtree: true, characterData: true });
+        }
+      }
+    }
+  }, 250);
 })();
 </script>

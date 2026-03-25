@@ -146,10 +146,13 @@ const HIDE_OTHER_CARTS_SELECTORS = [
   '.cart-drawer',
   '#monster-upsell-cart',
   '#shopify-section-cart-drawer',
+  '#shopify-section-mini-cart',
+  '.mini-cart',
   '.halo-cart-sidebar',
   '#site-cart-sidebar',
   '.mm-ajaxcart-overlay',
   '.background-overlay',
+  '.drawer__overlay',
 ];
 
 function injectHideOtherCartsStyle(merchantSelector?: string): void {
