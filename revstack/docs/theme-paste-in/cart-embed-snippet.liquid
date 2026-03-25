@@ -37,13 +37,13 @@
       showConfetti: false,
       countdownEnabled: false,
       emojiMode: false,
-      showHeaderBanner: true,
-      cartHeaderMessages: ["Free shipping on orders over $50!"],
+      showHeaderBanner: false,
+      cartHeaderMessages: [],
       showStickyCartButton: true,
       // Set this to suppress your theme's native cart drawer. Inspect the drawer
       // element in browser DevTools to find the right selector.
       // Examples: "#cart-notification", ".cart-drawer", "[id*='cart-drawer']"
-      merchantCartDrawerSelector: "cart-pro-drawer"
+      merchantCartDrawerSelector: ""
     },
 
     featureFlags: {
@@ -55,7 +55,13 @@
       enableAnalytics: false
     },
 
-    rewards: { tiers: [], milestones: [] },
+    rewards: {
+      tiers: [
+        { thresholdCents: 2000, label: "10% OFF", rewardType: "discount" },
+        { thresholdCents: 5000, label: "Free shipping!", rewardType: "shipping" }
+      ],
+      milestones: []
+    },
     discounts: { allowStacking: false, whitelist: [] },
     freeGifts: { rules: [] },
 
@@ -69,7 +75,8 @@
     analytics: { enabled: false },
 
     freeShipping: {
-      enabled: false
+      enabled: true,
+      thresholdCents: 5000
     },
 
     // Static fallback recommendations shown before/when decision API responds.

@@ -157,7 +157,9 @@ function injectHideOtherCartsStyle(merchantSelector?: string): void {
   const existing = document.getElementById('cart-pro-v3-hide-style');
   if (existing) existing.remove();
 
-  const extraSelectors = merchantSelector ? [merchantSelector] : [];
+  const extraSelectors = merchantSelector
+    ? merchantSelector.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
   const allSelectors = [...HIDE_OTHER_CARTS_SELECTORS, ...extraSelectors];
   const elementSelectors = allSelectors.map((s) => `${s}:not(html):not(body)`).join(',\n    ');
   const style = document.createElement('style');

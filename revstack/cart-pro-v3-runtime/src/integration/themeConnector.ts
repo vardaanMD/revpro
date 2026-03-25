@@ -69,10 +69,12 @@ export function createThemeConnector(
   let observerDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   const hiddenElements: HiddenElement[] = [];
 
-  /** Returns the active selector list: merchant config selector when set, else built-in defaults. */
+  /** Returns the active selector list: built-in defaults + merchant config selector (if set). */
   function effectiveOtherCartSelectors(): string[] {
     const merchant = engine.getConfig()?.appearance?.merchantCartDrawerSelector;
-    return merchant ? [merchant] : DEFAULT_OTHER_CART_SELECTORS;
+    if (!merchant) return DEFAULT_OTHER_CART_SELECTORS;
+    const extras = merchant.split(',').map((s) => s.trim()).filter(Boolean);
+    return [...DEFAULT_OTHER_CART_SELECTORS, ...extras];
   }
 
   function hideElement(el: HTMLElement): void {

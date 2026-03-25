@@ -359,7 +359,7 @@ export class Engine {
         },
         rewards: { tiers: c.rewards.tiers.map((t) => ({ ...t })) },
         checkout: {
-          enabled: c.checkout.enabled && c.featureFlags.enableCheckout,
+          enabled: c.checkout.enabled,
           checkoutUrl: c.checkout.checkoutUrl,
         },
         analytics: {
@@ -427,7 +427,7 @@ export class Engine {
         },
         rewards: { tiers: c.rewards.tiers.map((t) => ({ ...t })) },
         checkout: {
-          enabled: c.checkout.enabled && c.featureFlags.enableCheckout,
+          enabled: c.checkout.enabled,
           checkoutUrl: c.checkout.checkoutUrl,
         },
         analytics: {
@@ -450,16 +450,18 @@ export class Engine {
   }
 
   openCheckout(): void {
-    if (this.config && !this.config.featureFlags.enableCheckout) return;
     const state = getStateFromStore(this.stateStore);
     if (!state.checkout.enabled) return;
-    this.setState({
-      checkout: {
-        overlayVisible: true,
-        state: 'LOGIN',
-      },
-    });
-    this.emitEvent('checkout:open', {});
+    // Overlay mode: open the checkout overlay iframe.
+    if (this.config?.featureFlags?.enableCheckout) {
+      this.setState({ checkout: { overlayVisible: true, state: 'LOGIN' } });
+      this.emitEvent('checkout:open', {});
+      return;
+    }
+    // Default mode: navigate to standard Shopify checkout.
+    if (typeof window !== 'undefined') {
+      window.location.href = '/checkout';
+    }
   }
 
   closeCheckout(): void {

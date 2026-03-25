@@ -162,11 +162,14 @@ function normalizeRewards(raw: RawCartProConfig): ConfigRewards {
 function normalizeCheckout(raw: RawCartProConfig): ConfigCheckout {
   const mode = raw.checkout?.mode;
   const overlay = raw.checkout?.overlay;
-  const enabled =
+  const overlayEnabled =
     mode === 'overlay' &&
     overlay != null &&
     typeof overlay === 'object' &&
     Boolean(overlay.enabled);
+  // Default mode: checkout button always enabled; openCheckout navigates to /checkout.
+  // Overlay mode: only enabled when overlay config is present and enabled.
+  const enabled = overlayEnabled || mode !== 'overlay';
   const checkoutUrl =
     typeof overlay?.checkoutUrl === 'string' ? (overlay.checkoutUrl as string).trim() : '';
   return {
