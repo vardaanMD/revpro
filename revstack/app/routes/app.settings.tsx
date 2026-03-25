@@ -361,7 +361,7 @@ const RECOMMENDATION_STRATEGIES = [
 type MilestoneRow = {
   spendDollars: string;
   label: string;
-  rewardType: 'none' | 'discount' | 'gift';
+  rewardType: 'none' | 'discount' | 'gift' | 'freeShipping';
   discountCode: string;
   variantId: string;
 };
@@ -371,7 +371,7 @@ function toMilestoneRows(milestones: { amount: number; label: string; rewardType
   return milestones.map((m) => ({
     spendDollars: (m.amount / 100).toFixed(2),
     label: m.label,
-    rewardType: (m.rewardType === 'discount' || m.rewardType === 'gift') ? m.rewardType : 'none',
+    rewardType: (m.rewardType === 'discount' || m.rewardType === 'gift' || m.rewardType === 'freeShipping') ? m.rewardType : 'none',
     discountCode: m.discountCode ?? '',
     variantId: m.variantId ?? '',
   }));
@@ -846,6 +846,7 @@ export default function SettingsPage() {
                         <option value="none">Display only — no automatic reward</option>
                         <option value="discount">Auto-apply a discount code</option>
                         <option value="gift">Auto-add a free gift to cart</option>
+                        <option value="freeShipping">Free shipping milestone</option>
                       </select>
                       {row.rewardType === 'discount' && (
                         <input

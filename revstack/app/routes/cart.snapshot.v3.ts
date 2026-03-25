@@ -123,6 +123,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
 
+    // If a milestone tier is tagged as freeShipping, use its threshold as freeShipping.thresholdCents
+    const freeShippingTier = (configForPayload.rewards?.tiers as Array<{ thresholdCents?: number; amount?: number; rewardType?: string }> | undefined)
+      ?.find((t) => t.rewardType === 'freeShipping');
+    if (freeShippingTier) {
+      const tierThreshold = freeShippingTier.thresholdCents ?? freeShippingTier.amount;
+      if (typeof tierThreshold === 'number' && tierThreshold > 0) {
+        configForPayload = {
+          ...configForPayload,
+          freeShipping: {
+            ...(configForPayload.freeShipping as object ?? {}),
+            thresholdCents: tierThreshold,
+          },
+        };
+      }
+    }
+
     const snapshotPayload = {
       ...buildV3SnapshotPayload(configForPayload),
       recommendationsByCollection: collectionAware.recommendationsByCollection,
