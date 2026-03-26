@@ -43,18 +43,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Redis flush failed; counts still returned
   }
 
-  const [decisionMetricCount, orderInfluenceEventCount, crossSellConversionCount] =
-    await Promise.all([
-      prisma.decisionMetric.count({ where: { shopDomain: shop } }),
-      prisma.orderInfluenceEvent.count({ where: { shopDomain: shop } }),
-      prisma.crossSellConversion.count({ where: { shopDomain: shop } }),
-    ]);
+  const [decisionMetricCount, crossSellConversionCount] = await Promise.all([
+    prisma.decisionMetric.count({ where: { shopDomain: shop } }),
+    prisma.crossSellConversion.count({ where: { shopDomain: shop } }),
+  ]);
 
   return data({
     ok: true,
     shop,
     DecisionMetric: decisionMetricCount,
-    OrderInfluenceEvent: orderInfluenceEventCount,
     CrossSellConversion: crossSellConversionCount,
     redisKeysDeleted: deletedKeys,
   });

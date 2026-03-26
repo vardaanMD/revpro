@@ -48,14 +48,13 @@ async function batchDeleteByDate<K extends string>(
  * Retention: DecisionMetric 90d, WebhookEvent 30d,
  * CrossSellEvent 90d, CrossSellConversion 90d, CartProEventV3 90d,
  * ProductSaleEvent 90d (BEST_SELLING uses 30d window; 90d keeps buffer),
- * OrderInfluenceEvent 1y (revenue analytics).
+ * (paid order revenue analytics removed).
  */
 async function cleanupOldData(): Promise<void> {
   try {
     const now = Date.now();
     const ninetyDaysAgo = new Date(now - 90 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-    const oneYearAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
 
     await batchDeleteByDate(prisma.decisionMetric, "createdAt", ninetyDaysAgo);
     await batchDeleteByDate(prisma.webhookEvent, "createdAt", thirtyDaysAgo);
@@ -63,7 +62,7 @@ async function cleanupOldData(): Promise<void> {
     await batchDeleteByDate(prisma.crossSellConversion, "createdAt", ninetyDaysAgo);
     await batchDeleteByDate(prisma.cartProEventV3, "timestamp", ninetyDaysAgo);
     await batchDeleteByDate(prisma.productSaleEvent, "soldAt", ninetyDaysAgo);
-    await batchDeleteByDate(prisma.orderInfluenceEvent, "createdAt", oneYearAgo);
+    // OrderInfluenceEvent cleanup removed (paid order revenue analytics removed).
   } catch (err) {
     logError({
       message: "Retention cleanup failed",

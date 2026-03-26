@@ -39,15 +39,9 @@ export type EngagementMetrics = {
   conversionRate7d: number; // adds from recommendations ÷ drawer opens with recommendations shown
 };
 
-/** Revenue from paid orders (orders/paid webhook). */
-export type RevenueMetrics = {
-  revenue7d: number; // cents
-};
-
 export type DashboardMetrics = {
   cartPerformance: CartPerformance;
   engagement: EngagementMetrics;
-  revenue: RevenueMetrics;
 };
 
 /** Zeroed metrics when DB has no data for shop or on error. */
@@ -82,7 +76,6 @@ function zeroedDashboardMetrics(): DashboardMetrics {
       ctr7d: 0,
       conversionRate7d: 0,
     },
-    revenue: { revenue7d: 0 },
   });
 }
 
@@ -259,17 +252,5 @@ async function getDashboardMetricsUncached(
     conversionRate7d: crossSellAddRate,
   };
 
-  let revenue: RevenueMetrics;
-  try {
-    const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
-      SELECT COALESCE(SUM("orderValue" - "refundedCents"), 0)::bigint AS revenue
-      FROM "OrderInfluenceEvent"
-      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${sevenDayStart}
-    `;
-    revenue = { revenue7d: Number(revRows[0]?.revenue ?? 0) };
-  } catch {
-    revenue = { revenue7d: 0 };
-  }
-
-  return { cartPerformance, engagement, revenue };
+  return { cartPerformance, engagement };
 }

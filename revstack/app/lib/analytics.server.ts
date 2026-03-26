@@ -133,18 +133,11 @@ export type EngagementAnalytics = {
   conversionRate: number;
 };
 
-/** Revenue from paid orders (webhook) for the selected date range. We do not claim attribution. */
-export type RevenueAnalytics = {
-  revenueCents: number;
-};
-
 export type AnalyticsMetrics = {
   /** Date range these metrics apply to. */
   range: AnalyticsDateRange;
   cartPerformance: CartPerformanceAnalytics;
   engagement: EngagementAnalytics;
-  /** Revenue from paid orders (orders/paid webhook). */
-  revenue: RevenueAnalytics;
 };
 
 /** Zeroed metrics when DB has no data or on error. Uses the given range for trend length. */
@@ -169,7 +162,6 @@ function zeroedAnalyticsMetrics(range: AnalyticsDateRange): AnalyticsMetrics {
       cartValueAtEvaluation: 0,
     },
     engagement: { impressions: 0, clicks: 0, ctr: 0, conversionRate: 0 },
-    revenue: { revenueCents: 0 },
   });
 }
 
@@ -189,8 +181,8 @@ export type GetAnalyticsMetricsOptions = {
 };
 
 /**
- * Analytics for a single date range: cart performance (trend + summary), engagement, optional revenue.
- * Reads from DecisionMetric + CrossSellConversion + CrossSellEvent + OrderInfluenceEvent. Fail-safe: on error returns zeroed metrics.
+ * Analytics for a single date range: cart performance (trend + summary), engagement.
+ * Reads from DecisionMetric + CrossSellConversion + CrossSellEvent. Fail-safe: on error returns zeroed metrics.
  */
 export async function getAnalyticsMetrics(
   shop: string,
@@ -331,18 +323,6 @@ async function getAnalyticsMetricsUncached(
     `,
   ]);
 
-  let revenue: RevenueAnalytics;
-  try {
-    const revRows = await prisma.$queryRaw<{ revenue: bigint }[]>`
-      SELECT COALESCE(SUM("orderValue" - "refundedCents"), 0)::bigint AS revenue
-      FROM "OrderInfluenceEvent"
-      WHERE "shopDomain" = ${shop} AND "createdAt" >= ${range.startDate} AND "createdAt" < ${rangeEndExclusive}
-    `;
-    revenue = { revenueCents: Number(revRows[0]?.revenue ?? 0) };
-  } catch {
-    revenue = { revenueCents: 0 };
-  }
-
   const s = summaryRow[0];
   const total = s ? Number(s.total) : 0;
   const shown = s ? Number(s.shown) : 0;
@@ -389,7 +369,7 @@ async function getAnalyticsMetricsUncached(
     conversionRate: addRate,
   };
 
-  return { range, cartPerformance, engagement, revenue };
+  return { range, cartPerformance, engagement };
 }
 
 // --- Phase 5.6 aggregation types (per-shop analytics from DecisionMetric + conversions) ---

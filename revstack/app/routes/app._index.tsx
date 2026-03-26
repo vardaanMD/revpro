@@ -380,21 +380,6 @@ export default function DashboardIndex() {
             </div>
           </s-section>
 
-          {/* Revenue from paid orders */}
-          <s-section>
-            <div className={dashboardStyles.sectionCartMetrics}>
-              <div className={dashboardStyles.sectionHeader}>
-                <s-text tone="auto">Revenue from paid orders</s-text>
-              </div>
-              <p className={dashboardStyles.sectionSubtext}>
-                Net revenue from paid orders (orders/paid). Cancelled orders excluded; refunds reduce the total. We don’t claim this is caused by the app.
-              </p>
-              <MetricSection>
-                <StatCard label="Revenue (7 days)" value={formatCurrency(metrics.revenue.revenue7d, currency)} contextLabel="from paid orders" />
-              </MetricSection>
-            </div>
-          </s-section>
-
           {retention && (
             <s-section heading="Momentum">
               <s-stack direction="block" gap="base">

@@ -226,21 +226,17 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  // Engagement: record recommendation clicks to CrossSellEvent (for CTR) and RevproClickSession (session linking).
+  // Engagement: record recommendation clicks to CrossSellEvent (for CTR).
   const recommendationClicks = validEvents.filter(
     (e) =>
       e.name === "recommendation:click" &&
       e.payload &&
       typeof (e.payload as Record<string, unknown>).productId !== "undefined"
   );
-  let clicksWritten = 0;
   for (const e of recommendationClicks) {
     const p = e.payload as Record<string, unknown>;
     const productId = String(p.productId ?? "").trim();
     if (!productId) continue;
-    const recommendedProductIds = Array.isArray(p.recommendedProductIds)
-      ? (p.recommendedProductIds as unknown[]).map((id) => String(id)).filter(Boolean)
-      : [];
     const rawCart = Number(e.cartSnapshot?.subtotal ?? 0);
     const cartValue = Number.isFinite(rawCart) ? Math.round(rawCart) : 0;
     // CrossSellEvent click for engagement metrics (impressions, clicks, CTR). Must await so UI sees clicks.
@@ -253,31 +249,10 @@ export async function action({ request }: ActionFunctionArgs) {
           cartValue,
         },
       });
-      clicksWritten += 1;
     } catch (err) {
       logWarn({
         shop,
         message: "analytics-v3 CrossSellEvent click create failed",
-        meta: { error: err instanceof Error ? err.message : String(err) },
-      });
-    }
-    const revproSessionId = e.sessionId?.trim();
-    if (!revproSessionId) continue;
-    try {
-      // Atomic upsert: INSERT with ON CONFLICT appends productId to the JSONB array
-      // without a prior read, eliminating the read-modify-write race.
-      const clickedJson = JSON.stringify([productId]);
-      const recommendedJson = JSON.stringify(recommendedProductIds);
-      await prisma.$executeRaw`
-        INSERT INTO "RevproClickSession" ("shopDomain", "revproSessionId", "clickedProductIds", "recommendedProductIds", "createdAt")
-        VALUES (${shop}, ${revproSessionId}, ${clickedJson}::jsonb, ${recommendedJson}::jsonb, NOW())
-        ON CONFLICT ("shopDomain", "revproSessionId")
-        DO UPDATE SET "clickedProductIds" = "RevproClickSession"."clickedProductIds" || ${clickedJson}::jsonb
-      `;
-    } catch (err) {
-      logWarn({
-        shop,
-        message: "analytics-v3 RevproClickSession upsert failed",
         meta: { error: err instanceof Error ? err.message : String(err) },
       });
     }

@@ -23,8 +23,6 @@ export async function deleteShopData(shop: string): Promise<void> {
       await tx.crossSellConversion.deleteMany({ where: { shopDomain: shop } });
       await tx.cartProEventV3.deleteMany({ where: { shop } });
       await tx.productSaleEvent.deleteMany({ where: { shopDomain: shop } });
-      await tx.revproClickSession.deleteMany({ where: { shopDomain: shop } });
-      await tx.orderInfluenceEvent.deleteMany({ where: { shopDomain: shop } });
       await tx.shopProduct.deleteMany({ where: { shopDomain: shop } });
       await tx.shopConfig.deleteMany({ where: { shopDomain: shop } });
     }, { timeout: 30_000 });

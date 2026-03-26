@@ -24,7 +24,7 @@
 @media (min-width: 960px) {
   .previewColumn {
     position: sticky;
-    top: var(--app-space-4);
+    top: var(--app-space-2);
   }
 }
 

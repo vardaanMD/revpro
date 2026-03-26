@@ -198,7 +198,7 @@ export default function AnalyticsPage() {
         </s-stack>
       </s-section>
 
-      {/* Order: recommendation engagement first, then cart metrics, then chart, then revenue (always shown) */}
+      {/* Order: recommendation engagement first, then cart metrics, then chart */}
       <div>
         <s-section heading="Recommendation engagement">
           <p className={analyticsStyles.sectionSubtext}>
@@ -259,14 +259,6 @@ export default function AnalyticsPage() {
           )}
         </s-section>
 
-        <s-section heading="Revenue from paid orders">
-          <p className={analyticsStyles.sectionSubtext}>
-            Net revenue from paid orders (orders/paid webhook). Cancelled orders are excluded; refunds reduce this total. We don’t claim this is caused by the app.
-          </p>
-          <MetricSection>
-            <StatCard label="Revenue" value={formatCurrency(metrics.revenue.revenueCents, currency)} contextLabel={`${rangeLabel} from paid orders`} />
-          </MetricSection>
-        </s-section>
       </div>
         </div>
       )}
