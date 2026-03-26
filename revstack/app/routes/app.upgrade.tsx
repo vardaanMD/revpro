@@ -11,40 +11,39 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import type { Plan } from "~/lib/capabilities.server";
 import { PlanComparisonTable } from "~/components/ui/PlanComparisonTable";
 
+const SHARED_BENEFITS = [
+  "Unlimited cross-sell recommendations",
+  "All recommendation strategies",
+  "Full UI customization",
+  "Milestones & free shipping bar",
+  "Advanced analytics & comparisons",
+];
+
 const PLANS = [
   {
     id: "basic" as Plan,
     name: "Basic",
     price: "$9/mo",
-    benefits: [
-      "Up to 1 recommendation per session",
-      "Milestones & free shipping bar",
-      "Standard cart metrics",
-    ],
-    roi: "Sessions where recommendations were shown. Standard cart metrics.",
+    orderLimit: "Up to 500 orders/mo",
+    benefits: SHARED_BENEFITS,
+    description: "For stores starting out with cross-selling.",
   },
   {
     id: "advanced" as Plan,
     name: "Advanced",
     price: "$29/mo",
-    benefits: [
-      "Up to 3 recommendations per session",
-      "Strategy selection",
-      "Comparison metrics",
-    ],
-    roi: "Strategy selection. Period comparison. Comparison metrics.",
+    orderLimit: "Up to 1,000 orders/mo",
+    benefits: SHARED_BENEFITS,
+    description: "For growing stores with steady order volume.",
     recommended: true,
   },
   {
     id: "growth" as Plan,
     name: "Growth",
     price: "$49/mo",
-    benefits: [
-      "Up to 8 recommendations per session",
-      "Comparison metrics",
-      "Order outcome comparison (observational)",
-    ],
-    roi: "Comparison metrics. Order outcome comparison (observational).",
+    orderLimit: "Unlimited orders",
+    benefits: SHARED_BENEFITS,
+    description: "For high-volume stores.",
     mostPopular: true,
   },
 ];
@@ -65,7 +64,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     config = await getShopConfig(shop);
   }
   const billing = await getBillingContext(shop, config);
-  return { plans: PLANS, currentPlan: billing.isEntitled ? billing.plan : undefined };
+  return {
+    plans: PLANS,
+    currentPlan: billing.isEntitled ? billing.plan : undefined,
+    monthlyOrderCount: billing.monthlyOrderCount,
+    orderLimit: billing.orderLimit,
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -112,14 +116,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function UpgradePage() {
-  const { plans, currentPlan } = useLoaderData<typeof loader>();
+  const { plans, currentPlan, monthlyOrderCount, orderLimit } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
   return (
-    <s-page heading="Activate Plan">
-      <s-section heading="Plans">
-        <PlanComparisonTable plans={plans} currentPlan={currentPlan} isSubmitting={isSubmitting} />
+    <s-page heading="Choose Your Plan">
+      <s-section heading="Usage-based plans — all features included">
+        <PlanComparisonTable
+          plans={plans}
+          currentPlan={currentPlan}
+          isSubmitting={isSubmitting}
+          monthlyOrderCount={monthlyOrderCount}
+          orderLimit={orderLimit}
+        />
       </s-section>
     </s-page>
   );

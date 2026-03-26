@@ -165,13 +165,14 @@ describe("decision feature toggle isolation", () => {
     expect(json).toHaveProperty("enableCouponTease");
   });
 
-  it("2. allowCouponTease = false (basic plan) → enableCouponTease === false", async () => {
+  it("2. all plans get full capabilities (usage-based) → enableCouponTease follows config", async () => {
     const raw = await postDecision("toggles-coupon.myshopify.com", { cart: validCart });
     const res = normalize(raw);
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
     expect(Object.hasOwnProperty.call(json, "enableCouponTease")).toBe(true);
-    expect(json.enableCouponTease).toBe(false);
+    // Config has enableCouponTease: true, and all plans now allow it
+    expect(json.enableCouponTease).toBe(true);
   });
 
   it("3. maxCrossSell cap: config limit > capability → crossSell capped to capability", async () => {

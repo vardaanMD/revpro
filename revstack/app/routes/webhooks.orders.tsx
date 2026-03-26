@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "~/shopify.server";
 import { recordWebhook } from "~/lib/webhook-idempotency.server";
 import { recordOrderSales } from "~/lib/product-metrics.server";
+import { incrementMonthlyOrderCount } from "~/lib/order-usage.server";
 import { logWarn } from "~/lib/logger.server";
 import { normalizeShopDomain, warnIfShopNotCanonical } from "~/lib/shop-domain.server";
 
@@ -100,6 +101,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
     }
   }
+
+  // Increment monthly order count for usage-based billing (fire-and-forget).
+  await incrementMonthlyOrderCount(shop);
 
   return new Response(null, { status: 200 });
 };

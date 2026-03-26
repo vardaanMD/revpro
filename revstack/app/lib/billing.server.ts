@@ -14,11 +14,24 @@ mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineI
 }
 `;
 
+const APP_USAGE_RECORD_CREATE = `#graphql
+mutation AppUsageRecordCreate($subscriptionLineItemId: ID!, $price: MoneyInput!, $description: String!) {
+  appUsageRecordCreate(subscriptionLineItemId: $subscriptionLineItemId, price: $price, description: $description) {
+    userErrors { field message }
+    appUsageRecord { id }
+  }
+}
+`;
+
 const PLAN_PRICES: Record<Plan, { name: string; priceUsd: number }> = {
   basic: { name: "Basic", priceUsd: 9 },
   advanced: { name: "Advanced", priceUsd: 29 },
   growth: { name: "Growth", priceUsd: 49 },
 };
+
+/** Overage terms shown to merchant on Shopify approval screen. */
+const USAGE_TERMS = "Additional orders beyond plan limit at $0.01/order";
+const USAGE_CAPPED_AMOUNT = 50.0;
 
 export type CreateSubscriptionResult = {
   confirmationUrl: string | null;
@@ -26,7 +39,7 @@ export type CreateSubscriptionResult = {
 };
 
 /**
- * Creates a recurring app subscription for the given plan.
+ * Creates a recurring app subscription with a usage-based overage line item.
  * Returns the confirmation URL for the merchant to approve charges.
  * No free plan; all plans are paid.
  */
@@ -48,6 +61,14 @@ export async function createSubscription(
             appRecurringPricingDetails: {
               price: { amount: definition.priceUsd, currencyCode: "USD" },
               interval: "EVERY_30_DAYS",
+            },
+          },
+        },
+        {
+          plan: {
+            appUsagePricingDetails: {
+              terms: USAGE_TERMS,
+              cappedAmount: { amount: USAGE_CAPPED_AMOUNT, currencyCode: "USD" },
             },
           },
         },
@@ -95,4 +116,41 @@ export async function createSubscription(
     confirmationUrl: payload.confirmationUrl ?? null,
     userErrors: [],
   };
+}
+
+/**
+ * Records a usage charge for orders exceeding the plan's included volume.
+ * Called from the orders/paid webhook when the monthly count exceeds the limit.
+ * Requires the subscription's usage line item ID (resolved from Shopify).
+ */
+export async function recordUsageCharge(
+  admin: AdminApiContext,
+  subscriptionLineItemId: string,
+  amount: number,
+  description: string
+): Promise<{ success: boolean; error?: string }> {
+  const response = await admin.graphql(APP_USAGE_RECORD_CREATE, {
+    variables: {
+      subscriptionLineItemId,
+      price: { amount, currencyCode: "USD" },
+      description,
+    },
+  });
+
+  const json = (await response.json()) as {
+    data?: {
+      appUsageRecordCreate?: {
+        userErrors: Array<{ field: string[]; message: string }>;
+        appUsageRecord?: { id: string };
+      };
+    };
+  };
+
+  const payload = json.data?.appUsageRecordCreate;
+  const errors = payload?.userErrors ?? [];
+  if (errors.length > 0) {
+    return { success: false, error: errors.map((e) => e.message).join(", ") };
+  }
+
+  return { success: true };
 }

@@ -24,6 +24,7 @@ export async function deleteShopData(shop: string): Promise<void> {
       await tx.cartProEventV3.deleteMany({ where: { shop } });
       await tx.productSaleEvent.deleteMany({ where: { shopDomain: shop } });
       await tx.shopProduct.deleteMany({ where: { shopDomain: shop } });
+      await tx.monthlyOrderCount.deleteMany({ where: { shopDomain: shop } });
       await tx.shopConfig.deleteMany({ where: { shopDomain: shop } });
     }, { timeout: 30_000 });
 

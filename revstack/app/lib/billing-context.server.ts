@@ -6,9 +6,10 @@
  */
 import type { ShopConfig } from "@prisma/client";
 import { getShopConfig } from "~/lib/shop-config.server";
-import { resolveCapabilities, type Plan, type Capabilities } from "~/lib/capabilities.server";
+import { resolveCapabilities, ORDER_LIMITS_BY_PLAN, type Plan, type Capabilities } from "~/lib/capabilities.server";
 import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import { logResilience } from "~/lib/logger.server";
+import { getMonthlyOrderCount } from "~/lib/order-usage.server";
 
 export type BillingStatus = "active" | "inactive" | "pending" | "cancelled" | "past_due";
 export type AccessLevel = "full" | "restricted";
@@ -20,6 +21,10 @@ export interface BillingContext {
   effectivePlan: Plan;
   capabilities: Capabilities;
   accessLevel: AccessLevel;
+  /** Current calendar-month order count (0 if webhook not yet active). */
+  monthlyOrderCount: number;
+  /** Included orders for this plan (Infinity for Growth). */
+  orderLimit: number;
 }
 
 function parsePlanFromConfig(configPlan: string | null | undefined): Plan {
@@ -81,8 +86,12 @@ export async function getBillingContext(
       effectivePlan: "basic",
       capabilities: resolveCapabilities("basic"),
       accessLevel: "restricted",
+      monthlyOrderCount: 0,
+      orderLimit: ORDER_LIMITS_BY_PLAN.basic,
     };
   }
+
+  const monthlyOrderCount = await getMonthlyOrderCount(shop);
 
   if (isWhitelisted(shop)) {
     return {
@@ -92,6 +101,8 @@ export async function getBillingContext(
       effectivePlan: "growth",
       capabilities: resolveCapabilities("growth"),
       accessLevel: "full",
+      monthlyOrderCount,
+      orderLimit: ORDER_LIMITS_BY_PLAN.growth,
     };
   }
 
@@ -107,6 +118,8 @@ export async function getBillingContext(
       effectivePlan: "basic",
       capabilities: resolveCapabilities("basic"),
       accessLevel: "restricted",
+      monthlyOrderCount,
+      orderLimit: ORDER_LIMITS_BY_PLAN[plan],
     };
   }
 
@@ -117,5 +130,7 @@ export async function getBillingContext(
     effectivePlan: plan,
     capabilities: resolveCapabilities(plan),
     accessLevel: "full",
+    monthlyOrderCount,
+    orderLimit: ORDER_LIMITS_BY_PLAN[plan],
   };
 }

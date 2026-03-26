@@ -198,3 +198,18 @@ model ShopProduct {
   @@id([shopDomain, id])
   @@index([shopDomain])
 }
+
+// Monthly order count per shop for usage-based billing tiers.
+// Upserted on orders/paid webhook; used by billing-context to resolve order limit.
+model MonthlyOrderCount {
+  id         String   @id @default(uuid())
+  shopDomain String
+  year       Int
+  month      Int      // 1-12
+  orderCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([shopDomain, year, month])
+  @@index([shopDomain, createdAt])
+}

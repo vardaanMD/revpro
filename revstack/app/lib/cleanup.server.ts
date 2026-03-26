@@ -62,6 +62,9 @@ async function cleanupOldData(): Promise<void> {
     await batchDeleteByDate(prisma.crossSellConversion, "createdAt", ninetyDaysAgo);
     await batchDeleteByDate(prisma.cartProEventV3, "timestamp", ninetyDaysAgo);
     await batchDeleteByDate(prisma.productSaleEvent, "soldAt", ninetyDaysAgo);
+    // MonthlyOrderCount: keep 12 months for historical billing reference.
+    const twelveMonthsAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
+    await batchDeleteByDate(prisma.monthlyOrderCount, "createdAt", twelveMonthsAgo);
     // OrderInfluenceEvent cleanup removed (paid order revenue analytics removed).
   } catch (err) {
     logError({

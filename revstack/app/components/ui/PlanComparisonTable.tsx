@@ -6,8 +6,9 @@ type PlanRow = {
   id: Plan;
   name: string;
   price: string;
+  orderLimit: string;
   benefits: string[];
-  roi: string;
+  description: string;
   recommended?: boolean;
   mostPopular?: boolean;
 };
@@ -16,18 +17,30 @@ type PlanComparisonTableProps = {
   plans: PlanRow[];
   currentPlan?: Plan;
   isSubmitting?: boolean;
+  monthlyOrderCount?: number;
+  orderLimit?: number;
 };
 
 /**
- * Plan comparison table. Benefits and descriptions are factual; no ROI or performance promises.
+ * Usage-based plan comparison table. All plans share the same features;
+ * tiers differ by monthly order volume.
  */
 export function PlanComparisonTable({
   plans,
   currentPlan,
   isSubmitting = false,
+  monthlyOrderCount = 0,
+  orderLimit = 0,
 }: PlanComparisonTableProps) {
   return (
     <div className={styles.tableWrapper}>
+      {currentPlan && orderLimit < Infinity && (
+        <div className={styles.usageBanner}>
+          <s-text tone="neutral">
+            This month: <strong>{monthlyOrderCount.toLocaleString()}</strong> / {orderLimit.toLocaleString()} orders
+          </s-text>
+        </div>
+      )}
       <div className={styles.plansGrid}>
         {plans.map((plan) => {
           const isCurrent = currentPlan === plan.id;
@@ -55,8 +68,9 @@ export function PlanComparisonTable({
                       <span className={styles.planPrice}>{plan.price.replace("/mo", "")}</span>
                       <span className={styles.pricePeriod}>/mo</span>
                     </div>
-                    <p className={styles.roi}>
-                      <s-text tone="neutral">{plan.roi}</s-text>
+                    <span className={styles.orderLimit}>{plan.orderLimit}</span>
+                    <p className={styles.description}>
+                      <s-text tone="neutral">{plan.description}</s-text>
                     </p>
                     <div className={styles.divider} />
                     <ul className={styles.benefits}>
