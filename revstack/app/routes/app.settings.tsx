@@ -61,9 +61,6 @@ function buildConfigV3FromForm(
   base.appearance.showConfetti = formData.showConfetti;
   base.appearance.countdownEnabled = formData.countdownEnabled;
   base.appearance.emojiMode = formData.emojiMode;
-  if (formData.backgroundColor !== undefined && formData.backgroundColor !== "") {
-    base.appearance.backgroundColor = formData.backgroundColor;
-  }
   if (formData.bannerBackgroundColor !== undefined && formData.bannerBackgroundColor !== "") {
     base.appearance.bannerBackgroundColor = formData.bannerBackgroundColor;
   }
@@ -203,7 +200,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Use configV3.appearance as source of truth so form shows same values as storefront; fall back to flat columns for backward compat
   const primaryColor = appearanceV3.primaryColor ?? config.primaryColor ?? "";
   const accentColor = appearanceV3.accentColor ?? config.accentColor ?? "";
-  const backgroundColor = appearanceV3.backgroundColor ?? "#ffffff";
   const bannerBackgroundColor = appearanceV3.bannerBackgroundColor ?? "#16a34a";
   const borderRadius = typeof appearanceV3.borderRadius === "number" ? appearanceV3.borderRadius : (config.borderRadius ?? 12);
   const showConfetti = typeof appearanceV3.showConfetti === "boolean" ? appearanceV3.showConfetti : (config.showConfetti ?? true);
@@ -226,7 +222,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       manualCollectionIds,
       primaryColor: primaryColor || "#111111",
       accentColor: accentColor || "#16a34a",
-      backgroundColor,
       bannerBackgroundColor,
       borderRadius,
       showConfetti,
@@ -380,7 +375,7 @@ function toMilestoneRows(milestones: { amount: number; label: string; rewardType
 const MOCK_CART_TOTAL_CENTS = 1999;
 
 /** Build PreviewRenderState for live preview from initial server state + local form state. No API, no persist. */
-/** Includes V3 appearance: backgroundColor, bannerBackgroundColor, cartHeaderMessages. */
+/** Includes V3 appearance: bannerBackgroundColor and cartHeaderMessages. */
 function mergePreviewRenderState(
   initial: PreviewRenderState | null,
   state: {
@@ -395,7 +390,6 @@ function mergePreviewRenderState(
     enableMilestones: boolean;
     enableCouponTease: boolean;
     milestoneAmounts: { amount: number; label: string }[];
-    backgroundColor?: string;
     bannerBackgroundColor?: string;
     cartHeaderMessages?: string[];
     showHeaderBanner: boolean;
@@ -428,7 +422,6 @@ function mergePreviewRenderState(
       showConfetti: state.showConfetti,
       countdownEnabled: state.countdownEnabled,
       emojiMode: state.emojiMode,
-      backgroundColor: state.backgroundColor ?? initial?.ui?.backgroundColor ?? "#ffffff",
       bannerBackgroundColor: state.bannerBackgroundColor ?? initial?.ui?.bannerBackgroundColor ?? "#16a34a",
       cartHeaderMessages: state.cartHeaderMessages && state.cartHeaderMessages.length > 0
         ? state.cartHeaderMessages
@@ -472,7 +465,6 @@ export default function SettingsPage() {
   /* Reactive preview state: derived from form, not persisted until submit */
   const [previewPrimaryColor, setPreviewPrimaryColor] = useState(config.primaryColor || "#111111");
   const [previewAccentColor, setPreviewAccentColor] = useState(config.accentColor || "#16a34a");
-  const [previewBackgroundColor, setPreviewBackgroundColor] = useState(config.backgroundColor || "#ffffff");
   const [previewBannerBackgroundColor, setPreviewBannerBackgroundColor] = useState(config.bannerBackgroundColor || "#16a34a");
   const [previewBorderRadius, setPreviewBorderRadius] = useState(config.borderRadius);
   const [previewThresholdCents, setPreviewThresholdCents] = useState(config.freeShippingThresholdCents);
@@ -558,7 +550,6 @@ export default function SettingsPage() {
           enableMilestones: previewEnableMilestones,
           enableCouponTease: previewEnableCouponTease,
           milestoneAmounts: previewMilestoneAmounts,
-          backgroundColor: previewBackgroundColor,
           bannerBackgroundColor: previewBannerBackgroundColor,
           cartHeaderMessages: [config.cartHeaderMessage1 ?? "", config.cartHeaderMessage2 ?? "", config.cartHeaderMessage3 ?? ""]
             .map((m) => (typeof m === "string" ? m.trim() : ""))
@@ -583,7 +574,6 @@ export default function SettingsPage() {
       previewEnableMilestones,
       previewEnableCouponTease,
       previewMilestoneAmounts,
-      previewBackgroundColor,
       previewBannerBackgroundColor,
       previewShowHeaderBanner,
       previewShowStickyCartButton,
@@ -943,17 +933,6 @@ export default function SettingsPage() {
                       onChange={(e) => setPreviewAccentColor(e.target.value)}
                     />
                   </FormField>
-                  <FormField label="Drawer background" id="backgroundColor" helperText="Cart drawer background color">
-                    <input
-                      id="backgroundColor"
-                      type="color"
-                      name="backgroundColor"
-                      defaultValue={config.backgroundColor || "#ffffff"}
-                      className={settingsStyles.colorInput}
-                      aria-label="Drawer background color"
-                      onChange={(e) => setPreviewBackgroundColor(e.target.value)}
-                    />
-                  </FormField>
                   <FormField label="Message banner background" id="bannerBackgroundColor" helperText='Background for the rotating message section below "Your cart"'>
                     <input
                       id="bannerBackgroundColor"
@@ -1055,7 +1034,6 @@ export default function SettingsPage() {
                 </div>
                 <input type="hidden" name="primaryColor" value={config.primaryColor} />
                 <input type="hidden" name="accentColor" value={config.accentColor} />
-                <input type="hidden" name="backgroundColor" value={config.backgroundColor || "#ffffff"} />
                 <input type="hidden" name="bannerBackgroundColor" value={config.bannerBackgroundColor || "#16a34a"} />
                 <input type="hidden" name="borderRadius" value={String(config.borderRadius)} />
                 <input type="hidden" name="showConfetti" value={config.showConfetti ? "on" : ""} />

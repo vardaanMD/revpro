@@ -180,14 +180,12 @@ export function CartPreview({ ui, decision, capabilities, enableCrossSellOverrid
   const primary = ui.primaryColor ?? "#111111";
   const accent = ui.accentColor ?? "#16a34a";
   const radius = typeof ui.borderRadius === "number" ? ui.borderRadius : 12;
-  const drawerBg = ui.backgroundColor ?? "#ffffff";
   const bannerBg = ui.bannerBackgroundColor ?? "#16a34a";
 
   const cssVars = {
     "--cp-primary": primary,
     "--cp-accent": accent,
     "--cp-radius": `${radius}px`,
-    "--cp-drawer-bg": drawerBg,
     "--cp-banner-bg": bannerBg,
   } as React.CSSProperties;
 

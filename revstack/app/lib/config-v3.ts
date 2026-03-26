@@ -19,8 +19,6 @@ export interface CartProConfigV3Appearance {
   showHeaderBanner?: boolean;
   /** When true, show the sticky cart button (bottom-right). Default true. */
   showStickyCartButton?: boolean;
-  /** Drawer background color (behind cart content). */
-  backgroundColor?: string;
   /** Background color for the header message banner section (below "Your Cart"). */
   bannerBackgroundColor?: string;
 }
@@ -115,7 +113,6 @@ export const DEFAULT_CONFIG_V3 = Object.freeze({
     countdownDurationMs: 600000,
     showHeaderBanner: true,
     showStickyCartButton: true,
-    backgroundColor: "#ffffff",
     bannerBackgroundColor: "#16a34a",
   },
   featureFlags: {
@@ -197,9 +194,6 @@ export function mergeWithDefaultV3(
         .filter((m): m is string => typeof m === "string" && m.trim() !== "")
         .slice(0, 3)
         .map((m) => (m ?? "").trim());
-    }
-    if (typeof a.backgroundColor === "string" && a.backgroundColor.trim()) {
-      base.appearance.backgroundColor = a.backgroundColor.trim();
     }
     if (typeof a.bannerBackgroundColor === "string" && a.bannerBackgroundColor.trim()) {
       base.appearance.bannerBackgroundColor = a.bannerBackgroundColor.trim();

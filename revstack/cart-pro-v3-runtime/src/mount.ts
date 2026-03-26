@@ -34,7 +34,6 @@ const APPEARANCE_FALLBACKS = {
   showConfetti: true,
   countdownEnabled: true,
   emojiMode: true,
-  backgroundColor: '#ffffff',
   bannerBackgroundColor: '#16a34a',
 } as const;
 
@@ -59,10 +58,6 @@ export function applyAppearanceVariables(host: HTMLElement, config: RawCartProCo
     (a.borderRadius as number) >= 0
       ? Math.floor(a.borderRadius as number)
       : APPEARANCE_FALLBACKS.borderRadius;
-  const background =
-    typeof a?.backgroundColor === 'string' && a.backgroundColor.trim()
-      ? a.backgroundColor.trim()
-      : APPEARANCE_FALLBACKS.backgroundColor;
   const bannerBg =
     typeof a?.bannerBackgroundColor === 'string' && a.bannerBackgroundColor.trim()
       ? a.bannerBackgroundColor.trim()
@@ -71,7 +66,7 @@ export function applyAppearanceVariables(host: HTMLElement, config: RawCartProCo
   host.style.setProperty('--cp-primary', primary);
   host.style.setProperty('--cp-accent', accent);
   host.style.setProperty('--cp-radius', `${radius}px`);
-  host.style.setProperty('--cp-bg', background);
+  host.style.setProperty('--cp-bg', '#ffffff');
   host.style.setProperty('--cp-banner-bg', bannerBg);
 }
 

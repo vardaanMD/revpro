@@ -17,7 +17,7 @@ import type { DecisionResponse } from "~/lib/decision-response.server";
 import type { ShopConfig } from "@prisma/client";
 
 /** UI config for admin preview only. Not part of DecisionResponse; UI comes from bootstrap on storefront. */
-/** Includes V3 appearance: drawer bg, message banner, header messages. */
+/** Includes V3 appearance: message banner and header messages. */
 export type PreviewUI = {
   primaryColor: string | null;
   accentColor: string | null;
@@ -25,8 +25,6 @@ export type PreviewUI = {
   showConfetti: boolean;
   countdownEnabled: boolean;
   emojiMode: boolean;
-  /** V3: drawer background color */
-  backgroundColor?: string | null;
   /** V3: message banner background (below "Your Cart") */
   bannerBackgroundColor?: string | null;
   /** V3: up to 3 rotating header messages */
@@ -204,7 +202,7 @@ export async function generatePreviewDecision(
     emojiMode: true,
   };
 
-  const configV3 = config.configV3 as { appearance?: { backgroundColor?: string; bannerBackgroundColor?: string; cartHeaderMessages?: string[] } } | null | undefined;
+  const configV3 = config.configV3 as { appearance?: { bannerBackgroundColor?: string; cartHeaderMessages?: string[] } } | null | undefined;
   const appearanceV3 = configV3?.appearance;
 
   const computedPreviewUI: PreviewUI = capabilities.allowUIConfig
@@ -215,7 +213,6 @@ export async function generatePreviewDecision(
         showConfetti: overrides?.showConfetti ?? config.showConfetti ?? true,
         countdownEnabled: config.countdownEnabled ?? true,
         emojiMode: overrides?.emojiMode ?? config.emojiMode ?? true,
-        backgroundColor: appearanceV3?.backgroundColor ?? "#ffffff",
         bannerBackgroundColor: appearanceV3?.bannerBackgroundColor ?? "#16a34a",
         cartHeaderMessages: Array.isArray(appearanceV3?.cartHeaderMessages)
           ? appearanceV3.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3)

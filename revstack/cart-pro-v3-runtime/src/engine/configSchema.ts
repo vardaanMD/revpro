@@ -17,7 +17,6 @@ export interface CartProConfigV3Appearance {
   countdownDurationMs?: number;
   /** When true, show the rotating header message banner below "Your Cart". Default true. */
   showHeaderBanner?: boolean;
-  backgroundColor?: string;
   /** Background color for the header message banner section. */
   bannerBackgroundColor?: string;
   surfaceColor?: string;
@@ -224,7 +223,6 @@ export interface ConfigAppearance {
   showHeaderBanner: boolean;
   /** When true, show the sticky cart button (bottom-right). Default true. */
   showStickyCartButton?: boolean;
-  backgroundColor?: string;
   bannerBackgroundColor?: string;
   surfaceColor?: string;
   textColor?: string;

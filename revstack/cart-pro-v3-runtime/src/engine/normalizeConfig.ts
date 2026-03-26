@@ -205,7 +205,6 @@ function normalizeFreeShipping(raw: RawCartProConfig): ConfigFreeShipping {
 const DEFAULT_PRIMARY = '#333';
 const DEFAULT_ACCENT = '#16a34a';
 const DEFAULT_BORDER_RADIUS = 12;
-const DEFAULT_BACKGROUND = '#ffffff';
 const DEFAULT_BANNER_BG = '#16a34a';
 
 function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
@@ -221,7 +220,6 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
       emojiMode: true,
       countdownDurationMs: defaultCountdownDurationMs,
       showHeaderBanner: true,
-      backgroundColor: DEFAULT_BACKGROUND,
       bannerBackgroundColor: DEFAULT_BANNER_BG,
     };
   }
@@ -238,10 +236,6 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     typeof a.merchantCartDrawerSelector === 'string' && a.merchantCartDrawerSelector.trim()
       ? a.merchantCartDrawerSelector.trim()
       : undefined;
-  const backgroundColor =
-    typeof a.backgroundColor === 'string' && a.backgroundColor.trim()
-      ? a.backgroundColor.trim()
-      : DEFAULT_BACKGROUND;
   const bannerBackgroundColor =
     typeof a.bannerBackgroundColor === 'string' && a.bannerBackgroundColor.trim()
       ? a.bannerBackgroundColor.trim()
@@ -263,7 +257,6 @@ function normalizeAppearance(raw: RawCartProConfig): ConfigAppearance {
     showStickyCartButton,
     merchantCartDrawerSelector,
     cartHeaderMessages: (cartHeaderMessages?.length ?? 0) > 0 ? cartHeaderMessages : undefined,
-    backgroundColor,
     bannerBackgroundColor,
   };
 }

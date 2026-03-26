@@ -100,10 +100,6 @@ export function buildV3SnapshotPayload<T extends { rewards?: { tiers?: unknown[]
   const cartHeaderMessages = Array.isArray(appearance.cartHeaderMessages)
     ? appearance.cartHeaderMessages.filter((m): m is string => typeof m === "string" && m.trim() !== "").slice(0, 3).map((m) => m.trim())
     : undefined;
-  const backgroundColor =
-    typeof appearance.backgroundColor === "string" && appearance.backgroundColor.trim()
-      ? (appearance.backgroundColor as string).trim()
-      : "#ffffff";
   const bannerBackgroundColor =
     typeof appearance.bannerBackgroundColor === "string" && appearance.bannerBackgroundColor.trim()
       ? (appearance.bannerBackgroundColor as string).trim()
@@ -119,7 +115,7 @@ export function buildV3SnapshotPayload<T extends { rewards?: { tiers?: unknown[]
       accentColor,
       radius,
       borderRadius: radius,
-      backgroundColor,
+      backgroundColor: "#ffffff",
       bannerBackgroundColor,
       ...(cartHeaderMessages && cartHeaderMessages.length > 0 ? { cartHeaderMessages } : {}),
     },
