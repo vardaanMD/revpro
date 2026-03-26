@@ -25,6 +25,7 @@
   .previewColumn {
     position: sticky;
     top: 0;
+    transform: translateY(-12px);
   }
 }
 
