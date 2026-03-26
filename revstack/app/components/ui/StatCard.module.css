@@ -5,6 +5,7 @@
   box-shadow: var(--app-shadow-card);
   border: 1px solid var(--app-border-subtle);
   transition: box-shadow 0.15s ease;
+  overflow: hidden;
 }
 
 .card:hover {
@@ -38,6 +39,10 @@
   line-height: 1.2;
   color: var(--p-color-text);
   animation: metricFadeIn 0.22s ease-out forwards;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .value.tone_success {

@@ -192,6 +192,7 @@
   align-items: center;
   gap: 10px;
   margin-top: 4px;
+  min-width: 0;
 }
 
 .mockQtyControls {
@@ -228,6 +229,11 @@
   margin-left: auto;
   font-weight: 600;
   font-size: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mockRemoveBtn {
@@ -278,6 +284,7 @@
   flex-direction: column;
   gap: 4px;
   scroll-snap-align: start;
+  overflow: hidden;
 }
 
 .recImgWrap {
@@ -311,6 +318,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .recTitle {
@@ -332,6 +340,11 @@
 .recPrice {
   font-size: 11px;
   font-weight: 500;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recAdd {
@@ -402,11 +415,18 @@
   font-weight: 600;
   margin-bottom: 14px;
   font-size: 14px;
+  min-width: 0;
 }
 
 .subtotalValue {
   font-weight: 700;
   letter-spacing: -0.5px;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
 }
 
 .shippingMsg {

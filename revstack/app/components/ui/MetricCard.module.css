@@ -1,6 +1,10 @@
 .metricValue {
   line-height: 1.2;
   animation: metricFadeIn 0.22s ease-out forwards;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @keyframes metricFadeIn {
