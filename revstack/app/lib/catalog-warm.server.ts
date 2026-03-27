@@ -7,6 +7,7 @@ import type { Product } from "@revpro/decision-engine";
 import { getRedis, redisKey } from "~/lib/redis.server";
 import { getCatalogForShop } from "~/lib/catalog.server";
 import { getShopConfig } from "~/lib/shop-config.server";
+import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import { getShopCurrency } from "~/lib/shop-currency.server";
 import shopify from "~/shopify.server";
 import { logWarn, logResilience } from "~/lib/logger.server";
@@ -290,7 +291,7 @@ export function triggerAsyncCatalogWarm(shop: string, accessToken?: string): voi
   // For single-site: if no token passed, fall back to SINGLE_SITE_ACCESS_TOKEN env var
   // when the shop matches SINGLE_SITE_SHOP, so catalog self-heals without a cron.
   const token = accessToken ?? (
-    process.env.SINGLE_SITE_SHOP === shop ? process.env.SINGLE_SITE_ACCESS_TOKEN : undefined
+    normalizeShopDomain(process.env.SINGLE_SITE_SHOP ?? "") === shop ? process.env.SINGLE_SITE_ACCESS_TOKEN : undefined
   );
   warmCatalogForShop(shop, token).catch(() => {
     // Fire-and-forget; failures logged by warmCatalogForShop or caller
