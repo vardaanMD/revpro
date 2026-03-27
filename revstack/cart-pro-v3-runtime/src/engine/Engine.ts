@@ -1162,8 +1162,24 @@ export class Engine {
           }));
           // Set Shopify discount cookie so it auto-applies at checkout
           await applyDiscountCode(result.code);
+          // Sync cart and verify Shopify actually accepted the code (appears in discount_codes)
           await this.syncCart();
-          this.emitEvent('discount:apply', { code: result.code });
+          const cartAfterSync = getStateFromStore(this.stateStore).cart.raw;
+          const cartCodes = getCodesFromCartRaw(cartAfterSync);
+          if (!cartCodes.includes(result.code.toLowerCase())) {
+            // Shopify rejected it (expired, usage limit hit, etc.) — revert
+            this.updateState((s) => ({
+              discount: {
+                ...s.discount,
+                applied: s.discount.applied.filter(
+                  (d) => d.code.toLowerCase() !== result.code.toLowerCase()
+                ),
+                lastError: 'Invalid or expired code',
+              },
+            }));
+          } else {
+            this.emitEvent('discount:apply', { code: result.code });
+          }
         } else {
           this.setState({
             discount: { lastError: 'Invalid or expired code' },
