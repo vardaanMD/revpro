@@ -42,6 +42,7 @@ import {
   lockRetryDelayMs,
 } from "~/lib/decision-cache.server";
 import { verifyProxySignature, checkReplayTimestamp } from "~/lib/proxy-auth.server";
+import { bearerTokenMatches } from "~/lib/auth-utils.server";
 import { triggerCleanupIfNeeded } from "~/lib/cleanup.server";
 import { recordTiming, recordTotal } from "~/lib/dev-metrics.server";
 
@@ -142,7 +143,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
   const isSingleSite = !!(
     singleSiteToken &&
     singleSiteShop &&
-    request.headers.get("Authorization") === `Bearer ${singleSiteToken}`
+    bearerTokenMatches(request.headers.get("Authorization"), singleSiteToken)
   );
 
   let shopRaw = new URL(request.url).searchParams.get("shop") ?? "unknown";
@@ -568,7 +569,7 @@ async function cartDecisionAction({ request }: ActionFunctionArgs) {
       }
       timings.strategy = performance.now() - t0;
 
-      const cartProDebug = process.env.CART_PRO_DEBUG === "1";
+      const cartProDebug = process.env.NODE_ENV !== "production" && process.env.CART_PRO_DEBUG === "1";
       t0 = performance.now();
       const decision = decideCartActions({
         cart,

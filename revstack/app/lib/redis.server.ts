@@ -37,7 +37,7 @@ function getRedisClient(): Redis {
 
   // Prevent unhandled 'error' events from crashing the process
   client.on("error", (err) => {
-    console.error("[Redis] connection error:", err?.message ?? err);
+    logWarn({ message: "Redis connection error", meta: { error: err?.message ?? String(err) } });
   });
 
   globalForRedis.redis = client;

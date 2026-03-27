@@ -42,13 +42,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const topicResolved = topic ?? getTopicFromHeaders(request);
 
   // Require x-shopify-event-id for idempotency; without it retries could double-apply.
+  // Return 400 so Shopify retries with the header present.
   if (!webhookId) {
     logWarn({
       shop,
-      message: "Orders webhook: missing x-shopify-event-id, returning 200 without processing",
+      message: "Orders webhook: missing x-shopify-event-id, returning 400 to trigger retry",
       meta: { topic: topicResolved },
     });
-    return new Response(null, { status: 200 });
+    return new Response(null, { status: 400 });
   }
 
   const isNew = await recordWebhook(webhookId, shop, topicResolved);

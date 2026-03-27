@@ -6,6 +6,7 @@
  */
 import type { ActionFunctionArgs } from "react-router";
 import { prisma } from "~/lib/prisma.server";
+import { bearerTokenMatches } from "~/lib/auth-utils.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   const singleSiteToken = process.env.SINGLE_SITE_TOKEN;
@@ -14,7 +15,7 @@ export async function action({ request }: ActionFunctionArgs) {
   if (!singleSiteToken || !singleSiteShop) {
     return Response.json({ error: "Not configured" }, { status: 404 });
   }
-  if (request.headers.get("Authorization") !== `Bearer ${singleSiteToken}`) {
+  if (!bearerTokenMatches(request.headers.get("Authorization"), singleSiteToken)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

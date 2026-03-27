@@ -29,6 +29,9 @@ function requireEnv(name: string): string {
 if (process.env.NODE_ENV === "production") {
   requireEnv("REDIS_URL");
   requireEnv("SHOPIFY_APP_URL");
+  if (process.env.CART_PRO_DEBUG === "1") {
+    console.warn("[env] WARNING: CART_PRO_DEBUG is set in production — debug output is disabled but remove this env var");
+  }
 }
 
 // App URL: required in production; in dev use env or fallback to localhost.

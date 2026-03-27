@@ -36,7 +36,26 @@
   $: snapshotCurrency = engine?.getConfig?.()?.currency;
   $: currency = cart?.raw?.currency ?? snapshotCurrency ?? 'USD';
   $: totalDiscountCents = cart?.raw?.total_discount ?? (cart?.subtotal && cart?.total != null ? Math.max(0, cart.subtotal - cart.total) : 0);
-  $: showCheckoutIframe = checkout?.enabled && checkout?.overlayVisible && checkout?.checkoutUrl;
+
+  /** Only allow checkout iframe for *.myshopify.com or *.shopify.com domains. */
+  function isAllowedCheckoutUrl(url) {
+    if (typeof url !== 'string' || !url.trim()) return false;
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase();
+      return host.endsWith('.myshopify.com') || host.endsWith('.shopify.com');
+    } catch {
+      return false;
+    }
+  }
+
+  $: validCheckoutUrl = isAllowedCheckoutUrl(checkout?.checkoutUrl);
+  $: {
+    if (checkout?.enabled && checkout?.overlayVisible && checkout?.checkoutUrl && !validCheckoutUrl) {
+      console.warn('[Cart Pro] Blocked checkout iframe: URL not on allowlist (*.myshopify.com, *.shopify.com):', checkout.checkoutUrl);
+    }
+  }
+  $: showCheckoutIframe = checkout?.enabled && checkout?.overlayVisible && checkout?.checkoutUrl && validCheckoutUrl;
 
   $: shippingMsg = (shipping?.unlocked && items?.length)
     ? "You're eligible for free shipping!"

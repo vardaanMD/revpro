@@ -24,6 +24,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const webhookId = getWebhookId(request);
   const topicResolved = topic ?? getTopicFromHeaders(request);
 
+  // Idempotency note: proceeds without event ID because warmCatalogForShop is
+  // inherently idempotent — it upserts the full catalog and deletes stale products.
+  // Re-running the same webhook produces the same catalog state.
   if (webhookId) {
     const isNew = await recordWebhook(webhookId, shop, topicResolved);
     if (!isNew) return new Response(null, { status: 200 });

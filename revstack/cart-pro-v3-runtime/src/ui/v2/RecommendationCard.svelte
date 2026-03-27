@@ -18,6 +18,15 @@
     }
   }
 
+  function safeImageUrl(url) {
+    if (typeof url !== 'string' || !url.trim()) return '';
+    const u = url.trim().toLowerCase();
+    if (u.startsWith('https://') || u.startsWith('http://') || u.startsWith('/')) return url.trim();
+    return '';
+  }
+
+  $: imgSrc = safeImageUrl(rec.imageUrl ?? '');
+
   // Product page URL for storefront (relative path works on merchant's domain)
   $: productUrl = (rec.handle && String(rec.handle).trim()) ? `/products/${encodeURIComponent(rec.handle)}` : '#';
 </script>
@@ -26,7 +35,7 @@
   <a class="cart-pro-rec-img-wrap" href={productUrl}>
     <img
       class="cart-pro-rec-img"
-      src={rec.imageUrl}
+      src={imgSrc}
       alt={rec.title}
     />
   </a>

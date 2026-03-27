@@ -30,6 +30,26 @@ export async function recordOrderSales(
 }
 
 /**
+ * Reverses sales for refunded line items. Deletes matching ProductSaleEvent rows
+ * so BEST_SELLING counts stay accurate. Idempotent: if rows don't exist, no-op.
+ * Call from refunds/create webhook.
+ */
+export async function reverseOrderSales(
+  shopDomain: string,
+  orderId: string,
+  lineItemIds: string[]
+): Promise<void> {
+  if (lineItemIds.length === 0 || !orderId) return;
+  await prisma.productSaleEvent.deleteMany({
+    where: {
+      shopDomain,
+      orderId,
+      lineItemId: { in: lineItemIds },
+    },
+  });
+}
+
+/**
  * Returns map of productId -> total quantity sold in the last 30 days for the shop.
  * Used by BEST_SELLING to sort catalog by sales count descending.
  */

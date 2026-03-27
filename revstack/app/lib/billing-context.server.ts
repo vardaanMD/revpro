@@ -32,6 +32,13 @@ function parsePlanFromConfig(configPlan: string | null | undefined): Plan {
   return "basic";
 }
 
+const VALID_BILLING_STATUSES = new Set<string>(["active", "inactive", "pending", "cancelled", "past_due"]);
+
+function parseBillingStatus(raw: string | null | undefined): BillingStatus {
+  const val = raw ?? "inactive";
+  return VALID_BILLING_STATUSES.has(val) ? (val as BillingStatus) : "inactive";
+}
+
 /**
  * Whitelist override: comma-separated shop domains from PAYWALL_WHITELIST.
  * Parsed once at module load; cached as a Set for O(1) lookups.
@@ -106,7 +113,7 @@ export async function getBillingContext(
     };
   }
 
-  const billingStatus = (config.billingStatus ?? "inactive") as BillingStatus;
+  const billingStatus = parseBillingStatus(config.billingStatus);
   const plan = parsePlanFromConfig(config.plan);
   const isEntitled = billingStatus === "active";
 

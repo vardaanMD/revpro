@@ -63,15 +63,22 @@ const ANALYTICS_QUEUE_SOFT_CAP_WARN = 100;
 /** Preload images for the first N recommendation items (non-blocking). Phase 6: reduces layout shift and improves perceived performance. */
 const RECOMMENDATION_PRELOAD_LIMIT = 12;
 
+function safeImageUrl(url: unknown): string {
+  if (typeof url !== 'string' || !url.trim()) return '';
+  const u = url.trim().toLowerCase();
+  if (u.startsWith('https://') || u.startsWith('http://') || u.startsWith('/')) return url.trim();
+  return '';
+}
+
 function preloadRecommendationImages(items: SnapshotRecommendationItem[]): void {
   if (!Array.isArray(items) || items.length === 0) return;
   const toPreload = items.slice(0, RECOMMENDATION_PRELOAD_LIMIT);
   setTimeout(() => {
     for (const item of toPreload) {
-      const url = item?.imageUrl;
-      if (typeof url === 'string' && url.trim()) {
+      const safe = safeImageUrl(item?.imageUrl);
+      if (safe) {
         const img = new Image();
-        img.src = url;
+        img.src = safe;
       }
     }
   }, 0);

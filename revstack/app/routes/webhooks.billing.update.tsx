@@ -40,6 +40,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const webhookId = getWebhookId(request);
   const topicResolved = topic ?? getTopicFromHeaders(request);
 
+  // Idempotency note: proceeds without event ID because all writes are
+  // status-setting updates (not additive). Writing billingStatus="active" twice
+  // or billingStatus="cancelled" twice produces the same result.
   if (webhookId) {
     const isNew = await recordWebhook(webhookId, shop, topicResolved);
     if (!isNew) return new Response(null, { status: 200 });

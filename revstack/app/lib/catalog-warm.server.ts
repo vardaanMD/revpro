@@ -210,6 +210,19 @@ export async function warmCatalogForShop(shop: string, accessToken?: string): Pr
   // Wrapped in a transaction so upserts + stale-product cleanup are atomic.
   const now = new Date();
   const fetchedIds = products.map((p) => p.id);
+
+  // Safety: if Shopify returned 0 products (auth failure, rate limit, API blip),
+  // do NOT delete existing catalog — that would wipe all recommendations.
+  const existingCount = await prisma.shopProduct.count({ where: { shopDomain: shop } });
+  if (fetchedIds.length === 0 && existingCount > 0) {
+    logWarn({
+      shop,
+      route: "catalog-warm",
+      message: `Catalog warm returned 0 products but shop has ${existingCount} existing — skipping DB write to prevent data loss`,
+    });
+    return products;
+  }
+
   const upsertOps = products.map((p) => {
     const withCreatedAt = p as Product & { createdAt?: string };
     const createdAt = typeof withCreatedAt.createdAt === "string"

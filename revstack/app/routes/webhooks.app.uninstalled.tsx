@@ -24,6 +24,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const webhookId = getWebhookId(request);
   const topicResolved = topic ?? getTopicFromHeaders(request);
 
+  // Idempotency note: proceeds without event ID because deleteShopData is
+  // inherently idempotent — deleting already-deleted data is a no-op.
+  // Critical to process even without header since uninstall must always clean up.
   if (webhookId) {
     const isNew = await recordWebhook(webhookId, shop, topicResolved);
     if (!isNew) return new Response(null, { status: 200 });

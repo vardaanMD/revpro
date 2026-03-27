@@ -199,31 +199,26 @@ export async function action({ request }: ActionFunctionArgs) {
       e.payload &&
       Array.isArray((e.payload as Record<string, unknown>).productIds)
   );
+  const impressionData: { shopDomain: string; productId: string; eventType: string; cartValue: number }[] = [];
   for (const e of recommendationImpressions) {
     const productIds = ((e.payload as Record<string, unknown>).productIds as unknown[]).filter(
       (id): id is string => typeof id === "string"
     );
     const cartValue = Math.round(Number(e.cartSnapshot?.subtotal ?? 0));
-    await Promise.all(
-      productIds.map((productId) =>
-        prisma.crossSellEvent
-          .create({
-            data: {
-              shopDomain: shop,
-              productId,
-              eventType: "impression",
-              cartValue,
-            },
-          })
-          .catch((err) => {
-            logWarn({
-              shop,
-              message: "analytics-v3 CrossSellEvent impression create failed",
-              meta: { error: err instanceof Error ? err.message : String(err) },
-            });
-          })
-      )
-    );
+    for (const productId of productIds) {
+      impressionData.push({ shopDomain: shop, productId, eventType: "impression", cartValue });
+    }
+  }
+  if (impressionData.length > 0) {
+    await prisma.crossSellEvent
+      .createMany({ data: impressionData })
+      .catch((err) => {
+        logWarn({
+          shop,
+          message: "analytics-v3 CrossSellEvent impression createMany failed",
+          meta: { error: err instanceof Error ? err.message : String(err) },
+        });
+      });
   }
 
   // Engagement: record recommendation clicks to CrossSellEvent (for CTR).
