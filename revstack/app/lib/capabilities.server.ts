@@ -28,7 +28,9 @@ export interface Capabilities {
   maxCrossSell: number;
   allowStrategySelection: boolean;
   allowUIConfig: boolean;
+  /** @deprecated Use allowDiscounts. Kept for backward compat. */
   allowCouponTease: boolean;
+  allowDiscounts: boolean;
   allowMilestones: boolean;
   /** Previous-period comparison metrics (e.g. previous 7d/30d). */
   allowComparison: boolean;
@@ -44,6 +46,7 @@ const FULL_CAPABILITIES: Capabilities = {
   allowStrategySelection: true,
   allowUIConfig: true,
   allowCouponTease: true,
+  allowDiscounts: true,
   allowMilestones: true,
   allowComparison: true,
   allowRevenueDifference: true,

@@ -28,7 +28,7 @@ export async function validateDiscount(
     return { valid: false, code: normalizedCode, amount: 0, type: 'fixed' };
   }
 
-  const url = `/discounts/${encodeURIComponent(normalizedCode)}`;
+  const url = `/apps/cart-pro/discounts/${encodeURIComponent(normalizedCode)}`;
   const body = JSON.stringify({ cart: cartRaw ?? null });
 
   try {
@@ -79,7 +79,7 @@ export async function removeDiscountFromCart(code: string): Promise<void> {
   if (!normalizedCode) return;
 
   try {
-    await fetch('/discounts/remove', {
+    await fetch('/apps/cart-pro/discounts/remove', {
       method: 'POST',
       credentials: 'same-origin',
       headers: {

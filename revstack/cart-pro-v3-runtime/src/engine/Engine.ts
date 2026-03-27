@@ -24,7 +24,7 @@ import {
 import { createEventBus, type EventBus } from './eventBus';
 import { createEffectQueue, type EffectQueue } from './effectQueue';
 import { createCartInterceptor } from './interceptor';
-import { fetchCart as apiFetchCart, addToCart as apiAddToCart, changeCart as apiChangeCart, removeItem as apiRemoveItem } from './cartApi';
+import { fetchCart as apiFetchCart, addToCart as apiAddToCart, changeCart as apiChangeCart, removeItem as apiRemoveItem, applyDiscountCode, clearDiscountCookie } from './cartApi';
 import { validateDiscount, removeDiscountFromCart } from './discountApi';
 import { computeExpectedGifts, diffGifts, getGiftVariantIds } from './freeGift';
 import { computeStandardUpsell } from './upsell';
@@ -1160,6 +1160,8 @@ export class Engine {
               lastError: null,
             },
           }));
+          // Set Shopify discount cookie so it auto-applies at checkout
+          await applyDiscountCode(result.code);
           await this.syncCart();
           this.emitEvent('discount:apply', { code: result.code });
         } else {
@@ -1200,6 +1202,8 @@ export class Engine {
         };
       });
       await removeDiscountFromCart(trimmed);
+      // Clear Shopify discount cookie so the code doesn't auto-apply at checkout
+      await clearDiscountCookie();
       await this.syncCart();
       this.emitEvent('discount:remove', { code: trimmed });
     });

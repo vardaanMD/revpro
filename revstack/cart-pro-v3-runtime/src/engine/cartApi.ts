@@ -116,6 +116,38 @@ export async function removeItem(lineKey: string): Promise<any> {
 }
 
 /**
+ * Apply a discount code to the Shopify session by visiting /discount/:code.
+ * Shopify sets a session cookie so the discount auto-applies at checkout.
+ * Fire-and-forget; UI state drives display.
+ */
+export async function applyDiscountCode(code: string): Promise<void> {
+  if (!code) return;
+  try {
+    await fetch(`${getCartBaseUrl()}discount/${encodeURIComponent(code)}`, {
+      credentials: 'same-origin',
+      redirect: 'follow',
+    });
+  } catch {
+    // Best-effort; cart sync will reflect actual state
+  }
+}
+
+/**
+ * Clear the active Shopify discount cookie by visiting /discount/remove.
+ * Fire-and-forget.
+ */
+export async function clearDiscountCookie(): Promise<void> {
+  try {
+    await fetch(`${getCartBaseUrl()}discount/remove`, {
+      credentials: 'same-origin',
+      redirect: 'follow',
+    });
+  } catch {
+    // ignore
+  }
+}
+
+/**
  * POST /cart/update.js — set cart-level attributes (e.g. revpro_session_id for order attribution).
  * Attributes are sent to checkout and appear in order note_attributes.
  */

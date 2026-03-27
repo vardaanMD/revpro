@@ -11,7 +11,7 @@ export function featureFlagsFromCapabilities(
   return {
     enableUpsell: capabilities.allowCrossSell ?? false,
     enableRewards: capabilities.allowMilestones ?? false,
-    enableDiscounts: capabilities.allowCouponTease ?? false,
+    enableDiscounts: capabilities.allowDiscounts ?? capabilities.allowCouponTease ?? false,
     enableFreeGifts: false,
     enableCheckoutOverride: false,
     // Analytics (cart:evaluated, impressions, clicks) enabled for all plans so admin UI reflects storefront activity.
