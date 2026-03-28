@@ -4,6 +4,9 @@
  * No stacking logic here; engine handles application state.
  */
 
+import type { DiscountValidationReason } from './discountValidationMessages';
+import { parseDiscountValidationReason } from './discountValidationMessages';
+
 export type DiscountValidationType = 'percentage' | 'fixed';
 
 export interface ValidateDiscountResult {
@@ -11,6 +14,8 @@ export interface ValidateDiscountResult {
   code: string;
   amount: number;
   type: DiscountValidationType;
+  /** Set when valid is false (from JSON body or inferred from HTTP status). */
+  reason?: DiscountValidationReason;
 }
 
 /**
@@ -25,7 +30,7 @@ export async function validateDiscount(
 ): Promise<ValidateDiscountResult> {
   const normalizedCode = (code || '').trim();
   if (!normalizedCode) {
-    return { valid: false, code: normalizedCode, amount: 0, type: 'fixed' };
+    return { valid: false, code: normalizedCode, amount: 0, type: 'fixed', reason: 'empty_code' };
   }
 
   const url = `/apps/cart-pro/discounts/${encodeURIComponent(normalizedCode)}`;
@@ -42,22 +47,33 @@ export async function validateDiscount(
       body,
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (!res.ok) {
+      const fromBody = parseDiscountValidationReason(data.reason);
+      let reason: DiscountValidationReason = fromBody ?? 'request_failed';
+      if (fromBody == null) {
+        if (res.status === 401) reason = 'app_proxy_unauthorized';
+        else if (res.status === 405) reason = 'method_not_allowed';
+      }
       return {
         valid: false,
         code: normalizedCode,
         amount: 0,
         type: 'fixed',
+        reason,
       };
     }
 
+    const valid = Boolean(data.valid);
+    const parsedReason = parseDiscountValidationReason(data.reason);
+
     return {
-      valid: Boolean(data.valid),
+      valid,
       code: typeof data.code === 'string' ? data.code : normalizedCode,
       amount: Number(data.amount) || 0,
       type:
         data.type === 'percentage' || data.type === 'fixed' ? data.type : 'fixed',
+      ...(!valid && parsedReason ? { reason: parsedReason } : {}),
     };
   } catch {
     return {
@@ -65,6 +81,7 @@ export async function validateDiscount(
       code: normalizedCode,
       amount: 0,
       type: 'fixed',
+      reason: 'network_error',
     };
   }
 }

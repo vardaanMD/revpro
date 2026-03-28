@@ -26,6 +26,7 @@ import { createEffectQueue, type EffectQueue } from './effectQueue';
 import { createCartInterceptor } from './interceptor';
 import { fetchCart as apiFetchCart, addToCart as apiAddToCart, changeCart as apiChangeCart, removeItem as apiRemoveItem, applyDiscountCode, clearDiscountCookie } from './cartApi';
 import { validateDiscount, removeDiscountFromCart } from './discountApi';
+import { userFacingDiscountErrorMessage } from './discountValidationMessages';
 import { computeExpectedGifts, diffGifts, getGiftVariantIds } from './freeGift';
 import { computeStandardUpsell } from './upsell';
 import { computeUnlockedTier } from './rewards';
@@ -1217,7 +1218,7 @@ export class Engine {
           this.emitEvent('discount:apply', { code: result.code });
         } else {
           this.setState({
-            discount: { lastError: 'Invalid or expired code' },
+            discount: { lastError: userFacingDiscountErrorMessage(result.reason) },
           });
         }
       } catch (err) {

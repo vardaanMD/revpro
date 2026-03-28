@@ -71,23 +71,30 @@ interface DiscountNodeResponse {
   errors?: unknown[];
 }
 
+/** Stable codes; keep in sync with cart-pro-v3-runtime/src/engine/discountValidationMessages.ts */
+type DiscountInvalidReason = "code_not_found" | "discount_inactive";
+
 function parseDiscountResponse(
   json: DiscountNodeResponse,
-  code: string
-): { valid: boolean; amount: number; type: "percentage" | "fixed" } {
+  _code: string
+):
+  | { valid: true; amount: number; type: "percentage" | "fixed" }
+  | { valid: false; amount: number; type: "fixed"; reason: DiscountInvalidReason } {
   // GraphQL errors (e.g. missing scope) → fall back to optimistic
   if (json.errors && Array.isArray(json.errors) && json.errors.length > 0) {
     return { valid: true, amount: 0, type: "fixed" };
   }
 
   const node = json?.data?.codeDiscountNodeByCode;
-  if (!node) return { valid: false, amount: 0, type: "fixed" };
+  if (!node) return { valid: false, amount: 0, type: "fixed", reason: "code_not_found" };
 
   const discount = node.codeDiscount;
-  if (!discount) return { valid: false, amount: 0, type: "fixed" };
+  if (!discount) return { valid: false, amount: 0, type: "fixed", reason: "code_not_found" };
 
   const status = discount.status;
-  if (status && status !== "ACTIVE") return { valid: false, amount: 0, type: "fixed" };
+  if (status && status !== "ACTIVE") {
+    return { valid: false, amount: 0, type: "fixed", reason: "discount_inactive" };
+  }
 
   const value = discount.customerGets?.value;
   if (value?.percentage !== undefined) {
@@ -114,11 +121,27 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   if (request.method !== "POST") {
-    return Response.json({ error: "Method not allowed" }, { status: 405 });
+    return Response.json(
+      {
+        valid: false,
+        code,
+        amount: 0,
+        type: "fixed",
+        reason: "method_not_allowed",
+        error: "Method not allowed",
+      },
+      { status: 405 }
+    );
   }
 
   if (!code) {
-    return Response.json({ valid: false, code: "", amount: 0, type: "fixed" });
+    return Response.json({
+      valid: false,
+      code: "",
+      amount: 0,
+      type: "fixed",
+      reason: "empty_code",
+    });
   }
 
   // Verify the request is a legitimate Shopify App Proxy request
@@ -126,11 +149,29 @@ export async function action({ request, params }: ActionFunctionArgs) {
   try {
     const ctx = await authenticate.public.appProxy(request);
     if (!ctx.session) {
-      return Response.json({ valid: false, code, amount: 0, type: "fixed" }, { status: 401 });
+      return Response.json(
+        {
+          valid: false,
+          code,
+          amount: 0,
+          type: "fixed",
+          reason: "app_proxy_unauthorized",
+        },
+        { status: 401 }
+      );
     }
     shop = normalizeShopDomain(ctx.session.shop);
   } catch {
-    return Response.json({ valid: false, code, amount: 0, type: "fixed" }, { status: 401 });
+    return Response.json(
+      {
+        valid: false,
+        code,
+        amount: 0,
+        type: "fixed",
+        reason: "app_proxy_unauthorized",
+      },
+      { status: 401 }
+    );
   }
 
   // Try Admin GraphQL validation (requires read_discounts scope)
@@ -151,7 +192,16 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const res = await admin.graphql(DISCOUNT_CODE_QUERY, { variables: { code } });
     const json: DiscountNodeResponse = await res.json().catch(() => ({}));
     const result = parseDiscountResponse(json, code);
-    return Response.json({ ...result, code });
+    if (result.valid) {
+      return Response.json({ valid: true, code, amount: result.amount, type: result.type });
+    }
+    return Response.json({
+      valid: false,
+      code,
+      amount: result.amount,
+      type: result.type,
+      reason: result.reason,
+    });
   } catch (err) {
     logWarn({
       shop,
