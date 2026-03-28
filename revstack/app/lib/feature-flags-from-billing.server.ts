@@ -12,7 +12,11 @@ export function featureFlagsFromCapabilities(
     enableUpsell: capabilities.allowCrossSell ?? false,
     enableRewards: capabilities.allowMilestones ?? false,
     enableDiscounts: capabilities.allowDiscounts ?? capabilities.allowCouponTease ?? false,
-    enableFreeGifts: false,
+    /**
+     * Must be true when merchants use milestone gift tiers or freeGifts.rules — Engine.syncFreeGifts no-ops if there are no rules.
+     * Previously hardcoded false and sync was never scheduled, so gifts never applied.
+     */
+    enableFreeGifts: Boolean(capabilities.allowMilestones ?? capabilities.allowUIConfig),
     enableCheckoutOverride: false,
     // Analytics (cart:evaluated, impressions, clicks) enabled for all plans so admin UI reflects storefront activity.
     enableAnalytics: true,

@@ -47,6 +47,24 @@ const REVALIDATION_DEBOUNCE_MS = 800;
 /** Debounce for background decision call when cart changes (Phase 5). */
 const DECISION_DEBOUNCE_MS = 500;
 
+/** Set `window.__CART_PRO_DEBUG_REWARDS__ = true` on the storefront to log tier unlock / gift sync diagnostics. */
+function logRewardsDebug(message: string, details?: Record<string, unknown>): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const w = window as unknown as { __CART_PRO_DEBUG_REWARDS__?: boolean };
+    if (!w.__CART_PRO_DEBUG_REWARDS__) return;
+    if (details !== undefined) console.info('[Cart Pro rewards]', message, details);
+    else console.info('[Cart Pro rewards]', message);
+  } catch {
+    /* ignore */
+  }
+}
+
+export type ApplyDiscountOptions = {
+  /** When true, allow apply when enableRewards is on even if enableDiscounts is off (milestone unlock codes). */
+  fromMilestoneUnlock?: boolean;
+};
+
 /** Bundle-level default so getConfig() never returns null before snapshot loads. */
 const DEFAULT_RUNTIME_CONFIG = Object.freeze(normalizeConfig(defaultConfig)) as NormalizedEngineConfig;
 
@@ -877,12 +895,18 @@ export class Engine {
       if (isNewTierUnlock && newUnlockedIndex !== null) {
         const tier = rewards.tiers[newUnlockedIndex];
         if (tier?.rewardType === 'discount' && tier.discountCode) {
-          this.applyDiscount(tier.discountCode);
+          logRewardsDebug('milestone discount unlock (silent apply path)', {
+            code: tier.discountCode,
+            subtotal,
+            newUnlockedIndex,
+          });
+          this.applyDiscount(tier.discountCode, { fromMilestoneUnlock: true });
         }
       }
     }
 
     this.setState(partial);
+    this.enqueueEffect(async () => this.syncFreeGifts());
   }
 
   /**
@@ -971,6 +995,20 @@ export class Engine {
       const newUnlockedIndex = computeUnlockedTier(subtotal, rewards.tiers);
       const lastUnlocked = rewards.lastUnlockedTierIndex;
       const isNewTierUnlock = newUnlockedIndex !== null && (lastUnlocked === null || newUnlockedIndex > lastUnlocked);
+      logRewardsDebug('cart rewards eval (batched)', {
+        subtotal,
+        itemsSubtotalFromRaw,
+        newUnlockedIndex,
+        lastUnlocked,
+        isNewTierUnlock,
+        tierCount: rewards.tiers.length,
+        tiersMeta: rewards.tiers.map((t) => ({
+          thresholdCents: t.thresholdCents,
+          rewardType: t.rewardType,
+          hasDiscountCode: Boolean(t.discountCode),
+          hasVariantId: Boolean(t.variantId),
+        })),
+      });
       partial.rewards = {
         ...rewards,
         unlockedTierIndex: newUnlockedIndex,
@@ -980,7 +1018,12 @@ export class Engine {
       if (isNewTierUnlock && newUnlockedIndex !== null) {
         const tier = rewards.tiers[newUnlockedIndex];
         if (tier?.rewardType === 'discount' && tier.discountCode) {
-          this.applyDiscount(tier.discountCode);
+          logRewardsDebug('milestone discount unlock (batched path)', {
+            code: tier.discountCode,
+            subtotal,
+            newUnlockedIndex,
+          });
+          this.applyDiscount(tier.discountCode, { fromMilestoneUnlock: true });
         }
       }
     }
@@ -1058,6 +1101,8 @@ export class Engine {
       }
 
       this.triggerRevalidation();
+
+      this.enqueueEffect(async () => this.syncFreeGifts());
     });
   }
 
@@ -1099,10 +1144,23 @@ export class Engine {
   /**
    * Apply a discount code. Runs in effect queue. Respects stacking: if allowStacking is false,
    * removes all existing codes before applying. Duplicate code is skipped.
+   * @param opts.fromMilestoneUnlock — bypasses enableDiscounts when enableRewards is on (coupon UI can stay off).
    */
-  applyDiscount(code: string): void {
+  applyDiscount(code: string, opts?: ApplyDiscountOptions): void {
     this.enqueueEffect(async () => {
-      if (this.config && !this.config.featureFlags.enableDiscounts) return;
+      const fromMilestone = Boolean(opts?.fromMilestoneUnlock);
+      if (
+        this.config &&
+        !this.config.featureFlags.enableDiscounts &&
+        !(fromMilestone && this.config.featureFlags.enableRewards)
+      ) {
+        logRewardsDebug('applyDiscount skipped (flags)', {
+          fromMilestoneUnlock: fromMilestone,
+          enableDiscounts: this.config.featureFlags.enableDiscounts,
+          enableRewards: this.config.featureFlags.enableRewards,
+        });
+        return;
+      }
       const trimmed = (code || '').trim();
       if (!trimmed) return;
 
@@ -1208,7 +1266,10 @@ export class Engine {
    * during mutations; ends with syncCart({ fromReapply: true }) to avoid discount storm and re-trigger.
    */
   async syncFreeGifts(): Promise<void> {
-    if (this.config && !this.config.featureFlags.enableFreeGifts) return;
+    if (this.config && !this.config.featureFlags.enableFreeGifts) {
+      logRewardsDebug('syncFreeGifts skipped (enableFreeGifts false)', {});
+      return;
+    }
     const state = getStateFromStore(this.stateStore);
     const { config } = state.freeGifts;
 
@@ -1221,6 +1282,12 @@ export class Engine {
         maxQuantity: 1,
       }));
     const combinedConfig = [...config, ...milestoneGiftRules];
+
+    logRewardsDebug('syncFreeGifts', {
+      staticRules: config.length,
+      milestoneGiftRules: milestoneGiftRules.length,
+      combined: combinedConfig.length,
+    });
 
     if (combinedConfig.length === 0) return;
 
