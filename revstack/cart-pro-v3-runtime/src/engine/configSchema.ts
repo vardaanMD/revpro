@@ -180,6 +180,9 @@ export interface ConfigUpsell {
 export interface ConfigRewardsTier {
   thresholdCents: number;
   label: string;
+  rewardType?: "discount" | "gift" | "freeShipping";
+  discountCode?: string;
+  variantId?: string;
 }
 
 export interface ConfigRewards {

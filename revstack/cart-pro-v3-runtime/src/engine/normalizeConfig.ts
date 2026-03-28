@@ -143,7 +143,36 @@ function normalizeRewardsTier(t: unknown): ConfigRewardsTier | null {
       ? sanitizeNonNegativeNumber(o.amount, 0)
       : 0;
   const label = typeof o.label === 'string' ? (o.label as string).trim() : '';
-  return { thresholdCents, label: label || `Tier ${thresholdCents}` };
+
+  const rewardTypeRaw = o.rewardType;
+  const rewardType =
+    rewardTypeRaw === 'discount' || rewardTypeRaw === 'gift' || rewardTypeRaw === 'freeShipping'
+      ? rewardTypeRaw
+      : undefined;
+
+  let discountCode: string | undefined;
+  if (typeof o.discountCode === 'string') {
+    const d = o.discountCode.trim();
+    if (d) discountCode = d;
+  }
+
+  let variantId: string | undefined;
+  if (typeof o.variantId === 'string') {
+    const v = o.variantId.trim();
+    if (v) variantId = v;
+  } else if (typeof o.variantId === 'number' && Number.isFinite(o.variantId)) {
+    const v = String(Math.floor(o.variantId));
+    if (v) variantId = v;
+  }
+
+  const tier: ConfigRewardsTier = {
+    thresholdCents,
+    label: label || `Tier ${thresholdCents}`,
+  };
+  if (rewardType !== undefined) tier.rewardType = rewardType;
+  if (discountCode !== undefined) tier.discountCode = discountCode;
+  if (variantId !== undefined) tier.variantId = variantId;
+  return tier;
 }
 
 function normalizeRewards(raw: RawCartProConfig): ConfigRewards {
