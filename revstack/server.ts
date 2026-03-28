@@ -23,7 +23,8 @@ import { runAppAuth } from "./app/run-app-auth.server";
 import { getRedis } from "./app/lib/redis.server";
 import { prisma } from "./app/lib/prisma.server";
 import { clearShopConfigCacheForShop } from "./app/lib/shop-config.server";
-import { logResilience, setLogSink } from "./app/lib/logger.server";
+import { logResilience, logInfo, setLogSink } from "./app/lib/logger.server";
+import { warmCatalogForShop } from "./app/lib/catalog-warm.server";
 import { AdminApi401Error } from "./app/lib/admin-api-errors.server";
 
 const BUILD_PATH = path.resolve(process.cwd(), "build/server/index.js");
@@ -232,6 +233,37 @@ async function main() {
     });
   } catch {
     // REDIS_URL missing or connect failed — log sink simply stays null
+  }
+
+  // Proactive catalog warm for single-site shop: re-warm every 45 min so the Redis
+  // catalog_index (1h TTL) never expires before the next warm. Prevents the stale-cache gap
+  // where every request falls back to safeDecisionResponse() until async warm completes.
+  const singleSiteShop = process.env.SINGLE_SITE_SHOP;
+  const singleSiteAccessToken = process.env.SINGLE_SITE_ACCESS_TOKEN;
+  if (singleSiteShop && singleSiteAccessToken) {
+    const WARM_INTERVAL_MS = 45 * 60 * 1000; // 45 min
+    const runWarm = () => {
+      warmCatalogForShop(singleSiteShop, singleSiteAccessToken)
+        .then((products) => {
+          logInfo({
+            shop: singleSiteShop,
+            route: "catalog-warm-cron",
+            message: `Scheduled catalog warm complete`,
+            meta: { productCount: products.length },
+          });
+        })
+        .catch((err) => {
+          logResilience({
+            shop: singleSiteShop,
+            route: "catalog-warm-cron",
+            message: "Scheduled catalog warm failed",
+            meta: { errorType: err instanceof Error ? err.name : "Unknown", error: err instanceof Error ? err.message : String(err) },
+          });
+        });
+    };
+    // Warm once on startup (catches cold starts and deploys), then on interval.
+    runWarm();
+    setInterval(runWarm, WARM_INTERVAL_MS).unref();
   }
 
   // Prisma: ensure connection is established before listening (avoids race conditions where
