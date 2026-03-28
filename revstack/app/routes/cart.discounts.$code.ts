@@ -12,7 +12,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "~/shopify.server";
 import { normalizeShopDomain } from "~/lib/shop-domain.server";
 import shopify from "~/shopify.server";
-import { logWarn } from "~/lib/logger.server";
+import { logInfo, logWarn } from "~/lib/logger.server";
 
 type AdminGraphQL = {
   graphql(
@@ -26,6 +26,7 @@ const DISCOUNT_CODE_QUERY = `#graphql
     codeDiscountNodeByCode(code: $code) {
       id
       codeDiscount {
+        __typename
         ... on DiscountCodeBasic {
           status
           customerGets {
@@ -46,6 +47,9 @@ const DISCOUNT_CODE_QUERY = `#graphql
           status
         }
         ... on DiscountCodeFreeShipping {
+          status
+        }
+        ... on DiscountCodeApp {
           status
         }
       }
@@ -91,8 +95,9 @@ function parseDiscountResponse(
   const discount = node.codeDiscount;
   if (!discount) return { valid: false, amount: 0, type: "fixed", reason: "code_not_found" };
 
-  const status = discount.status;
-  if (status && status !== "ACTIVE") {
+  // DiscountStatus is typically ACTIVE | EXPIRED | SCHEDULED; treat missing status as active (unknown union shapes).
+  const status = discount.status as string | undefined;
+  if (status != null && status !== "" && status !== "ACTIVE") {
     return { valid: false, amount: 0, type: "fixed", reason: "discount_inactive" };
   }
 
@@ -144,34 +149,30 @@ export async function action({ request, params }: ActionFunctionArgs) {
     });
   }
 
-  // Verify the request is a legitimate Shopify App Proxy request
-  let shop: string;
+  /**
+   * Resolve shop from app proxy session only. If proxy auth fails or session is missing, we still return
+   * optimistic { valid: true } (same as when offline Admin token is missing) so the widget can call
+   * GET /discount/:code on the storefront — Shopify validates there. Returning 401 made every code look
+   * "invalid" in themes where proxy session is intermittently absent.
+   */
+  let shop: string | null = null;
   try {
     const ctx = await authenticate.public.appProxy(request);
-    if (!ctx.session) {
-      return Response.json(
-        {
-          valid: false,
-          code,
-          amount: 0,
-          type: "fixed",
-          reason: "app_proxy_unauthorized",
-        },
-        { status: 401 }
-      );
+    if (ctx.session?.shop) {
+      shop = normalizeShopDomain(ctx.session.shop);
     }
-    shop = normalizeShopDomain(ctx.session.shop);
   } catch {
-    return Response.json(
-      {
-        valid: false,
-        code,
-        amount: 0,
-        type: "fixed",
-        reason: "app_proxy_unauthorized",
-      },
-      { status: 401 }
-    );
+    shop = null;
+  }
+
+  if (!shop) {
+    logInfo({
+      route: "cart.discounts",
+      message:
+        "Discount validate: no app proxy session; optimistic valid (Shopify validates at /discount/:code)",
+      meta: { codeLen: code.length },
+    });
+    return Response.json({ valid: true, code, amount: 0, type: "fixed" });
   }
 
   // Try Admin GraphQL validation (requires read_discounts scope)
