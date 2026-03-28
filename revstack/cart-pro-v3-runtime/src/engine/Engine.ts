@@ -448,8 +448,14 @@ export class Engine {
       return;
     }
     // Default mode: navigate to standard Shopify checkout.
+    // Append discount code as query param so it's applied even if the cookie didn't stick.
     if (typeof window !== 'undefined') {
-      window.location.href = '/checkout';
+      const st = getStateFromStore(this.stateStore);
+      const codes = st.discount.applied.map((d) => d.code);
+      const checkoutUrl = codes.length > 0
+        ? `/checkout?discount=${encodeURIComponent(codes[0])}`
+        : '/checkout';
+      window.location.href = checkoutUrl;
     }
   }
 
@@ -876,13 +882,6 @@ export class Engine {
       }
     }
 
-    // Discount reconciliation
-    const codesOnCart = getCodesFromCartRaw(raw);
-    const applied = state.discount.applied.filter((d: any) => codesOnCart.includes(d.code.toLowerCase()));
-    if (applied.length !== state.discount.applied.length) {
-      partial.discount = { ...state.discount, applied };
-    }
-
     this.setState(partial);
   }
 
@@ -984,13 +983,6 @@ export class Engine {
           this.applyDiscount(tier.discountCode);
         }
       }
-    }
-
-    // Discount reconciliation (inline to avoid extra setState)
-    const codesOnCart = getCodesFromCartRaw(raw);
-    const applied = state.discount.applied.filter((d: any) => codesOnCart.includes(d.code.toLowerCase()));
-    if (applied.length !== state.discount.applied.length) {
-      partial.discount = { ...state.discount, applied };
     }
 
     if (markInitialSyncDone) {
@@ -1160,26 +1152,11 @@ export class Engine {
               lastError: null,
             },
           }));
-          // Set Shopify discount cookie so it auto-applies at checkout
+          // Set Shopify discount cookie so it auto-applies at checkout.
+          // Note: cookie-based discounts don't appear in /cart.js, so we don't verify there.
           await applyDiscountCode(result.code);
-          // Sync cart and verify Shopify actually accepted the code (appears in discount_codes)
           await this.syncCart();
-          const cartAfterSync = getStateFromStore(this.stateStore).cart.raw;
-          const cartCodes = getCodesFromCartRaw(cartAfterSync);
-          if (!cartCodes.includes(result.code.toLowerCase())) {
-            // Shopify rejected it (expired, usage limit hit, etc.) — revert
-            this.updateState((s) => ({
-              discount: {
-                ...s.discount,
-                applied: s.discount.applied.filter(
-                  (d) => d.code.toLowerCase() !== result.code.toLowerCase()
-                ),
-                lastError: 'Invalid or expired code',
-              },
-            }));
-          } else {
-            this.emitEvent('discount:apply', { code: result.code });
-          }
+          this.emitEvent('discount:apply', { code: result.code });
         } else {
           this.setState({
             discount: { lastError: 'Invalid or expired code' },
